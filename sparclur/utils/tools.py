@@ -1,6 +1,7 @@
 import hashlib
 import os
 import fitz
+import re
 
 
 def gen_flatten(iterables):
@@ -43,7 +44,7 @@ def lev_dist(s1, s2):
         distances = new_distances
     return distances[-1]
 
-import hashlib
+
 def hash_file(file):
     sha256_hash = hashlib.sha256()
     with open(file, "rb") as f:
@@ -73,3 +74,9 @@ def scrape_pdfs(base_dir):
             sub_files = scrape_pdfs(sub_path)
             pdfs = pdfs + sub_files
     return pdfs
+
+
+def fix_splits(message):
+    message = re.sub(r'[^\n]warning:', '\nwarning:', message)
+    message = re.sub(r'[^\n]error:', '\nerror:', message)
+    return message
