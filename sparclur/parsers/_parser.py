@@ -8,5 +8,5 @@ class Parser(metaclass=abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_messages(self, path, save_path):
+    def get_messages(self, path):
         pass

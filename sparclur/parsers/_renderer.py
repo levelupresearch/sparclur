@@ -1,9 +1,15 @@
 import abc
-from sparclur.parsers._parser import Parser
 
 
-class Renderer(Parser, metaclass=abc.ABC):
+class Renderer(metaclass=abc.ABC):
 
     @abc.abstractmethod
-    def render_page(self, page, save_path):
+    def get_name(self):
+        pass
+
+    @abc.abstractmethod
+    def render_page(self, path, page):
+        pass
+
+    def render_doc(self, path):
         pass
