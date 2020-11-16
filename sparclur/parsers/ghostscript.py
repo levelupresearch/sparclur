@@ -85,5 +85,6 @@ class GhostScript(Renderer):
                 except:
                     pil = None
                 pils[i] = pil
-
+            gs.exit()
+            ghostscript.cleanup()
             return pils

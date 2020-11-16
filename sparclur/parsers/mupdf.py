@@ -1,8 +1,10 @@
+import locale
 from typing import List
 
 from sparclur.parsers._renderer import Renderer
 from sparclur.parsers._parser import Parser
 from sparclur.utils.tools import fix_splits
+from sparclur.parsers.tracer import ParserMessages
 
 import os
 import subprocess
@@ -13,15 +15,25 @@ import fitz
 from PIL import Image, PngImagePlugin
 
 
-class MuTool(Parser):
+class MuPDF(Parser, Renderer):
 
-    def __init__(self):
-        self.name = 'MuTool'
+    def __init__(self, binary_path=None):
+        self.name = 'MuPDF'
+        self.cmd_path = 'mutool clean' if binary_path is None else binary_path
+        try:
+            subprocess.check_output("mutool -v", shell=True)
+            self.mutool_present = True
+        except subprocess.CalledProcessError as e:
+            print("MuPDF binary not found: ", str(e))
+            self.mutool_present = False
 
     def get_name(self):
         return self.name
 
     def get_messages(self, path, parse_streams=True, temp_folders_dir=None):
+
+        if not self.mutool_present:
+            raise OSError("Unable to find MuPDF.")
 
         stream_flag = ' -s' if parse_streams else ''
 
@@ -30,19 +42,11 @@ class MuTool(Parser):
             sp = subprocess.Popen('mutool clean%s %s %s' % (stream_flag, path, out_path), executable='/bin/bash',
                                   stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
             (stdout, err) = sp.communicate()
-        err = fix_splits(err.decode("utf-8"))
+        decoder = locale.getpreferredencoding()
+        err = fix_splits(err.decode(decoder))
         error_arr = [message for message in err.split('\n') if len(message) > 0]
         error_arr: List[str] = ['No warnings'] if len(error_arr) == 0 else error_arr
-        return error_arr
-
-
-class MuDraw(Renderer):
-
-    def __init__(self):
-        self.name = 'MuDraw'
-
-    def get_name(self):
-        return self.name
+        return ParserMessages(self.name, error_arr)
 
     def render_page(self, path, page, dpi=200):
 
@@ -68,4 +72,5 @@ class MuDraw(Renderer):
                 pils[page.number] = Image.frombytes("RGB", [width, height], pix.samples)
             except:
                 pass
+        doc.close()
         return pils

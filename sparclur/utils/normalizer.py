@@ -1,26 +1,40 @@
 import re
 
+from sparclur.parsers.cairo import PDFToCairo
+from sparclur.parsers.mupdf import MuPDF
+from sparclur.parsers.qpdf import QPDF
+from sparclur.parsers.poppler import Poppler
+
+
+def load_errors(parser, path):
+    switcher = {
+        PDFToCairo().get_name(): PDFToCairo().get_messages,
+        MuPDF().get_name(): MuPDF().get_messages,
+        QPDF().get_name(): QPDF().get_messages,
+        Poppler().get_name(): Poppler().get_messages
+    }
+    func = switcher.get(parser, lambda x: "Parser Not Found")
+    return func(path=path, temp_folders_dir=None)
+
 
 def clean_messages(parser, messages):
     if isinstance(messages, str):
         messages = [messages]
-    return [clean_error(parser, message) for message in messages]
+    return [_clean_error(parser, message) for message in messages]
 
 
-def clean_error(parser, err):
-    if parser == 'cairo':
-        return clean_cairo(err)
-    elif parser == 'qpdf':
-        return clean_qpdf(err)
-    # elif parser == 'pdfminer':
-    #     return clean_pdfminer(err)
-    elif parser.startswith('mutool'):
-        return clean_mupdf(err)
-    elif parser == 'pdftoppm':
-        return clean_pdftoppm(err)
+def _clean_error(parser, err):
+    switcher = {
+        PDFToCairo().get_name(): _clean_cairo,
+        MuPDF().get_name(): _clean_mupdf,
+        QPDF().get_name(): _clean_qpdf,
+        Poppler().get_name(): _clean_pdftoppm
+    }
+    func = switcher.get(parser, lambda x: "Parser Not Found")
+    return func(err)
 
 
-def clean_cairo(err):
+def _clean_cairo(err):
     cleaned = re.sub(r'\([\d]+\)', '', err)
     cleaned = re.sub(r'<[\w]{2}>', '', cleaned)
     cleaned = re.sub(r"\'[^']+\'", "\'x\'", cleaned)
@@ -31,7 +45,7 @@ def clean_cairo(err):
     return cleaned
 
 
-def clean_qpdf(err):
+def _clean_qpdf(err):
     split_attempt = err.split(': ')
     if len(split_attempt) == 4:
         err = split_attempt[2] + ' ' + split_attempt[3]
@@ -49,7 +63,7 @@ def clean_qpdf(err):
     return cleaned
 
 
-def clean_mupdf(err):
+def _clean_mupdf(err):
     cleaned = re.sub(r'\([\d]+ [\d]+ R\)', '', err)
     cleaned = re.sub(r'[\d]+ [\d]+ R', '', cleaned)
     cleaned = re.sub(r"\'[^']+\'", '', cleaned)
@@ -113,7 +127,7 @@ def clean_mupdf(err):
 #     return cleaned
 
 
-def clean_pdftoppm(err):
+def _clean_pdftoppm(err):
     cleaned = re.sub(r"Couldn't", 'Could not', err)
     cleaned = re.sub(r"wasn't", 'was not', cleaned)
     cleaned = re.sub(r"isn't", 'is not', cleaned)

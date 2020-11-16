@@ -1,5 +1,5 @@
 import pandas as pd
-from sparclur.utils.normalizer import clean_error, load_errors
+from sparclur.utils.normalizer import load_errors
 
 class FormatError(Exception):
 
@@ -8,7 +8,7 @@ class FormatError(Exception):
 
 
 class Omni:
-    def __init__(self, csv_path = None, raw_data = None):
+    def __init__(self, csv_path=None, raw_data=None):
         if csv_path:
             self.data = pd.read_csv(csv_path)
         else:
@@ -23,4 +23,4 @@ class Omni:
             parsers = [parsers]
         for parser in parsers:
             col_name = '%s_messages' % parser
-            self.data[col_name] = self.data.apply(lambda x: clean_error(parser, x[path_column]))
+            self.data[col_name] = self.data.apply(lambda x: load_errors(parser, x[path_column]))
