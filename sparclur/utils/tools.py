@@ -76,6 +76,13 @@ def scrape_pdfs(base_dir):
     return pdfs
 
 
+def get_num_pages(doc_path):
+    pdf = fitz.open(doc_path)
+    num_pages: int = len(pdf)
+    pdf.close()
+    return num_pages
+
+
 def fix_splits(message):
     message = re.sub(r'[^\n]warning:', '\nwarning:', message)
     message = re.sub(r'[^\n]error:', '\nerror:', message)

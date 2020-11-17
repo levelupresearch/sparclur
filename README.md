@@ -32,6 +32,7 @@ The PRC compares different renderers over the same documents and can also be use
 to visualize the differences and produce a similarity metric. The rendered image can also 
 be run through Optical Character Recognition (OCR) to compare the rendered text with the extracted
 text from something like pdftotext.
+
 # Acknowledgements
 
 This material is based upon work supported by the Defense Advanced Research 
