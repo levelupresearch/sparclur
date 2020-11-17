@@ -195,20 +195,23 @@ class MuPDF(Parser, Renderer):
         return mu_pil
 
     def _render_doc(self, dpi=200):
-
-        mat = fitz.Matrix(dpi / 72, dpi / 72)
-        doc = fitz.open(self._doc_path)
-        pils: Dict[int, PngImageFile] = dict()
-        for page in doc:
-            try:
-                pix = page.getPixmap(matrix=mat)
-                width = pix.width
-                height = pix.height
-                pils[page.number] = Image.frombytes("RGB", [width, height], pix.samples)
-            except:
-                pass
-        doc.close()
-        if self._caching:
-            self._full_doc_rendered = True
-            self._renders = pils
+        try:
+            mat = fitz.Matrix(dpi / 72, dpi / 72)
+            doc = fitz.open(self._doc_path)
+            pils: Dict[int, PngImageFile] = dict()
+            for page in doc:
+                try:
+                    pix = page.getPixmap(matrix=mat)
+                    width = pix.width
+                    height = pix.height
+                    pils[page.number] = Image.frombytes("RGB", [width, height], pix.samples)
+                except:
+                    pass
+            doc.close()
+            if self._caching:
+                self._full_doc_rendered = True
+                self._renders = pils
+        except Exception as e:
+            print(e)
+            pils: Dict[int, PngImageFile] = dict()
         return pils

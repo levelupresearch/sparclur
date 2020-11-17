@@ -149,10 +149,9 @@ class Poppler(Parser, Renderer):
             sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
             (_, _) = sp.communicate()
             result: Dict[int, PngImageFile] = dict()
-            if os.listdir(temp_path):
-                for render in os.listdir(temp_path):
-                    page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
-                    result[page_index] = Image.open(os.path.join(temp_path, render))
+            for render in [file for file in os.listdir(temp_path) if file.endswith('.png')]:
+                page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
+                result[page_index] = Image.open(os.path.join(temp_path, render))
         if return_single_page:
             result: PngImageFile = result.get(int(page) - 1)
         return result
@@ -189,14 +188,22 @@ class Poppler(Parser, Renderer):
         return result
 
     def _render_page(self, page, dpi=200, size=None):
-        render: PngImageFile = self._poppler_render(page=page, dpi=dpi, size=size)
-        if self._caching:
-            self._renders[page] = render
+        try:
+            render: PngImageFile = self._poppler_render(page=page, dpi=dpi, size=size)
+            if self._caching:
+                self._renders[page] = render
+        except Exception as e:
+            print(e)
+            render: PngImageFile = None
         return render
 
     def _render_doc(self, dpi=200, size=None):
-        renders: Dict[int, PngImageFile] = self._poppler_render(dpi=dpi, size=size, page=None)
-        if self._caching:
-            self._full_doc_rendered = True
-            self._renders = renders
-        return self._poppler_render(dpi=dpi, size=size, page=None)
+        try:
+            renders: Dict[int, PngImageFile] = self._poppler_render(dpi=dpi, size=size, page=None)
+            if self._caching:
+                self._full_doc_rendered = True
+                self._renders = renders
+        except Exception as e:
+            print(e)
+            renders: Dict[int, PngImageFile] = dict()
+        return renders
