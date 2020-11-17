@@ -149,7 +149,6 @@ class Poppler(Parser, Renderer):
             sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
             (stdout, err) = sp.communicate()
             rendered_pages = [int(re.sub('out-', '', re.sub('.png', '', file))) for file in os.listdir(temp_path)]
-            highest_rendered_page = max(rendered_pages)
             result: Dict[int, PngImageFile] = dict()
             for render in os.listdir(temp_path):
                 page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
