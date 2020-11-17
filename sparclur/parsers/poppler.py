@@ -149,9 +149,10 @@ class Poppler(Parser, Renderer):
             sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
             (_, _) = sp.communicate()
             result: Dict[int, PngImageFile] = dict()
-            for render in os.listdir(temp_path):
-                page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
-                result[page_index] = Image.open(os.path.join(temp_path, render))
+            if os.listdir(temp_path):
+                for render in os.listdir(temp_path):
+                    page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
+                    result[page_index] = Image.open(os.path.join(temp_path, render))
         if return_single_page:
             result: PngImageFile = result.get(int(page) - 1)
         return result
