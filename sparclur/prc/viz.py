@@ -9,7 +9,7 @@ import numpy as np
 import os
 
 
-class PRC:
+class PRCViz:
     """
     PDF Render Comparator
 
