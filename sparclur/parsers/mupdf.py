@@ -1,8 +1,8 @@
 import locale
 from typing import List, Dict
 
-from sparclur.parsers._renderer import Renderer
-from sparclur.parsers._parser import Parser
+from sparclur._renderer import Renderer
+from sparclur._tracer import Tracer
 from sparclur.utils.tools import fix_splits
 
 import os
@@ -16,17 +16,35 @@ from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
 
-class MuPDF(Parser, Renderer):
-
-    def __init__(self, doc_path, parse_streams=True, binary_path=None, temp_folders_dir=None, cache_renders=False):
-        self._name = 'MuPDF'
+class MuPDF(Tracer, Renderer):
+    """MuPDF tracer and renderer """
+    def __init__(self, doc_path, parse_streams=True, binary_path=None, temp_folders_dir=None, dpi=200, cache_renders=False):
+        """
+        Parameters
+        ----------
+        doc_path : str
+            Full path to the document to be traced.
+        parse_streams : bool
+            Indicates whether mutool clean should be called with -s or not. -s parses into the content streams of the
+            PDF.
+        binary_path : str
+            If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
+            specific versions of the binary.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        dpi : int
+            Dots per inch used in rendering the document
+        cache_renders : bool
+            Specify whether or not renders should be retained in the object
+        """
         self._doc_path = doc_path
         self._parse_streams = parse_streams
+        self._dpi = dpi
         self._caching = cache_renders
         self._renders: Dict[int, PngImageFile] = dict()
         self._full_doc_rendered = False
         self._messages: List[str] = None
-        self._cleaned: List[str] = None
+        self._cleaned: Dict[str, int] = None
         self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
         try:
@@ -39,11 +57,18 @@ class MuPDF(Parser, Renderer):
     def get_doc_path(self):
         return self._doc_path
 
-    def get_name(self):
-        return self._name
+    @staticmethod
+    def get_name():
+        return 'MuPDF'
 
     def streams_parsed(self):
         return self._parse_streams
+
+    def set_dpi(self, new_dpi):
+        self._dpi = new_dpi
+
+    def get_dpi(self):
+        return self._dpi
 
     def _parse_document(self):
 
@@ -138,7 +163,15 @@ class MuPDF(Parser, Renderer):
 
         if self._messages is None:
             self._parse_document()
-        self._cleaned = [self._clean_message(err) for err in self._messages]
+        scrubbed_messages = [self._clean_message(err) for err in self._messages]
+        error_dict: Dict[str, int] = dict()
+        for (index, error) in enumerate(scrubbed_messages):
+            if error.startswith('warning: ... repeated '):
+                repeated = re.sub(r'[^\d]', '', error)
+                error_dict[self._messages[index - 1]] = error_dict.get(error, 0) + int(repeated)
+            else:
+                error_dict[error] = error_dict.get(error, 0) + 1
+        self._cleaned = error_dict
 
     def get_cleaned(self):
 
@@ -165,22 +198,22 @@ class MuPDF(Parser, Renderer):
                 if page in self._renders:
                     result = self._renders[page]
                 else:
-                    result = self._render_page(page=page, dpi=dpi)
+                    result = self._render_page(page=page)
             else:
                 if self._full_doc_rendered:
                     result = self._renders
                 else:
-                    result = self._render_doc(dpi=dpi)
+                    result = self._render_doc()
         else:
             if page is not None:
-                result = self._render_page(page=page, dpi=dpi)
+                result = self._render_page(page=page)
             else:
-                result = self._render_doc(dpi=dpi)
+                result = self._render_doc()
         return result
 
-    def _render_page(self, page, dpi=200):
+    def _render_page(self, page):
         try:
-            mat = fitz.Matrix(dpi / 72, dpi / 72)
+            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
             doc = fitz.open(self._doc_path)
             pix = doc[page].getPixmap(matrix=mat)
             width = pix.width
@@ -194,9 +227,9 @@ class MuPDF(Parser, Renderer):
             mu_pil: PngImageFile = None
         return mu_pil
 
-    def _render_doc(self, dpi=200):
+    def _render_doc(self):
         try:
-            mat = fitz.Matrix(dpi / 72, dpi / 72)
+            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
             doc = fitz.open(self._doc_path)
             pils: Dict[int, PngImageFile] = dict()
             for page in doc:

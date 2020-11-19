@@ -1,6 +1,7 @@
 import pandas as pd
 from sparclur.utils.normalizer import load_errors
 
+
 class FormatError(Exception):
 
     def __init__(self, message):

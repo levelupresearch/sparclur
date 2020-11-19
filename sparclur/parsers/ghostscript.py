@@ -1,5 +1,5 @@
-from sparclur.parsers._renderer import Renderer
-import ghostscript
+from sparclur._renderer import Renderer
+import ghostscript as external_gs
 
 from typing import Dict
 
@@ -8,25 +8,42 @@ import tempfile
 import os
 import sys
 import re
+import warnings
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
 
 class Ghostscript(Renderer):
-
-    def __init__(self, doc_path, temp_folders_dir=None, cache_renders=False):
-        self._name = 'GhostScript'
+    """SPARCLUR renderer wrapper for Ghostscript"""
+    def __init__(self, doc_path, temp_folders_dir=None, dpi=200, size=None, cache_renders=False):
+        """
+        Parameters
+        ----------
+        doc_path : str
+            Full path to the document to be traced.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        dpi : int
+            Dots per inch used in rendering the document
+        size : int or tuple or Dict[int, int] or Dict[int, tuple]
+            fix size for the document or for individual pages
+        cache_renders : bool
+            Specify whether or not renders should be retained in the object
+        """
         self._doc_path = doc_path
         self._temp_folders_dir = temp_folders_dir
+        self._dpi = dpi
+        self._size = size
         self._caching = cache_renders
         self._renders: Dict[int, PngImageFile] = dict()
         self._full_doc_rendered = False
         self._ghostscript_present = 'ghostscript' in sys.modules.keys()
         assert self._ghostscript_present, "Ghostscript not found"
 
-    def get_name(self):
-        return self._name
+    @staticmethod
+    def get_name():
+        return 'GhostScript'
 
     def get_doc_path(self):
         return self._doc_path
@@ -42,27 +59,39 @@ class Ghostscript(Renderer):
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
 
-    def get_renders(self, page: int = None, dpi=200, size=None):
+    def set_dpi(self, new_dpi):
+        self._dpi = new_dpi
+
+    def get_dpi(self):
+        return self._dpi
+
+    def get_size(self):
+        return self._size
+
+    def set_size(self, s):
+        self._size = s
+
+    def get_renders(self, page: int = None):
 
         if self._renders:
             if page is not None:
                 if page in self._renders:
                     result = self._renders[page]
                 else:
-                    result = self._render_page(page=page, dpi=dpi, size=size)
+                    result = self._render_page(page=page)
             else:
                 if self._full_doc_rendered:
                     result = self._renders
                 else:
-                    result = self._render_doc(dpi=dpi, size=size)
+                    result = self._render_doc()
         else:
             if page is not None:
-                result = self._render_page(page=page, dpi=dpi, size=size)
+                result = self._render_page(page=page)
             else:
-                result = self._render_doc(dpi=dpi, size=size)
+                result = self._render_doc()
         return result
 
-    def _render_page(self, page, dpi=200, size=None):
+    def _render_page(self, page):
         try:
             with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
                 args = ["-dSAFER",
@@ -73,9 +102,13 @@ class Ghostscript(Renderer):
                         "-dTextAlphaBits=4",
                         "-dFirstPage="+str(page + 1),
                         "-dLastPage="+str(page + 1),
-                        "-r"+str(dpi)
+                        "-r"+str(self._dpi)
                         ]
 
+                if isinstance(self._size, dict):
+                    size = self._size.get(page, None)
+                else:
+                    size = self._size
                 if size is not None:
                     if isinstance(size, tuple):
                         size_arg = "-g%sx%s" % (str(size[0]), str(size[1]))
@@ -88,11 +121,11 @@ class Ghostscript(Renderer):
 
                 encoding = locale.getpreferredencoding()
                 args = [arg.encode(encoding) for arg in args]
-                gs = ghostscript.Ghostscript(*args)
+                gs = external_gs.Ghostscript(*args)
 
                 pil = Image.open(os.path.join(tmpdir, "out.png"))
                 gs.exit()
-                ghostscript.cleanup()
+                external_gs.cleanup()
                 if self._caching:
                     self._renders[page] = pil
         except Exception as e:
@@ -100,7 +133,7 @@ class Ghostscript(Renderer):
             pil: PngImageFile = None
         return pil
 
-    def _render_doc(self, dpi=200, size=None):
+    def _render_doc(self):
         try:
             with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
                 args = ["-dSAFER",
@@ -109,9 +142,17 @@ class Ghostscript(Renderer):
                         "-dNOPAUSE",
                         "-sDEVICE=png16m",
                         "-dTextAlphaBits=4",
-                        "-r"+str(dpi)
+                        "-r"+str(self._dpi)
                         ]
 
+                if isinstance(self._size, dict):
+                    warnings.warn("""Ghostscript does not support page specific sizing when rendering the entire 
+                        document. If you want to size each page individually render each page individually. The 
+                        first size will be selected from the dictionary for this rendering attempt.""")
+                    sizes = [self._size.values()]
+                    size = sizes[0] if len(sizes) > 0 else None
+                else:
+                    size = self._size
                 if size is not None:
                     if isinstance(size, tuple):
                         size_arg = "-g%sx%s" % (str(size[0]), str(size[1]))
@@ -124,7 +165,7 @@ class Ghostscript(Renderer):
 
                 encoding = locale.getpreferredencoding()
                 args = [arg.encode(encoding) for arg in args]
-                gs = ghostscript.Ghostscript(*args)
+                gs = external_gs.Ghostscript(*args)
 
                 pils: Dict[int, PngImageFile] = dict()
                 for png in [file for file in os.listdir(tmpdir) if file.endswith('.png')]:
@@ -135,7 +176,7 @@ class Ghostscript(Renderer):
                     except:
                        pass
                 gs.exit()
-                ghostscript.cleanup()
+                external_gs.cleanup()
                 if self._caching:
                     self._full_doc_rendered = True
                     self._renders = pils
