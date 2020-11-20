@@ -1,5 +1,6 @@
 #TODO: Add MPG support
 from sparclur.parsers.present_parsers import get_sparclur_renderers
+from sparclur._renderer import Renderer
 import itertools
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
@@ -7,6 +8,7 @@ from matplotlib.colors import to_rgb
 import warnings
 import numpy as np
 import os
+from sparclur.prc._prc import _parse_renderers
 
 
 class PRCViz:
@@ -25,7 +27,7 @@ class PRCViz:
             Full path to the document to run through the PRC
         mpg_path : str
             *NOT IMPLEMENTED* Optional path to a modified version of the doc_path document
-        renderers : List[Renderer]
+        renderers : List[Renderer] or List[str]
             The list of renderers to use for the PRC comparison
         parser_args : Dict[str, Dict[str, Any]]
             A dictionary of dictionaries containing any optional parameters to pass into the renderers. See an each
@@ -34,7 +36,7 @@ class PRCViz:
         self._doc_path = doc_path
         self._doc = doc_path.split('/')[-1]
         self._mpg_path = mpg_path
-        self._renderers = {renderer.get_name(): renderer for renderer in renderers}
+        self._renderers = _parse_renderers(renderers)
         self._renders = dict()
         # self._mpg_renders = dict()
         self._ssims = dict()

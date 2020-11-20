@@ -2,6 +2,7 @@ import locale
 from typing import List, Dict
 
 from sparclur._renderer import Renderer
+from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._tracer import Tracer
 from sparclur.utils.tools import fix_splits
 
@@ -9,6 +10,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 
 import fitz
 
@@ -18,7 +20,8 @@ from PIL.PngImagePlugin import PngImageFile
 
 class MuPDF(Tracer, Renderer):
     """MuPDF tracer and renderer """
-    def __init__(self, doc_path, parse_streams=True, binary_path=None, temp_folders_dir=None, dpi=200, cache_renders=False):
+    def __init__(self, doc_path, parse_streams=True, binary_path=None, temp_folders_dir=None, dpi=200,
+                 cache_renders=False, verbose=False):
         """
         Parameters
         ----------
@@ -36,13 +39,16 @@ class MuPDF(Tracer, Renderer):
             Dots per inch used in rendering the document
         cache_renders : bool
             Specify whether or not renders should be retained in the object
+        verbose : bool
+            Specify whether additional logging should be saved, such as successful renders and timing
         """
+        super().__init__()
         self._doc_path = doc_path
         self._parse_streams = parse_streams
         self._dpi = dpi
         self._caching = cache_renders
-        self._renders: Dict[int, PngImageFile] = dict()
-        self._full_doc_rendered = False
+        self._verbose = verbose
+        self._logging = dict()
         self._messages: List[str] = None
         self._cleaned: Dict[str, int] = None
         self._temp_folders_dir = temp_folders_dir
@@ -191,27 +197,18 @@ class MuPDF(Tracer, Renderer):
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
 
-    def get_renders(self, page: int = None, dpi=200):
+    def get_verbose(self):
+        return self._verbose
 
-        if self._renders:
-            if page is not None:
-                if page in self._renders:
-                    result = self._renders[page]
-                else:
-                    result = self._render_page(page=page)
-            else:
-                if self._full_doc_rendered:
-                    result = self._renders
-                else:
-                    result = self._render_doc()
-        else:
-            if page is not None:
-                result = self._render_page(page=page)
-            else:
-                result = self._render_doc()
-        return result
+    def set_verbose(self, v: bool):
+        self._verbose = v
+
+    def get_logs(self):
+        return self._logging
 
     def _render_page(self, page):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
             mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
             doc = fitz.open(self._doc_path)
@@ -222,12 +219,20 @@ class MuPDF(Tracer, Renderer):
             doc.close()
             if self._caching:
                 self._renders[page] = mu_pil
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': SUCCESS, 'timing': timing}
         except Exception as e:
             print(str(e))
             mu_pil: PngImageFile = None
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': str(e), 'timing': timing}
         return mu_pil
 
     def _render_doc(self):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
             mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
             doc = fitz.open(self._doc_path)
@@ -244,7 +249,15 @@ class MuPDF(Tracer, Renderer):
             if self._caching:
                 self._full_doc_rendered = True
                 self._renders = pils
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                num_pages = len(pils)
+                for page in pils.keys():
+                    self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
         except Exception as e:
             print(e)
             pils: Dict[int, PngImageFile] = dict()
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[0] = {'result': str(e), 'timing': timing}
         return pils

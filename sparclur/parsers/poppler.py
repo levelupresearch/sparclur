@@ -1,4 +1,5 @@
 import locale
+import time
 import warnings
 
 from sparclur._renderer import Renderer
@@ -14,6 +15,7 @@ import os
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
+from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 
 
 def _parse_poppler_size(size):
@@ -44,7 +46,8 @@ def _parse_poppler_size(size):
 
 class Poppler(Tracer, Renderer):
     """Poppler tracer and renderer """
-    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None, dpi=200, size=None, cache_renders=False):
+    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None, dpi=200, size=None, cache_renders=False,
+                 verbose=False):
         """
         Parameters
         ----------
@@ -61,14 +64,17 @@ class Poppler(Tracer, Renderer):
             fix size for the document or for individual pages
         cache_renders : bool
             Specify whether or not renders should be retained in the object
+        verbose : bool
+            Specify whether additional logging should be saved, such as successful renders and timing
         """
+        super().__init__()
         self._doc_path = doc_path
         self._temp_folders_dir = temp_folders_dir
         self._caching = cache_renders
+        self._verbose = verbose
+        self._logging = dict()
         self._dpi = dpi
         self._size = size
-        self._renders: Dict[int, PngImageFile] = dict()
-        self._full_doc_rendered = False
         self._messages: List[str] = None
         self._cleaned: Dict[str, int] = None
         self._cmd_path = 'pdftoppm' if binary_path is None else binary_path
@@ -178,6 +184,15 @@ class Poppler(Tracer, Renderer):
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
 
+    def get_verbose(self):
+        return self._verbose
+
+    def set_verbose(self, v: bool):
+        self._verbose = v
+
+    def get_logs(self):
+        return self._logging
+
     def set_dpi(self, new_dpi):
         self._dpi = new_dpi
 
@@ -190,45 +205,43 @@ class Poppler(Tracer, Renderer):
     def set_size(self, s):
         self._size = s
 
-    def get_renders(self, page: int = None):
-
-        if self._renders:
-            if page is not None:
-                if page in self._renders:
-                    result = self._renders[page]
-                else:
-                    result = self._render_page(page=page)
-            else:
-                if self._full_doc_rendered:
-                    result = self._renders
-                else:
-                    result = self._render_doc()
-        else:
-            if page is not None:
-                result = self._render_page(page=page)
-            else:
-                result = self._render_doc()
-        return result
-
     def _render_page(self, page):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
             render: PngImageFile = self._poppler_render(page=page)
             if self._caching:
                 self._renders[page] = render
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': SUCCESS, 'timing': timing}
         except Exception as e:
             print(e)
             render: PngImageFile = None
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': str(e), 'timing': timing}
         return render
 
     def _render_doc(self):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
             renders: Dict[int, PngImageFile] = self._poppler_render(page=None)
             if self._caching:
                 self._full_doc_rendered = True
                 self._renders = renders
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                num_pages = len(renders)
+                for page in renders.keys():
+                    self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
         except Exception as e:
             print(e)
             renders: Dict[int, PngImageFile] = dict()
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[0] = {'result': str(e), 'timing': timing}
         return renders
 
     def _poppler_render(self, page=None):

@@ -1,22 +1,23 @@
-from sparclur._renderer import Renderer
-import ghostscript as external_gs
-
+import locale
+import os
+import re
+import sys
+import tempfile
+import time
+import warnings
 from typing import Dict
 
-import locale
-import tempfile
-import os
-import sys
-import re
-import warnings
-
+import ghostscript as external_gs
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
+
+from sparclur._renderer import Renderer
+from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 
 
 class Ghostscript(Renderer):
     """SPARCLUR renderer wrapper for Ghostscript"""
-    def __init__(self, doc_path, temp_folders_dir=None, dpi=200, size=None, cache_renders=False):
+    def __init__(self, doc_path, temp_folders_dir=None, dpi=200, size=None, cache_renders=False, verbose=False):
         """
         Parameters
         ----------
@@ -30,20 +31,23 @@ class Ghostscript(Renderer):
             fix size for the document or for individual pages
         cache_renders : bool
             Specify whether or not renders should be retained in the object
+        verbose : bool
+            Specify whether additional logging should be saved, such as successful renders and timing
         """
+        super().__init__()
         self._doc_path = doc_path
         self._temp_folders_dir = temp_folders_dir
         self._dpi = dpi
         self._size = size
         self._caching = cache_renders
-        self._renders: Dict[int, PngImageFile] = dict()
-        self._full_doc_rendered = False
+        self._verbose = verbose
+        self._logging = dict()
         self._ghostscript_present = 'ghostscript' in sys.modules.keys()
         assert self._ghostscript_present, "Ghostscript not found"
 
     @staticmethod
     def get_name():
-        return 'GhostScript'
+        return 'Ghostscript'
 
     def get_doc_path(self):
         return self._doc_path
@@ -59,7 +63,16 @@ class Ghostscript(Renderer):
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
 
-    def set_dpi(self, new_dpi):
+    def get_verbose(self):
+        return self._verbose
+
+    def set_verbose(self, v: bool):
+        self._verbose = v
+
+    def get_logs(self):
+        return self._logging
+
+    def set_dpi(self, new_dpi: int):
         self._dpi = new_dpi
 
     def get_dpi(self):
@@ -71,27 +84,9 @@ class Ghostscript(Renderer):
     def set_size(self, s):
         self._size = s
 
-    def get_renders(self, page: int = None):
-
-        if self._renders:
-            if page is not None:
-                if page in self._renders:
-                    result = self._renders[page]
-                else:
-                    result = self._render_page(page=page)
-            else:
-                if self._full_doc_rendered:
-                    result = self._renders
-                else:
-                    result = self._render_doc()
-        else:
-            if page is not None:
-                result = self._render_page(page=page)
-            else:
-                result = self._render_doc()
-        return result
-
     def _render_page(self, page):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
             with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
                 args = ["-dSAFER",
@@ -128,12 +123,20 @@ class Ghostscript(Renderer):
                 external_gs.cleanup()
                 if self._caching:
                     self._renders[page] = pil
+                if self._verbose:
+                    timing = time.perf_counter() - start_time
+                    self._logging[page] = {'result': SUCCESS, 'timing': timing}
         except Exception as e:
             print(e)
             pil: PngImageFile = None
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': str(e), 'timing': timing}
         return pil
 
     def _render_doc(self):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
             with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
                 args = ["-dSAFER",
@@ -180,7 +183,15 @@ class Ghostscript(Renderer):
                 if self._caching:
                     self._full_doc_rendered = True
                     self._renders = pils
+                if self._verbose:
+                    timing = time.perf_counter() - start_time
+                    num_pages = len(pils)
+                    for page in pils.keys():
+                        self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
         except Exception as e:
             print(e)
             pils: Dict[int, PngImageFile] = dict()
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[0] = {'result': str(e), 'timing': timing}
         return pils

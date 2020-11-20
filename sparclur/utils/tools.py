@@ -4,6 +4,39 @@ import fitz
 import re
 
 
+class InputError(Exception):
+    """Exception raised for errors in the input.
+
+    Attributes:
+        message -- explanation of the error
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
+def create_file_list(files, recurse=False, base_path=None):
+
+    try:
+        if os.path.isfile(files):
+            with open(files) as fp:
+                files = ''.join(line for line in fp)
+                files = files.split('\n')
+    except:
+        pass
+    if isinstance(files, list) and base_path is not None:
+        files = [os.path.join(*base_path.split(os.path.sep), *file.split(os.path.sep)) for file in files]
+    elif os.path.isdir(files):
+        if recurse:
+            files = scrape_pdfs(files)
+        else:
+            files = [os.path.join(files, file) for file in os.listdir(files)]
+    else:
+        raise InputError("""files must be a list of files with a base_path, a txt file of paths, or a directory 
+            containing pdfs.""")
+    return files
+
+
 def gen_flatten(iterables):
     flattened = (elem for iterable in iterables for elem in iterable)
     return list(flattened)
@@ -34,7 +67,7 @@ def lev_dist(s1, s2):
     distances = range(len(s1) + 1)
     for index2, char2 in enumerate(s2):
         new_distances = [index2+1]
-        for index1,char1 in enumerate(s1):
+        for index1, char1 in enumerate(s1):
             if char1 == char2:
                 new_distances.append(distances[index1])
             else:
@@ -76,10 +109,15 @@ def scrape_pdfs(base_dir):
     return pdfs
 
 
-def get_num_pages(doc_path):
-    pdf = fitz.open(doc_path)
-    num_pages: int = len(pdf)
-    pdf.close()
+def get_num_pages(doc_path, verbose=False):
+    try:
+        pdf = fitz.open(doc_path)
+        num_pages: int = len(pdf)
+        pdf.close()
+    except Exception as e:
+        num_pages: int = 0
+        if verbose:
+            print(e)
     return num_pages
 
 

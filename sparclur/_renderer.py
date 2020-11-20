@@ -1,10 +1,14 @@
 import abc
 
+from typing import Dict
+from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
 from skimage.metrics import structural_similarity
 import numpy as np
 from sparclur._parser import Parser
 from sparclur._ssim_result import SSIM
+
+_SUCCESSFUL_RENDER_MESSAGE = 'Successfully Rendered'
 
 
 def _single_page_compare(pil1, pil2, full):
@@ -48,6 +52,36 @@ class Renderer(Parser, metaclass=abc.ABCMeta):
     """
     Abstract class for PDF renderers.
     """
+
+    @abc.abstractmethod
+    def __init__(self):
+        self._full_doc_rendered = False
+        self._renders: Dict[int, PngImageFile] = dict()
+
+    @abc.abstractmethod
+    def get_verbose(self):
+        """Return verbose setting"""
+        pass
+
+    @abc.abstractmethod
+    def set_verbose(self, v: bool):
+        """
+        Set the verbose setting for the renderer
+        Parameters
+        ----------
+        v : bool
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_logs(self):
+        """
+        View any gathered logs.
+        Returns
+        -------
+        Dict[int, Dict[str, Any]]
+        """
+
     @abc.abstractmethod
     def get_caching(self):
         """
@@ -129,8 +163,7 @@ class Renderer(Parser, metaclass=abc.ABCMeta):
         """
         pass
 
-    @abc.abstractmethod
-    def get_renders(self, page: int):
+    def get_renders(self, page: int = None):
         """
         Return the renders of the object document. If page is None, return the entire rendered document. Otherwise
         returns the specified page only.
@@ -143,7 +176,29 @@ class Renderer(Parser, metaclass=abc.ABCMeta):
         -------
         PngImageFile or Dict[int, PngImageFile]
         """
-        pass
+
+        if self._renders:
+            if page is not None:
+                if page in self._renders:
+                    result = self._renders[page]
+                else:
+                    result = self._render_page(page=page)
+            else:
+                if self._full_doc_rendered:
+                    result = self._renders
+                else:
+                    result = self._render_doc()
+        else:
+            if self._full_doc_rendered:
+                if page is not None:
+                    result = None
+                else:
+                    result = dict()
+            elif page is not None:
+                result = self._render_page(page=page)
+            else:
+                result = self._render_doc()
+        return result
 
     def compare(self, other: 'Renderer', page=None, full=False):
         """
