@@ -26,6 +26,3 @@ Projects Agency (DARPA) under Contract No. HR0011-19-C-0076. Any opinions,
 findings and conclusions or recommendations expressed in this material are 
 those of the author(s) and do not necessarily reflect the views of the 
 Defense Advanced Research Projects Agency (DARPA).
-
-#References
-<b id="f1">1</b> Proceedings of the 1995 ACM SIGMOD international conference on Management of data  - SIGMOD  ’95. (1995). doi:10.1145/223784 [↩](#a1)
