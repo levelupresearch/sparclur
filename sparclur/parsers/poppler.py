@@ -1,7 +1,9 @@
 import locale
+import time
+import warnings
 
-from sparclur.parsers._renderer import Renderer
-from sparclur.parsers._parser import Parser
+from sparclur._renderer import Renderer
+from sparclur._tracer import Tracer
 from sparclur.utils.tools import fix_splits
 
 from typing import List, Dict
@@ -13,9 +15,20 @@ import os
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
+from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 
 
 def _parse_poppler_size(size):
+    """
+    Parameters
+    ----------
+    size : Int or Tuple
+        Pass a single int to render the document with the same number of pixels in the x and y directions. Otherwise,
+        pass a tuple (width, height) for the width and height in pixels.
+    Returns
+    -------
+    str
+    """
     if not (isinstance(size, tuple) or isinstance(size, int) or isinstance(size, float)) or size is None:
         size_cmd = None
     else:
@@ -31,17 +44,39 @@ def _parse_poppler_size(size):
     return size_cmd
 
 
-class Poppler(Parser, Renderer):
-
-    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None, cache_renders=False):
-        self._name = "Poppler"
+class Poppler(Tracer, Renderer):
+    """Poppler tracer and renderer """
+    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None, dpi=200, size=None, cache_renders=False,
+                 verbose=False):
+        """
+        Parameters
+        ----------
+        doc_path : str
+            Full path to the document to be traced.
+        binary_path : str
+            If the pdftoppm binary is not in the system PATH, add the path to the binary here. Can also be used to trace
+            specific versions of the binary.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        dpi : int
+            Dots per inch used in rendering the document
+        size : int or tuple or Dict[int, int] or Dict[int, tuple]
+            fix size for the document or for individual pages
+        cache_renders : bool
+            Specify whether or not renders should be retained in the object
+        verbose : bool
+            Specify whether additional logging should be saved, such as successful renders and timing
+        """
+        super().__init__()
         self._doc_path = doc_path
         self._temp_folders_dir = temp_folders_dir
         self._caching = cache_renders
-        self._renders: Dict[int, PngImageFile] = dict()
-        self._full_doc_rendered = False
+        self._verbose = verbose
+        self._logging = dict()
+        self._dpi = dpi
+        self._size = size
         self._messages: List[str] = None
-        self._cleaned: List[str] = None
+        self._cleaned: Dict[str, int] = None
         self._cmd_path = 'pdftoppm' if binary_path is None else binary_path
         try:
             subprocess.check_output(self._cmd_path + " -v", shell=True)
@@ -50,8 +85,9 @@ class Poppler(Parser, Renderer):
             print("pdftoppm binary not found: ", str(e))
             self._poppler_present = False
 
-    def get_name(self):
-        return self.name
+    @staticmethod
+    def get_name():
+        return "Poppler"
 
     def get_doc_path(self):
         return self._doc_path
@@ -120,7 +156,15 @@ class Poppler(Parser, Renderer):
 
         if self._messages is None:
             self._parse_document()
-        self._cleaned = [self._clean_message(err) for err in self._messages]
+        scrubbed_messages = [self._clean_message(err) for err in self._messages]
+        error_dict: Dict[str, int] = dict()
+        for (index, error) in enumerate(scrubbed_messages):
+            if error.startswith('warning: ... repeated '):
+                repeated = re.sub(r'[^\d]', '', error)
+                error_dict[self._messages[index - 1]] = error_dict.get(error, 0) + int(repeated)
+            else:
+                error_dict[error] = error_dict.get(error, 0) + 1
+        self._cleaned = error_dict
 
     def get_cleaned(self):
 
@@ -129,13 +173,96 @@ class Poppler(Parser, Renderer):
 
         return self._cleaned
 
-    def _poppler_render(self, dpi=200, size=None, page=None):
+    def set_caching(self, caching: bool):
+        assert isinstance(caching, bool)
+        self._caching = caching
+
+    def get_caching(self):
+        return self._caching
+
+    def clear_cache(self):
+        self._full_doc_rendered = False
+        self._renders: Dict[int, PngImageFile] = dict()
+
+    def get_verbose(self):
+        return self._verbose
+
+    def set_verbose(self, v: bool):
+        self._verbose = v
+
+    def get_logs(self):
+        return self._logging
+
+    def set_dpi(self, new_dpi):
+        self._dpi = new_dpi
+
+    def get_dpi(self):
+        return self._dpi
+
+    def get_size(self):
+        return self._size
+
+    def set_size(self, s):
+        self._size = s
+
+    def _render_page(self, page):
+        if self._verbose:
+            start_time = time.perf_counter()
+        try:
+            render: PngImageFile = self._poppler_render(page=page)
+            if self._caching:
+                self._renders[page] = render
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': SUCCESS, 'timing': timing}
+        except Exception as e:
+            print(e)
+            render: PngImageFile = None
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': str(e), 'timing': timing}
+        return render
+
+    def _render_doc(self):
+        if self._verbose:
+            start_time = time.perf_counter()
+        try:
+            renders: Dict[int, PngImageFile] = self._poppler_render(page=None)
+            if self._caching:
+                self._full_doc_rendered = True
+                self._renders = renders
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                num_pages = len(renders)
+                for page in renders.keys():
+                    self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+        except Exception as e:
+            print(e)
+            renders: Dict[int, PngImageFile] = dict()
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[0] = {'result': str(e), 'timing': timing}
+        return renders
+
+    def _poppler_render(self, page=None):
 
         if not self._poppler_present:
             raise OSError("Unable to find pdftoppm.")
 
+        if isinstance(self._size, dict):
+            if page is None:
+                warnings.warn("""Poppler does not support page specific sizing when rendering the entire 
+                    document. If you want to size each page individually render each page individually. The 
+                    first size will be selected from the dictionary for this rendering attempt.""")
+                sizes = [self._size.values()]
+                size = sizes[0] if len(sizes) > 0 else None
+            else:
+                size = self._size.get(page)
+        else:
+            size = self._size
+
         return_single_page = False
-        cmd = [self._cmd_path, '-png', '-r', str(dpi)]
+        cmd = [self._cmd_path, '-png', '-r', str(self._dpi)]
         size = _parse_poppler_size(size)
         if size is not None:
             cmd.extend(size)
@@ -155,55 +282,3 @@ class Poppler(Parser, Renderer):
         if return_single_page:
             result: PngImageFile = result.get(int(page) - 1)
         return result
-
-    def set_caching(self, caching: bool):
-        assert isinstance(caching, bool)
-        self._caching = caching
-
-    def get_caching(self):
-        return self._caching
-
-    def clear_cache(self):
-        self._full_doc_rendered = False
-        self._renders: Dict[int, PngImageFile] = dict()
-
-    def get_renders(self, page: int = None, dpi=200):
-
-        if self._renders:
-            if page is not None:
-                if page in self._renders:
-                    result = self._renders[page]
-                else:
-                    result = self._render_page(page=page, dpi=dpi)
-            else:
-                if self._full_doc_rendered:
-                    result = self._renders
-                else:
-                    result = self._render_doc(dpi=dpi)
-        else:
-            if page is not None:
-                result = self._render_page(page=page, dpi=dpi)
-            else:
-                result = self._render_doc(dpi=dpi)
-        return result
-
-    def _render_page(self, page, dpi=200, size=None):
-        try:
-            render: PngImageFile = self._poppler_render(page=page, dpi=dpi, size=size)
-            if self._caching:
-                self._renders[page] = render
-        except Exception as e:
-            print(e)
-            render: PngImageFile = None
-        return render
-
-    def _render_doc(self, dpi=200, size=None):
-        try:
-            renders: Dict[int, PngImageFile] = self._poppler_render(dpi=dpi, size=size, page=None)
-            if self._caching:
-                self._full_doc_rendered = True
-                self._renders = renders
-        except Exception as e:
-            print(e)
-            renders: Dict[int, PngImageFile] = dict()
-        return renders

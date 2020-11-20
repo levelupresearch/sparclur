@@ -20,16 +20,14 @@ setuptools.setup(
     ],
     python_requires='>=3.8',
     install_requires=[
-        pandas,
-        numpy,
-        dask,
-        sklearn,
-        pebble,
-        tqdm,
-        fitz,
-        pdf2image,
-        PIL,
-        torch,
-        torchvision
+        'pandas',
+        'numpy',
+        'scikit-image',
+        'pebble',
+        'tqdm',
+        'fitz',
+        'pillow',
+        'matplotlib',
+        'ghostscript'
     ]
 )

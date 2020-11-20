@@ -1,14 +1,16 @@
 import locale
 from typing import List, Dict
 
-from sparclur.parsers._renderer import Renderer
-from sparclur.parsers._parser import Parser
+from sparclur._renderer import Renderer
+from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
+from sparclur._tracer import Tracer
 from sparclur.utils.tools import fix_splits
 
 import os
 import re
 import subprocess
 import tempfile
+import time
 
 import fitz
 
@@ -16,17 +18,39 @@ from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
 
-class MuPDF(Parser, Renderer):
-
-    def __init__(self, doc_path, parse_streams=True, binary_path=None, temp_folders_dir=None, cache_renders=False):
-        self._name = 'MuPDF'
+class MuPDF(Tracer, Renderer):
+    """MuPDF tracer and renderer """
+    def __init__(self, doc_path, parse_streams=True, binary_path=None, temp_folders_dir=None, dpi=200,
+                 cache_renders=False, verbose=False):
+        """
+        Parameters
+        ----------
+        doc_path : str
+            Full path to the document to be traced.
+        parse_streams : bool
+            Indicates whether mutool clean should be called with -s or not. -s parses into the content streams of the
+            PDF.
+        binary_path : str
+            If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
+            specific versions of the binary.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        dpi : int
+            Dots per inch used in rendering the document
+        cache_renders : bool
+            Specify whether or not renders should be retained in the object
+        verbose : bool
+            Specify whether additional logging should be saved, such as successful renders and timing
+        """
+        super().__init__()
         self._doc_path = doc_path
         self._parse_streams = parse_streams
+        self._dpi = dpi
         self._caching = cache_renders
-        self._renders: Dict[int, PngImageFile] = dict()
-        self._full_doc_rendered = False
+        self._verbose = verbose
+        self._logging = dict()
         self._messages: List[str] = None
-        self._cleaned: List[str] = None
+        self._cleaned: Dict[str, int] = None
         self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
         try:
@@ -39,11 +63,18 @@ class MuPDF(Parser, Renderer):
     def get_doc_path(self):
         return self._doc_path
 
-    def get_name(self):
-        return self._name
+    @staticmethod
+    def get_name():
+        return 'MuPDF'
 
     def streams_parsed(self):
         return self._parse_streams
+
+    def set_dpi(self, new_dpi):
+        self._dpi = new_dpi
+
+    def get_dpi(self):
+        return self._dpi
 
     def _parse_document(self):
 
@@ -138,7 +169,15 @@ class MuPDF(Parser, Renderer):
 
         if self._messages is None:
             self._parse_document()
-        self._cleaned = [self._clean_message(err) for err in self._messages]
+        scrubbed_messages = [self._clean_message(err) for err in self._messages]
+        error_dict: Dict[str, int] = dict()
+        for (index, error) in enumerate(scrubbed_messages):
+            if error.startswith('warning: ... repeated '):
+                repeated = re.sub(r'[^\d]', '', error)
+                error_dict[self._messages[index - 1]] = error_dict.get(error, 0) + int(repeated)
+            else:
+                error_dict[error] = error_dict.get(error, 0) + 1
+        self._cleaned = error_dict
 
     def get_cleaned(self):
 
@@ -158,29 +197,20 @@ class MuPDF(Parser, Renderer):
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
 
-    def get_renders(self, page: int = None, dpi=200):
+    def get_verbose(self):
+        return self._verbose
 
-        if self._renders:
-            if page is not None:
-                if page in self._renders:
-                    result = self._renders[page]
-                else:
-                    result = self._render_page(page=page, dpi=dpi)
-            else:
-                if self._full_doc_rendered:
-                    result = self._renders
-                else:
-                    result = self._render_doc(dpi=dpi)
-        else:
-            if page is not None:
-                result = self._render_page(page=page, dpi=dpi)
-            else:
-                result = self._render_doc(dpi=dpi)
-        return result
+    def set_verbose(self, v: bool):
+        self._verbose = v
 
-    def _render_page(self, page, dpi=200):
+    def get_logs(self):
+        return self._logging
+
+    def _render_page(self, page):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
-            mat = fitz.Matrix(dpi / 72, dpi / 72)
+            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
             doc = fitz.open(self._doc_path)
             pix = doc[page].getPixmap(matrix=mat)
             width = pix.width
@@ -189,14 +219,22 @@ class MuPDF(Parser, Renderer):
             doc.close()
             if self._caching:
                 self._renders[page] = mu_pil
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': SUCCESS, 'timing': timing}
         except Exception as e:
             print(str(e))
             mu_pil: PngImageFile = None
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[page] = {'result': str(e), 'timing': timing}
         return mu_pil
 
-    def _render_doc(self, dpi=200):
+    def _render_doc(self):
+        if self._verbose:
+            start_time = time.perf_counter()
         try:
-            mat = fitz.Matrix(dpi / 72, dpi / 72)
+            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
             doc = fitz.open(self._doc_path)
             pils: Dict[int, PngImageFile] = dict()
             for page in doc:
@@ -211,7 +249,15 @@ class MuPDF(Parser, Renderer):
             if self._caching:
                 self._full_doc_rendered = True
                 self._renders = pils
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                num_pages = len(pils)
+                for page in pils.keys():
+                    self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
         except Exception as e:
             print(e)
             pils: Dict[int, PngImageFile] = dict()
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logging[0] = {'result': str(e), 'timing': timing}
         return pils

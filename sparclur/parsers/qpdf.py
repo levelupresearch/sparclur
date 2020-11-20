@@ -1,7 +1,7 @@
 import locale
-from typing import List
+from typing import List, Dict
 
-from sparclur.parsers._parser import Parser
+from sparclur._tracer import Tracer
 from sparclur.utils.tools import fix_splits
 
 import os
@@ -10,14 +10,24 @@ import subprocess
 import tempfile
 
 
-class QPDF(Parser):
-
+class QPDF(Tracer):
+    """QPDF tracer"""
     def __init__(self, doc_path, binary_path=None, temp_folders_dir=None):
-        self._name = 'QPDF'
+        """
+        Parameters
+        ----------
+        doc_path : str
+            Full path to the document to be traced.
+        binary_path : str
+            If the qpdf binary is not in the system PATH, add the path to the binary here. Can also be used to trace
+            specific versions of the binary.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        """
         self._doc_path = doc_path
         self._temp_folders_dir = temp_folders_dir
         self._messages: List[str] = None
-        self._cleaned: List[str] = None
+        self._cleaned: Dict[str, int] = None
         self._cmd_path = 'qpdf' if binary_path is None else binary_path
         try:
             subprocess.check_output(self._cmd_path + " --version", shell=True)
@@ -26,8 +36,9 @@ class QPDF(Parser):
             print("QPDF binary not found: ", str(e))
             self.qpdf_present = False
 
-    def get_name(self):
-        return self.name
+    @staticmethod
+    def get_name():
+        return 'QPDF'
 
     def get_doc_path(self):
         return self._doc_path
@@ -78,7 +89,15 @@ class QPDF(Parser):
 
         if self._messages is None:
             self._parse_document()
-        self._cleaned = [self._clean_message(err) for err in self._messages]
+        scrubbed_messages = [self._clean_message(err) for err in self._messages]
+        error_dict: Dict[str, int] = dict()
+        for (index, error) in enumerate(scrubbed_messages):
+            if error.startswith('warning: ... repeated '):
+                repeated = re.sub(r'[^\d]', '', error)
+                error_dict[self._messages[index - 1]] = error_dict.get(error, 0) + int(repeated)
+            else:
+                error_dict[error] = error_dict.get(error, 0) + 1
+        self._cleaned = error_dict
 
     def get_cleaned(self):
 
