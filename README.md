@@ -12,26 +12,12 @@ these parsers.
 
 ## Tools
 ## Parser Trace Comparator (PTC)
-### PDF Classifier
-Train and apply classifiers using PDF parser error and warning messages as
-classification features.
-
-### PDF Embedding
-Embed PDF's into a vector space using parser error and warning messages. The
-technique utilizes FastMap<sup id="a1">[1](#f1)</sup> to project the PDF's into
-a vector space based on a given distance metric between the collections of messages
-for each document.
-
-Here's a UMAP reduction of an embedding of 1000 PDF's using MuPDF, QPDF, and pdftocairo
-messages.
-![](./images/pdf_embedding.png)
+Gather and normalize warning and error messages from extant parsers.
 
 ## PDF Renderer Comparator (PRC)
 
 The PRC compares different renderers over the same documents and can also be used
-to visualize the differences and produce a similarity metric. The rendered image can also 
-be run through Optical Character Recognition (OCR) to compare the rendered text with the extracted
-text from something like pdftotext.
+to visualize the differences and produce a similarity metric.
 
 # Acknowledgements
 
