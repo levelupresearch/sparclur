@@ -1,1 +1,2 @@
-streamlit run ./sparclur/lit_sparclur/lit_sparclur.py
+cd sparclur/lit_sparclur
+streamlit run ./lit_sparclur.py
