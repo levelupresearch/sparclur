@@ -6,7 +6,7 @@ from sparclur.utils.tools import shingler, jac_dist, lev_dist
 class TextExtractor(Parser, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def get_text(self):
+    def get_text(self, page):
         pass
 
     def compare_text(self, other: 'TextExtractor', dist='jac', shingle_size=4):

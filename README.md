@@ -33,7 +33,10 @@ exploring PDF's using the PTC and PRC.
 # Acknowledgements
 
 This material is based upon work supported by the Defense Advanced Research 
-Projects Agency (DARPA) under Contract No. HR0011-19-C-0076. Any opinions, 
+Projects Agency (DARPA) under Contract No. HR0011-18-S-0054. Any opinions, 
 findings and conclusions or recommendations expressed in this material are 
 those of the author(s) and do not necessarily reflect the views of the 
 Defense Advanced Research Projects Agency (DARPA).
+
+# Contributors
+

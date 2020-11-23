@@ -3,7 +3,9 @@ import time
 import warnings
 
 from sparclur._renderer import Renderer
+from sparclur._text_extractor import TextExtractor
 from sparclur._tracer import Tracer
+from sparclur.parsers._poppler_helpers import _parse_poppler_size
 from sparclur.utils.tools import fix_splits
 
 from typing import List, Dict
@@ -18,34 +20,8 @@ from PIL.PngImagePlugin import PngImageFile
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 
 
-def _parse_poppler_size(size):
-    """
-    Parameters
-    ----------
-    size : Int or Tuple
-        Pass a single int to render the document with the same number of pixels in the x and y directions. Otherwise,
-        pass a tuple (width, height) for the width and height in pixels.
-    Returns
-    -------
-    str
-    """
-    if not (isinstance(size, tuple) or isinstance(size, int) or isinstance(size, float)) or size is None:
-        size_cmd = None
-    else:
-        if isinstance(size, int) or isinstance(size, float):
-            size = tuple([size])
-        if len(size) == 2:
-            x_scale = -1 if size[0] is None else str(int(size[0]))
-            y_scale = -1 if size[1] is None else str(int(size[1]))
-            size_cmd = ['-scale-to-x', x_scale, '-scale-to-y', y_scale]
-        elif len(size) == 1:
-            scale = -1 if size[0] is None else str(int(size[0]))
-            size_cmd = ['scale-to', scale]
-    return size_cmd
-
-
-class Poppler(Tracer, Renderer):
-    """Poppler tracer and renderer """
+class PDFtoPPM(Tracer, Renderer):
+    """PDFtoPPM tracer and renderer """
     def __init__(self, doc_path, binary_path=None, temp_folders_dir=None, dpi=200, size=None, cache_renders=False,
                  verbose=False):
         """
@@ -87,7 +63,7 @@ class Poppler(Tracer, Renderer):
 
     @staticmethod
     def get_name():
-        return "Poppler"
+        return "PDFtoPPM"
 
     def get_doc_path(self):
         return self._doc_path
@@ -282,3 +258,25 @@ class Poppler(Tracer, Renderer):
         if return_single_page:
             result: PngImageFile = result.get(int(page) - 1)
         return result
+
+class PDFtoText(TextExtractor):
+
+    def __init(self, doc_path, binary_path=None):
+
+        self._doc_path = doc_path
+        self._cmd_path = 'pdftotext' if binary_path is None else binary_path
+
+        try:
+            subprocess.check_output(self._cmd_path + " -v", shell=True)
+            self._poppler_present = True
+        except subprocess.CalledProcessError as e:
+            print("pdftotext binary not found: ", str(e))
+            self._poppler_present = False
+
+    @staticmethod
+    def get_name():
+        return "PDFtoText"
+
+    def get_doc_path(self):
+        return self._doc_path
+
