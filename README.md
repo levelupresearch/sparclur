@@ -5,10 +5,13 @@ parsers and renderers and tools for comparing and analyzing the outputs from
 these parsers.
 
 ## Parsers
-* MuPDF
-* QPDF
-* Poppler (pdftoppm and pdftocairo)
-* Ghostscript
+The following parsers need to either be installed or the binaries need to be built and accessible to fully leverage Sparclur. The version numbers listed with the parsers indicate the most recent compatible versions tested with Sparclur, though various previous versions of all parsers have been as well.
+
+* MuPDF (1.16.1)
+* QPDF (9.1.0)
+* Poppler (pdftoppm and pdftocairo) (0.65.0)
+  * XPDF (20.11.0) binaries have also been substituted
+* Ghostscript (9.53.3)
 
 ## Tools
 ## Parser Trace Comparator (PTC)
