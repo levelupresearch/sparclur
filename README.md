@@ -19,6 +19,13 @@ Gather and normalize warning and error messages from extant parsers.
 The PRC compares different renderers over the same documents and can also be used
 to visualize the differences and produce a similarity metric.
 
+##Streamlit Interface
+Running light_the_sparclur.sh will launch a Streamlit web app that will provide an interface for 
+exploring PDF's using the PTC and PRC.
+![](./images/lit_sparclur_ptc_no_warnings.png)
+![](./images/lit_sparclur_prc_2.png)
+![](./images/lit_sparclur_ptc_warnings.png)
+
 # Acknowledgements
 
 This material is based upon work supported by the Defense Advanced Research 

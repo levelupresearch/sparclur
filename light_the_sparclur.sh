@@ -1,0 +1,1 @@
+streamlit run ./sparclur/lit_sparclur/lit_sparclur.py
