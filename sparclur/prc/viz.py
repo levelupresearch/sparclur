@@ -1,4 +1,6 @@
 #TODO: Add MPG support
+from PIL.PngImagePlugin import PngImageFile
+
 from sparclur.parsers.present_parsers import get_sparclur_renderers
 from sparclur._renderer import Renderer
 import itertools
@@ -52,6 +54,11 @@ class PRCViz:
         for combo in self._ssim_keys:
             print('SSIMing %s/%s' % (combo[0], combo[1]))
             self._ssims[combo] = self._renders[combo[0]].compare(self._renders[combo[1]], full=True)
+        self._observed_pages = max(len(entry) for entry in self._ssims.values())
+
+    def get_observed_pages(self):
+        """Return the number of observed pages from the renderers"""
+        return self._observed_pages
 
     def plot_ssims(self, cmap='tab10', height=10, width=10, save_path=None):
         """
@@ -95,7 +102,8 @@ class PRCViz:
         if save_path is not None:
             fig.savefig(save_path)
             plt.close(fig)
-        fig
+        plt.close(fig)
+        return fig
 
     def display(self, page, renderers=None, width=10, height=10, save_path=None):
         """
@@ -130,17 +138,30 @@ class PRCViz:
             images = [self._renders[combo[0]].get_renders(page), self._renders[combo[1]].get_renders(page), self._ssims[combo][page].diff]
             labels = ['', '', self._ssims[combo][page].ssim]
             titles = [combo[0], combo[1], 'diff']
-            for col in range(3):
-                axes[row, col].set_title(titles[col])
-                axes[row, col].set_xticklabels([])
-                axes[row, col].set_yticklabels([])
-                axes[row, col].set_xticks([])
-                axes[row, col].set_yticks([])
-                axes[row, col].imshow(np.asarray(images[col]))
-                axes[row, col].set_xlabel(labels[col])
+            if nrows > 1:
+                for col in range(3):
+                    image: PngImageFile = images[col]
+                    axes[row, col].set_title(titles[col])
+                    axes[row, col].set_xticklabels([])
+                    axes[row, col].set_yticklabels([])
+                    axes[row, col].set_xticks([])
+                    axes[row, col].set_yticks([])
+                    axes[row, col].imshow(image)
+                    axes[row, col].set_xlabel(labels[col])
+            else:
+                for col in range(3):
+                    image: PngImageFile = images[col]
+                    axes[col].set_title(titles[col])
+                    axes[col].set_xticklabels([])
+                    axes[col].set_yticklabels([])
+                    axes[col].set_xticks([])
+                    axes[col].set_yticks([])
+                    axes[col].imshow(image)
+                    axes[col].set_xlabel(labels[col])
 
         if save_path is not None:
             fig.savefig(os.path.join(save_path, '%s_%s_prc.png' % (self._doc, page)))
             plt.close(fig)
         else:
-            fig
+            plt.close(fig)
+            return fig
