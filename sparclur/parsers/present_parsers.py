@@ -1,8 +1,8 @@
 from sparclur.parsers.cairo import PDFToCairo
-from sparclur.parsers.ghostscript import Ghostscript
-from sparclur.parsers.mupdf import MuPDF
-from sparclur.parsers.poppler import Poppler
-from sparclur.parsers.qpdf import QPDF
+from sparclur.parsers._ghostscript import Ghostscript
+from sparclur.parsers._mupdf import MuPDF
+from sparclur.parsers._poppler import Poppler
+from sparclur.parsers._qpdf import QPDF
 
 from sparclur._parser import Parser
 from sparclur._tracer import Tracer

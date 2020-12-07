@@ -19,6 +19,7 @@ class Parser(metaclass=abc.ABCMeta):
         """
         pass
 
+    @staticmethod
     @abc.abstractmethod
     def get_name():
         """
