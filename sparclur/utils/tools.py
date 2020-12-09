@@ -43,10 +43,15 @@ def gen_flatten(iterables):
 
 
 def shingler(s, shingle_size):
-    input_string = str(s)
-    if shingle_size >= len(input_string):
-        return set(input_string)
-    return set([input_string[i:i+shingle_size] for i in range(len(input_string) - shingle_size + 1)])
+    try:
+        _ = iter(s)
+        is_iterable = True
+    except TypeError as e:
+        is_iterable = False
+    assert is_iterable, "Object must be iterable to be shingled."
+    if shingle_size >= len(s):
+        return set(s)
+    return set([s[i:i+shingle_size] for i in range(len(s) - shingle_size + 1)])
 
 
 def jac_dist(set1, set2):

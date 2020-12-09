@@ -18,7 +18,7 @@ TRACERS = {tracer.get_name(): tracer for tracer in get_sparclur_tracers()}
 def app(filename):
     st.subheader("Parser Trace Comparator")
 
-    cols = st.beta_columns(min(len(TRACERS), 3))
+    cols = st.beta_columns(3)
 
     for idx, col in enumerate(cols):
         trace_selected = col.selectbox('Trace', list(TRACERS.keys()), index=idx, key='ts_%s' % str(idx))

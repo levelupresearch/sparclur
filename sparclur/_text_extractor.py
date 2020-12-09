@@ -1,6 +1,8 @@
 import abc
 from sparclur._parser import Parser
 from sparclur.utils.tools import shingler, jac_dist, lev_dist
+import sys
+from spacy.lang.en import English
 
 
 class TextExtractor(Parser, metaclass=abc.ABCMeta):
@@ -9,7 +11,9 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
     def __init__(self, doc_path, *args, **kwargs):
         super().__init__(doc_path=doc_path, *args, **kwargs)
         self._full_text_extracted = False
+        self._document_tokenized = False
         self._text = dict()
+        self._tokens = dict()
 
     @abc.abstractmethod
     def _check_for_text_extraction(self) -> bool:
@@ -51,7 +55,9 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
     def clear_text(self):
         """Clear any text that has already been extracted for the document"""
         self._text = dict()
+        self._tokens = dict()
         self._full_text_extracted = False
+        self._document_tokenized = False
 
     def get_text(self, page: int = None):
         """
@@ -77,20 +83,34 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
             result = self._text
         return result
 
-    def compare_text(self, other: 'TextExtractor', page=None, dist='jac', shingle_size=4):
+    def get_tokens(self, page: int=None):
+
+        assert 'spacy' in sys.modules.keys(), "spaCy not found for tokenization"
+        nlp = English()
+        tokenizer = nlp.Defaults.create_tokenizer(nlp)
+
+        text = self.get_text(page=page)
+        if page is not None:
+            if page not in self._tokens:
+                self._tokens[page] = tokenizer(text)
+            tokens = self._tokens[page]
+        else:
+            if not self._document_tokenized:
+                for (page, t) in text:
+                    self._tokens[page] = tokenizer(t)
+                self._document_tokenized = True
+            tokens = self._tokens
+        return tokens
+
+    def compare_text(self, other: 'TextExtractor', page=None, shingle_size=4):
         def _jaccard(s1, s2):
             return jac_dist(shingler(s1, shingle_size=shingle_size), shingler(s2, shingle_size=shingle_size))
-        s1 = self.get_text(page=page)
-        s2 = other.get_text(page=page)
-        switcher = {
-            'jac': _jaccard,
-            'lev': lev_dist
-        }
-        func = switcher.get(dist, lambda x: 'Distance metric not found. Please select \'jac\' or \'lev\'')
+        s1 = self.get_tokens(page=page)
+        s2 = other.get_tokens(page=page)
         if page is not None:
-            metric = func(s1, s2)
+            metric = _jaccard(s1, s2)
         else:
             pages = {*s1.keys()}.union({*s2.keys()})
-            metrics = [func(s1.get(key, ''), s2.get(key, '')) for key in pages]
+            metrics = [_jaccard(s1.get(key, ''), s2.get(key, '')) for key in pages]
             metric = sum(metrics) / len(metrics)
         return metric
