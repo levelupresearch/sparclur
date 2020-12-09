@@ -7,3 +7,5 @@ Pebble~=4.5.3
 ghostscript~=0.6
 scikit-image~=0.17.2
 streamlit~=0.71.0
+PyMuPDF~=1.18.4
+pytesseract~=0.3.6

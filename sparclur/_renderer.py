@@ -1,15 +1,21 @@
 import abc
 
+import sys
 from typing import Dict
 from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
 from skimage.metrics import structural_similarity
 import numpy as np
-from sparclur._parser import Parser
+from sparclur._text_extractor import TextExtractor
 from sparclur._ssim_result import SSIM
+import re
+from pytesseract import image_to_string
 
 _SUCCESSFUL_RENDER_MESSAGE = 'Successfully Rendered'
 
+
+def _ocr_text(pil: PngImageFile):
+    return re.sub(r'[\x0c]', '', image_to_string(pil))
 
 def _single_page_compare(pil1, pil2, full):
     """
@@ -48,42 +54,61 @@ def _single_page_compare(pil1, pil2, full):
     return SSIM(ssim=ssim, result=result, diff=diff)
 
 
-class Renderer(Parser, metaclass=abc.ABCMeta):
+class Renderer(TextExtractor, metaclass=abc.ABCMeta):
     """
     Abstract class for PDF renderers.
     """
 
     @abc.abstractmethod
-    def __init__(self):
+    def __init__(self, doc_path, dpi, cache_renders, verbose, *args, **kwargs):
+        super().__init__(doc_path=doc_path, *args, **kwargs)
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
+        self._dpi = dpi
+        self._caching = cache_renders
+        self._verbose = verbose
+        self._logs = dict()
 
     @abc.abstractmethod
-    def get_verbose(self):
-        """Return verbose setting"""
+    def _check_for_renderer(self) -> bool:
+        """
+        Does a check to ensure that the current system can perform the given render.
+        Returns
+        -------
+        bool
+        """
         pass
 
-    @abc.abstractmethod
-    def set_verbose(self, v: bool):
+    def _check_for_text_extraction(self) -> bool:
+        return 'pytesseract' in sys.modules.keys()
+
+    @property
+    def verbose(self):
+        """Return verbose setting"""
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, v: bool):
         """
         Set the verbose setting for the renderer
         Parameters
         ----------
         v : bool
         """
-        pass
+        self._verbose = v
 
-    @abc.abstractmethod
-    def get_logs(self):
+    @property
+    def logs(self):
         """
         View any gathered logs.
         Returns
         -------
         Dict[int, Dict[str, Any]]
         """
+        return self._logs
 
-    @abc.abstractmethod
-    def get_caching(self):
+    @property
+    def caching(self):
         """
         Returns the caching setting for the renderer.
 
@@ -93,10 +118,10 @@ class Renderer(Parser, metaclass=abc.ABCMeta):
         -------
         bool
         """
-        pass
+        return self._caching
 
-    @abc.abstractmethod
-    def set_caching(self, caching: bool):
+    @caching.setter
+    def caching(self, caching: bool):
         """
         Set the caching parameter.
 
@@ -107,34 +132,34 @@ class Renderer(Parser, metaclass=abc.ABCMeta):
         ----------
         caching : bool
         """
-        pass
+        self._caching = caching
 
-    @abc.abstractmethod
-    def clear_cache(self):
+    def clear_renders(self):
         """
         Clears any PIL's that have been retained in the renderer object.
         """
-        pass
+        self._full_doc_rendered = False
+        self._renders: Dict[int, PngImageFile] = dict()
 
-    @abc.abstractmethod
-    def set_dpi(self, new_dpi):
-        """
-        Set dots per inch for the renders
-        Parameters
-        ----------
-        new_dpi : int
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_dpi(self):
+    @property
+    def dpi(self):
         """
         Return dots per inch
         Returns
         -------
         int
         """
-        pass
+        return self._dpi
+
+    @dpi.setter
+    def dpi(self, new_dpi):
+        """
+        Set dots per inch for the renders
+        Parameters
+        ----------
+        new_dpi : int
+        """
+        self._dpi = new_dpi
 
     @abc.abstractmethod
     def _render_page(self, page: int):
@@ -176,7 +201,7 @@ class Renderer(Parser, metaclass=abc.ABCMeta):
         -------
         PngImageFile or Dict[int, PngImageFile]
         """
-
+        assert self._check_for_renderer(), "%s not found" % self.get_name()
         if self._renders:
             if page is not None:
                 if page in self._renders:
@@ -225,3 +250,11 @@ class Renderer(Parser, metaclass=abc.ABCMeta):
         for k in keyset:
             result[k] = _single_page_compare(left.get(k, None), right.get(k, None), full)
         return result if page is None else result[page]
+
+    def _extract_doc(self):
+        for (page, pil) in self.get_renders().items():
+            self._text[page] = _ocr_text(pil)
+        self._full_text_extracted = True
+
+    def _extract_page(self, page: int):
+        self._text[page] = _ocr_text(self.get_renders(page=page))

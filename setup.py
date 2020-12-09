@@ -23,10 +23,10 @@ setuptools.setup(
         'pandas',
         'numpy',
         'scikit-image',
-        'pebble',
+        'Pebble',
         'tqdm',
-        'fitz',
-        'pillow',
+        'PyMuPDF',
+        'Pillow',
         'matplotlib',
         'ghostscript'
     ]

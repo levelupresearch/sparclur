@@ -5,7 +5,7 @@ module_path = os.path.abspath('../../../sparclur/')
 if module_path not in sys.path:
     sys.path.append(module_path)
 
-from sparclur.lit_sparclur import _lit_ptc, _lit_prc
+from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc
 from sparclur.utils.tools import create_file_list
 
 import streamlit as st
@@ -18,7 +18,8 @@ st.title('Lit Sparclur')
 
 PAGES = {
     "PTC": _lit_ptc,
-    "PRC": _lit_prc
+    "PRC": _lit_prc,
+    "PXC": _lit_pxc
 }
 
 

@@ -1,6 +1,7 @@
 import abc
 
 from sparclur._parser import Parser
+from typing import List, Dict
 
 
 class Tracer(Parser, metaclass=abc.ABCMeta):
@@ -10,6 +11,23 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         This abstract class standardizes what's expected from a parser in order to be used with the Parser Trace
         Comparator module (PTC).
     """
+
+    @abc.abstractmethod
+    def __init__(self, doc_path, *args, **kwargs):
+        super().__init__(doc_path=doc_path, *args, **kwargs)
+        self._messages: List[str] = None
+        self._cleaned: Dict[str, int] = None
+
+    @abc.abstractmethod
+    def _check_for_tracer(self) -> bool:
+        """
+        Performs a check for the presence of the tracer.
+        Returns
+        -------
+        bool
+        """
+        pass
+
     @abc.abstractmethod
     def _parse_document(self):
         """
@@ -17,8 +35,8 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         """
         pass
 
-    @abc.abstractmethod
-    def get_messages(self):
+    @property
+    def messages(self):
         """
         Return the error and warnings for the document passed into the Parser instance.
 
@@ -27,10 +45,21 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         List[str]
             The list of all raw messages from the parser over the given document
         """
-        pass
+        assert self._check_for_renderer(), "%s not found" % self.get_name()
 
-    @abc.abstractmethod
-    def get_cleaned(self):
+        if self._messages is None:
+            self._parse_document()
+
+        return self._messages
+
+    @messages.deleter
+    def messages(self):
+        """Clear the parsed document messaging. Also clears the cleaned messages."""
+        self._messages = None
+        self._cleaned = None
+
+    @property
+    def cleaned(self):
         """
         Return a normalized collection of the warnings and errors with occurrence counts.
 
@@ -39,7 +68,18 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         Dict[str, int]
             A dictionary with each normalized message as the key and the occurrence count as the value
         """
-        pass
+        if self._messages is None:
+            _ = self.messages
+
+        if self._cleaned is None:
+            self._scrub_messages()
+
+        return self._cleaned
+
+    @cleaned.deleter
+    def cleaned(self):
+        """Clear the cleaned messages."""
+        self._cleaned = None
 
     @abc.abstractmethod
     def _clean_message(self, err):

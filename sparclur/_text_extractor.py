@@ -6,15 +6,25 @@ from sparclur.utils.tools import shingler, jac_dist, lev_dist
 class TextExtractor(Parser, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def __init__(self):
-        self._overall_text = None
+    def __init__(self, doc_path, *args, **kwargs):
+        super().__init__(doc_path=doc_path, *args, **kwargs)
         self._full_text_extracted = False
-        self._page_texts = dict()
+        self._text = dict()
+
+    @abc.abstractmethod
+    def _check_for_text_extraction(self) -> bool:
+        """
+        Perform a check for the necessary tools to extract the text.
+        Returns
+        -------
+        bool
+        """
+        pass
 
     @abc.abstractmethod
     def _extract_page(self, page: int):
         """
-        Extract the specified page's texts.
+        Extract the specified page's texts and caches the result.
 
         Parameters
         ----------
@@ -23,25 +33,25 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
 
         Returns
         -------
-        str
+
         """
         pass
 
     @abc.abstractmethod
     def _extract_doc(self):
         """
-        Extracts text from the entire document.
+        Extracts text from the entire document and caches the result.
 
         Returns
         -------
-        Dict[int, str]
+
         """
         pass
 
-    @abc.abstractmethod
-    def clear_cache(self):
+    def clear_text(self):
         """Clear any text that has already been extracted for the document"""
-        pass
+        self._text = dict()
+        self._full_text_extracted = False
 
     def get_text(self, page: int = None):
         """
@@ -56,28 +66,31 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
         -------
         str or Dict[int, str]
         """
-
+        assert self._check_for_text_extraction(), "%s not found" % self.get_name()
         if page is not None:
-            if page in self._page_texts:
-                result = self._page_texts[page]
-            else:
-                result = self._extract_page(page=page)
+            if page not in self._text:
+                self._extract_page(page)
+            result = self._text[page]
         else:
-            if self._full_text_extracted:
-                result = self._overall_text
-            else:
-                result = self._extract_doc()
+            if not self._full_text_extracted:
+                self._extract_doc()
+            result = self._text
         return result
 
-    def compare_text(self, other: 'TextExtractor', dist='jac', shingle_size=4):
+    def compare_text(self, other: 'TextExtractor', page=None, dist='jac', shingle_size=4):
         def _jaccard(s1, s2):
             return jac_dist(shingler(s1, shingle_size=shingle_size), shingler(s2, shingle_size=shingle_size))
-        s1 = self.get_text()
-        s2 = other.get_text()
+        s1 = self.get_text(page=page)
+        s2 = other.get_text(page=page)
         switcher = {
             'jac': _jaccard,
             'lev': lev_dist
         }
         func = switcher.get(dist, lambda x: 'Distance metric not found. Please select \'jac\' or \'lev\'')
-        metric = func(s1, s2)
+        if page is not None:
+            metric = func(s1, s2)
+        else:
+            pages = {*s1.keys()}.union({*s2.keys()})
+            metrics = [func(s1.get(key, ''), s2.get(key, '')) for key in pages]
+            metric = sum(metrics) / len(metrics)
         return metric

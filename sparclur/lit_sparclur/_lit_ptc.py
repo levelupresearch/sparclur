@@ -23,7 +23,7 @@ def app(filename):
     for idx, col in enumerate(cols):
         trace_selected = col.selectbox('Trace', list(TRACERS.keys()), index=idx, key='ts_%s' % str(idx))
         binary_text = col.text_input('Binary Path', key='bt_%s' % str(idx))
-        if trace_selected == 'MuPDF':
+        if trace_selected == MuPDF.get_name():
             parse_streams = col.checkbox('Parse Streams', key='cb_%s' % str(idx))
         message_type = col.radio('Messages', ['Raw', 'Cleaned'], key='mt_%s' % str(idx))
         tracer = TRACERS[trace_selected]

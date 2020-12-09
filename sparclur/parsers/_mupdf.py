@@ -7,6 +7,7 @@ from sparclur._tracer import Tracer
 from sparclur.utils.tools import fix_splits
 
 import os
+import sys
 import re
 import subprocess
 import tempfile
@@ -42,15 +43,10 @@ class MuPDF(Tracer, Renderer):
         verbose : bool
             Specify whether additional logging should be saved, such as successful renders and timing
         """
-        super().__init__()
-        self._doc_path = doc_path
+        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose)
         self._parse_streams = parse_streams
-        self._dpi = dpi
-        self._caching = cache_renders
-        self._verbose = verbose
-        self._logging = dict()
-        self._messages: List[str] = None
-        self._cleaned: Dict[str, int] = None
+        # self._messages: List[str] = None
+        # self._cleaned: Dict[str, int] = None
         self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
         try:
@@ -59,6 +55,7 @@ class MuPDF(Tracer, Renderer):
         except subprocess.CalledProcessError as e:
             print("MuPDF binary not found: ", str(e))
             self._mutool_present = False
+        self._fitz_present = 'fitz' in sys.modules.keys()
 
     def get_doc_path(self):
         return self._doc_path
