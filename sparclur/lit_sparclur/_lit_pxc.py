@@ -3,7 +3,7 @@ import os
 import sys
 
 from sparclur._text_extractor import TextExtractor
-from sparclur.parsers import PDFtoPPM, PDFtoText
+from sparclur.parsers import PDFtoPPM, PDFtoText, PDFtoCairo, QPDF
 
 module_path = os.path.abspath('../../../sparclur/')
 if module_path not in sys.path:
@@ -13,7 +13,9 @@ from sparclur.parsers.present_parsers import get_sparclur_texters, get_sparclur_
 TEXTERS = {texter.get_name(): texter for texter in get_sparclur_texters()}
 BINARY_PARAM = [
                 PDFtoPPM.get_name(),
-                PDFtoText.get_name()
+                PDFtoText.get_name(),
+                PDFtoCairo.get_name(),
+                QPDF.get_name()
             ]
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]

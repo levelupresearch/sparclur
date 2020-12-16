@@ -21,8 +21,13 @@ from PIL.PngImagePlugin import PngImageFile
 
 class MuPDF(Tracer, Renderer):
     """MuPDF tracer and renderer """
-    def __init__(self, doc_path, parse_streams=True, binary_path=None, temp_folders_dir=None, dpi=200,
-                 cache_renders=False, verbose=False):
+    def __init__(self, doc_path: str,
+                 parse_streams: bool = True,
+                 binary_path: str = None,
+                 temp_folders_dir: str = None,
+                 dpi: int = 200,
+                 cache_renders: bool = False,
+                 verbose: bool = False):
         """
         Parameters
         ----------
@@ -45,38 +50,29 @@ class MuPDF(Tracer, Renderer):
         """
         super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose)
         self._parse_streams = parse_streams
-        # self._messages: List[str] = None
-        # self._cleaned: Dict[str, int] = None
         self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
+
+    def _check_for_renderer(self) -> bool:
+        return 'fitz' in sys.modules.keys()
+
+    def _check_for_tracer(self) -> bool:
         try:
             subprocess.check_output("mutool -v", shell=True)
-            self._mutool_present = True
+            mutool_present = True
         except subprocess.CalledProcessError as e:
-            print("MuPDF binary not found: ", str(e))
-            self._mutool_present = False
-        self._fitz_present = 'fitz' in sys.modules.keys()
-
-    def get_doc_path(self):
-        return self._doc_path
+            mutool_present = False
+        return mutool_present
 
     @staticmethod
     def get_name():
         return 'MuPDF'
 
+    @property
     def streams_parsed(self):
         return self._parse_streams
 
-    def set_dpi(self, new_dpi):
-        self._dpi = new_dpi
-
-    def get_dpi(self):
-        return self._dpi
-
     def _parse_document(self):
-
-        if not self._mutool_present:
-            raise OSError("Unable to find MuPDF.")
 
         stream_flag = ' -s' if self._parse_streams else ''
 
@@ -90,16 +86,6 @@ class MuPDF(Tracer, Renderer):
         err = fix_splits(err.decode(decoder))
         error_arr = [message for message in err.split('\n') if len(message) > 0]
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
-
-    def get_messages(self):
-
-        if not self._mutool_present:
-            raise OSError("Unable to find MuPDF.")
-
-        if self._messages is None:
-            self._parse_document()
-
-        return self._messages
 
     def _clean_message(self, err):
         cleaned = re.sub(r'\([\d]+ [\d]+ R\)', '', err)
@@ -175,33 +161,6 @@ class MuPDF(Tracer, Renderer):
             else:
                 error_dict[error] = error_dict.get(error, 0) + 1
         self._cleaned = error_dict
-
-    def get_cleaned(self):
-
-        if self._cleaned is None:
-            self._scrub_messages()
-
-        return self._cleaned
-
-    def set_caching(self, caching: bool):
-        assert isinstance(caching, bool)
-        self._caching = caching
-
-    def get_caching(self):
-        return self._caching
-
-    def clear_cache(self):
-        self._full_doc_rendered = False
-        self._renders: Dict[int, PngImageFile] = dict()
-
-    def get_verbose(self):
-        return self._verbose
-
-    def set_verbose(self, v: bool):
-        self._verbose = v
-
-    def get_logs(self):
-        return self._logging
 
     def _render_page(self, page):
         if self._verbose:

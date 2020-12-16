@@ -11,7 +11,7 @@ from sparclur.prc.viz import PRCViz
 def app(filename):
     st.subheader("PDF Render Comparator")
 
-    viz = PRCViz(doc_path=filename, renderers=['MuPDF', 'Poppler', 'Ghostscript'])
+    viz = PRCViz(doc_path=filename, renderers=['MuPDF', 'PDFtoPPM', 'Ghostscript'])
 
     fig = viz.plot_ssims()
     st.pyplot(fig)

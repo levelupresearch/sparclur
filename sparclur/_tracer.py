@@ -45,7 +45,7 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         List[str]
             The list of all raw messages from the parser over the given document
         """
-        assert self._check_for_renderer(), "%s not found" % self.get_name()
+        assert self._check_for_tracer(), "%s not found" % self.get_name()
 
         if self._messages is None:
             self._parse_document()

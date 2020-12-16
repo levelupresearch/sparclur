@@ -2,7 +2,7 @@ import hashlib
 import os
 import fitz
 import re
-
+from inspect import signature
 
 class InputError(Exception):
     """Exception raised for errors in the input.
@@ -130,3 +130,13 @@ def fix_splits(message):
     message = re.sub(r'[^\n]warning:', '\nwarning:', message)
     message = re.sub(r'[^\n]error:', '\nerror:', message)
     return message
+
+
+def is_pdf(file):
+    try:
+        pdf = fitz.open(file)
+        pdf.close()
+        _is_pdf = True
+    except Exception as e:
+        _is_pdf = False
+    return _is_pdf

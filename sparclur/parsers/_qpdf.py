@@ -12,7 +12,9 @@ import tempfile
 
 class QPDF(Tracer):
     """QPDF tracer"""
-    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None):
+    def __init__(self, doc_path: str,
+                 binary_path: str = None,
+                 temp_folders_dir: str = None):
         """
         Parameters
         ----------

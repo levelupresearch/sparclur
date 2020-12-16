@@ -1,4 +1,4 @@
-from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, PDFToCairo, PDFtoPPM, PDFtoText, QPDF
+from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, PDFtoCairo, PDFtoPPM, PDFtoText, QPDF
 from sparclur._parser import Parser
 from sparclur._tracer import Tracer
 from sparclur._renderer import Renderer
@@ -12,7 +12,7 @@ _sparclur_parsers: Dict[str, Parser] = {
         PDFMiner.get_name(): PDFMiner,
         Ghostscript.get_name(): Ghostscript,
         MuPDF.get_name(): MuPDF,
-        PDFToCairo.get_name(): PDFToCairo,
+        PDFtoCairo.get_name(): PDFtoCairo,
         PDFtoPPM.get_name(): PDFtoPPM,
         PDFtoText.get_name(): PDFtoText,
         QPDF.get_name(): QPDF

@@ -14,6 +14,7 @@ import subprocess
 from subprocess import DEVNULL
 import re
 import os
+from typing import Tuple
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
@@ -22,8 +23,13 @@ from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 
 class PDFtoPPM(Tracer, Renderer):
     """PDFtoPPM tracer and renderer """
-    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None, dpi=200, size=None, cache_renders=False,
-                 verbose=False):
+    def __init__(self, doc_path: str,
+                 binary_path: str = None,
+                 temp_folders_dir: str = None,
+                 dpi: int = 200,
+                 size: Tuple[int] or int = None,
+                 cache_renders: bool = False,
+                 verbose: bool = False):
         """
         Parameters
         ----------
@@ -47,12 +53,12 @@ class PDFtoPPM(Tracer, Renderer):
         self._temp_folders_dir = temp_folders_dir
         self._size = size
         self._cmd_path = 'pdftoppm' if binary_path is None else binary_path
-        try:
-            subprocess.check_output(self._cmd_path + " -v", shell=True)
-            self._poppler_present = True
-        except subprocess.CalledProcessError as e:
-            print("pdftoppm binary not found: ", str(e))
-            self._poppler_present = False
+        # try:
+        #     subprocess.check_output(self._cmd_path + " -v", shell=True)
+        #     self._poppler_present = True
+        # except subprocess.CalledProcessError as e:
+        #     print("pdftoppm binary not found: ", str(e))
+        #     self._poppler_present = False
 
     def _check_for_renderer(self) -> bool:
         try:
@@ -220,9 +226,11 @@ class PDFtoPPM(Tracer, Renderer):
         return result
 
 
-class PDFToCairo(Tracer):
+class PDFtoCairo(Tracer):
     """SPARCLUR tracer wrapper for pdftocairo"""
-    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None):
+    def __init__(self, doc_path: str,
+                 binary_path: str = None,
+                 temp_folders_dir: str = None):
         """
 
         Parameters
@@ -293,7 +301,10 @@ class PDFToCairo(Tracer):
 
 class PDFtoText(TextExtractor):
 
-    def __init__(self, doc_path, binary_path=None, page_delimiter='\x0c', maintain_layout=False):
+    def __init__(self, doc_path: str,
+                 binary_path: str = None,
+                 page_delimiter: str = '\x0c',
+                 maintain_layout: bool = False):
         super().__init__(doc_path=doc_path)
         self._page_delimiter = page_delimiter
         self._maintain_layout = maintain_layout

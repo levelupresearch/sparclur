@@ -110,7 +110,14 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
         if page is not None:
             metric = _jaccard(s1, s2)
         else:
-            pages = {*s1.keys()}.union({*s2.keys()})
-            metrics = [_jaccard(s1.get(key, ''), s2.get(key, '')) for key in pages]
-            metric = sum(metrics) / len(metrics)
+            all_s1 = set()
+            for (_, tokens) in s1.items():
+                all_s1.update(shingler(tokens, shingle_size=shingle_size))
+            all_s2 = set()
+            for (_, tokens) in s2.items():
+                all_s2.update(shingler(tokens, shingle_size=shingle_size))
+            # pages = {*s1.keys()}.union({*s2.keys()})
+            # metrics = [_jaccard(s1.get(key, ''), s2.get(key, '')) for key in pages]
+            # metric = sum(metrics) / len(metrics)
+            metric = _jaccard(s1, s2)
         return metric

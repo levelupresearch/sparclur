@@ -32,7 +32,7 @@ class PRCViz:
         renderers : List[Renderer] or List[str]
             The list of renderers to use for the PRC comparison
         parser_args : Dict[str, Dict[str, Any]]
-            A dictionary of dictionaries containing any optional parameters to pass into the renderers. See an each
+            A dictionary of dictionaries containing any optional parameters to pass into the renderers. See each
             renderer for it's possible parameters.
         """
         self._doc_path = doc_path
@@ -140,7 +140,7 @@ class PRCViz:
             titles = [combo[0], combo[1], 'diff']
             if nrows > 1:
                 for col in range(3):
-                    image: PngImageFile = images[col]
+                    image = np.asarray(images[col])
                     axes[row, col].set_title(titles[col])
                     axes[row, col].set_xticklabels([])
                     axes[row, col].set_yticklabels([])

@@ -5,7 +5,7 @@ import sys
 import tempfile
 import time
 import warnings
-from typing import Dict
+from typing import Dict, Tuple
 
 import ghostscript as external_gs
 from PIL import Image
@@ -17,7 +17,12 @@ from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 
 class Ghostscript(Renderer):
     """SPARCLUR renderer wrapper for Ghostscript"""
-    def __init__(self, doc_path, temp_folders_dir=None, dpi=200, size=None, cache_renders=False, verbose=False):
+    def __init__(self, doc_path: str,
+                 temp_folders_dir: str = None,
+                 dpi: int = 200,
+                 size: Tuple[int] or int = None,
+                 cache_renders: bool = False,
+                 verbose: bool = False):
         """
         Parameters
         ----------

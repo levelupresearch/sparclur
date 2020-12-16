@@ -11,7 +11,10 @@ from sparclur._text_extractor import TextExtractor
 class PDFMiner(TextExtractor):
     """PDFMiner Text Extraction"""
 
-    def __init__(self, doc_path, page_delimiter='\x0c', detect_vertical=False, all_texts=False):
+    def __init__(self, doc_path: str,
+                 page_delimiter: str = '\x0c',
+                 detect_vertical: bool = False,
+                 all_texts: bool = False):
         super().__init__(doc_path=doc_path)
         self._page_delimiter = page_delimiter
         self._detect_vertical = detect_vertical
