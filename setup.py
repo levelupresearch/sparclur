@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="sparclur",
-    version="0.0.1",
+    version="0.1.0",
     author="Shawn Davis",
     author_email="shawn@levelupresearch.com",
     description="Tools for analyzing PDF files and compare PDF parsers",
