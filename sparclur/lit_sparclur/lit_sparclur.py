@@ -193,9 +193,11 @@ for p_name, parser in PARSERS.items():
                 val = st.sidebar.text_input(key, value=default, key='%s_%s' % (p_name, key))
                 if not val or val == 'None':
                     val = None
+                if val == "\\x0c":
+                    val = "\x0c"
             kwargs[key] = val
             kwargs['doc_path'] = filepath
-
+        print(p_name, kwargs)
         parser_kwargs[p_name] = kwargs
         if p_name == MuPDF.get_name():
             kwargs['parse_streams'] = True
