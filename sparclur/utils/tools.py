@@ -2,7 +2,7 @@ import hashlib
 import os
 import fitz
 import re
-
+from inspect import signature
 
 class InputError(Exception):
     """Exception raised for errors in the input.
@@ -43,10 +43,15 @@ def gen_flatten(iterables):
 
 
 def shingler(s, shingle_size):
-    input_string = str(s)
-    if shingle_size >= len(input_string):
-        return set(input_string)
-    return set([input_string[i:i+shingle_size] for i in range(len(input_string) - shingle_size + 1)])
+    try:
+        _ = iter(s)
+        is_iterable = True
+    except TypeError as e:
+        is_iterable = False
+    assert is_iterable, "Object must be iterable to be shingled."
+    if shingle_size >= len(s):
+        return set(s)
+    return set([', '.join(gram for gram in s[i:i+shingle_size]) for i in range(len(s) - shingle_size + 1)])
 
 
 def jac_dist(set1, set2):
@@ -54,7 +59,8 @@ def jac_dist(set1, set2):
     size1 = len(set1)
     size2 = len(set2)
     union = size1 + size2 - intersect
-    return 1 - intersect / union
+    d = 1 - intersect / union if union > 0 else 0
+    return d
 
 
 def lev_dist(s1, s2):
@@ -125,3 +131,13 @@ def fix_splits(message):
     message = re.sub(r'[^\n]warning:', '\nwarning:', message)
     message = re.sub(r'[^\n]error:', '\nerror:', message)
     return message
+
+
+def is_pdf(file):
+    try:
+        pdf = fitz.open(file)
+        pdf.close()
+        _is_pdf = True
+    except Exception as e:
+        _is_pdf = False
+    return _is_pdf

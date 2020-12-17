@@ -13,5 +13,7 @@ def _parse_renderers(renderers):
         elif isclass(renderer):
             if issubclass(renderer, Renderer):
                 result[renderer.get_name()] = renderer
+        elif isinstance(renderer, Renderer):
+            result[renderer.get_name()] = renderer
     assert len(result) > 1, "At least two renderers must be selected"
     return result

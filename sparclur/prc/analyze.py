@@ -145,7 +145,7 @@ class Analyzer:
 
     def _error_result(self, path, error):
         file = path.split(os.path.sep)[-1]
-        d = {'file':file, 'path':path, 'page':None}
+        d = {'file': file, 'path': path, 'page': None}
         renderers = self._renderers.keys()
         combos = itertools.combinations(renderers, 2)
         for renderer in renderers:

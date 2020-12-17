@@ -3,7 +3,9 @@ import time
 import warnings
 
 from sparclur._renderer import Renderer
+from sparclur._text_extractor import TextExtractor
 from sparclur._tracer import Tracer
+from sparclur.parsers._poppler_helpers import _parse_poppler_size
 from sparclur.utils.tools import fix_splits
 
 from typing import List, Dict
@@ -12,42 +14,22 @@ import subprocess
 from subprocess import DEVNULL
 import re
 import os
+from typing import Tuple
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 
 
-def _parse_poppler_size(size):
-    """
-    Parameters
-    ----------
-    size : Int or Tuple
-        Pass a single int to render the document with the same number of pixels in the x and y directions. Otherwise,
-        pass a tuple (width, height) for the width and height in pixels.
-    Returns
-    -------
-    str
-    """
-    if not (isinstance(size, tuple) or isinstance(size, int) or isinstance(size, float)) or size is None:
-        size_cmd = None
-    else:
-        if isinstance(size, int) or isinstance(size, float):
-            size = tuple([size])
-        if len(size) == 2:
-            x_scale = -1 if size[0] is None else str(int(size[0]))
-            y_scale = -1 if size[1] is None else str(int(size[1]))
-            size_cmd = ['-scale-to-x', x_scale, '-scale-to-y', y_scale]
-        elif len(size) == 1:
-            scale = -1 if size[0] is None else str(int(size[0]))
-            size_cmd = ['scale-to', scale]
-    return size_cmd
-
-
-class Poppler(Tracer, Renderer):
-    """Poppler tracer and renderer """
-    def __init__(self, doc_path, binary_path=None, temp_folders_dir=None, dpi=200, size=None, cache_renders=False,
-                 verbose=False):
+class PDFtoPPM(Tracer, Renderer):
+    """PDFtoPPM tracer and renderer """
+    def __init__(self, doc_path: str,
+                 binary_path: str = None,
+                 temp_folders_dir: str = None,
+                 dpi: int = 200,
+                 size: Tuple[int] or int = None,
+                 cache_renders: bool = False,
+                 verbose: bool = False):
         """
         Parameters
         ----------
@@ -67,54 +49,42 @@ class Poppler(Tracer, Renderer):
         verbose : bool
             Specify whether additional logging should be saved, such as successful renders and timing
         """
-        super().__init__()
-        self._doc_path = doc_path
+        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose)
         self._temp_folders_dir = temp_folders_dir
-        self._caching = cache_renders
-        self._verbose = verbose
-        self._logging = dict()
-        self._dpi = dpi
         self._size = size
-        self._messages: List[str] = None
-        self._cleaned: Dict[str, int] = None
         self._cmd_path = 'pdftoppm' if binary_path is None else binary_path
+        # try:
+        #     subprocess.check_output(self._cmd_path + " -v", shell=True)
+        #     self._poppler_present = True
+        # except subprocess.CalledProcessError as e:
+        #     print("pdftoppm binary not found: ", str(e))
+        #     self._poppler_present = False
+
+    def _check_for_renderer(self) -> bool:
         try:
             subprocess.check_output(self._cmd_path + " -v", shell=True)
-            self._poppler_present = True
+            pdftoppm_present = True
         except subprocess.CalledProcessError as e:
-            print("pdftoppm binary not found: ", str(e))
-            self._poppler_present = False
+            pdftoppm_present = False
+        return pdftoppm_present
+
+    def _check_for_tracer(self) -> bool:
+        return self._check_for_renderer()
 
     @staticmethod
     def get_name():
-        return "Poppler"
-
-    def get_doc_path(self):
-        return self._doc_path
+        return "PDFtoPPM"
 
     def _parse_document(self):
 
-        if not self._poppler_present:
-            raise OSError("Unable to find pdftoppm.")
-
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
-            sp = subprocess.Popen('%s %s %s' % (self._cmd_path, self._doc_path, os.path.join(temp_path, 'out')), executable='/bin/bash',
-                                  stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+            sp = subprocess.Popen('%s %s %s' % (self._cmd_path, self._doc_path, os.path.join(temp_path, 'out')),
+                                  executable='/bin/bash', stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
             (_, err) = sp.communicate()
             decoder = locale.getpreferredencoding()
             err = fix_splits(err.decode(decoder))
         error_arr = [message for message in err.split('\n') if len(message) > 0]
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
-
-    def get_messages(self):
-
-        if not self._poppler_present:
-            raise OSError("Unable to find pdftoppm.")
-
-        if self._messages is None:
-            self._parse_document()
-
-        return self._messages
 
     def _clean_message(self, err):
 
@@ -166,43 +136,13 @@ class Poppler(Tracer, Renderer):
                 error_dict[error] = error_dict.get(error, 0) + 1
         self._cleaned = error_dict
 
-    def get_cleaned(self):
-
-        if self._cleaned is None:
-            self._scrub_messages()
-
-        return self._cleaned
-
-    def set_caching(self, caching: bool):
-        assert isinstance(caching, bool)
-        self._caching = caching
-
-    def get_caching(self):
-        return self._caching
-
-    def clear_cache(self):
-        self._full_doc_rendered = False
-        self._renders: Dict[int, PngImageFile] = dict()
-
-    def get_verbose(self):
-        return self._verbose
-
-    def set_verbose(self, v: bool):
-        self._verbose = v
-
-    def get_logs(self):
-        return self._logging
-
-    def set_dpi(self, new_dpi):
-        self._dpi = new_dpi
-
-    def get_dpi(self):
-        return self._dpi
-
-    def get_size(self):
+    @property
+    def size(self):
         return self._size
 
-    def set_size(self, s):
+    @size.setter
+    def size(self, s):
+        self._clear_renders()
         self._size = s
 
     def _render_page(self, page):
@@ -246,9 +186,6 @@ class Poppler(Tracer, Renderer):
 
     def _poppler_render(self, page=None):
 
-        if not self._poppler_present:
-            raise OSError("Unable to find pdftoppm.")
-
         if isinstance(self._size, dict):
             if page is None:
                 warnings.warn("""Poppler does not support page specific sizing when rendering the entire 
@@ -262,7 +199,7 @@ class Poppler(Tracer, Renderer):
             size = self._size
 
         return_single_page = False
-        cmd = [self._cmd_path, '-png', '-r', str(self._dpi)]
+        cmd = [self._cmd_path, '-png', '-cropbox', '-r', str(self._dpi)]
         size = _parse_poppler_size(size)
         if size is not None:
             cmd.extend(size)
@@ -274,7 +211,12 @@ class Poppler(Tracer, Renderer):
             cmd.extend([self._doc_path, os.path.join(temp_path, 'out')])
             cmd = ' '.join([entry for entry in cmd])
             sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-            (_, _) = sp.communicate()
+            (_, err) = sp.communicate()
+            if page is None and not self._messages:
+                decoder = locale.getpreferredencoding()
+                err = fix_splits(err.decode(decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+                self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
             result: Dict[int, PngImageFile] = dict()
             for render in [file for file in os.listdir(temp_path) if file.endswith('.png')]:
                 page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
@@ -282,3 +224,138 @@ class Poppler(Tracer, Renderer):
         if return_single_page:
             result: PngImageFile = result.get(int(page) - 1)
         return result
+
+
+class PDFtoCairo(Tracer):
+    """SPARCLUR tracer wrapper for pdftocairo"""
+    def __init__(self, doc_path: str,
+                 binary_path: str = None,
+                 temp_folders_dir: str = None):
+        """
+
+        Parameters
+        ----------
+        doc_path : str
+            Full path to the document to be traced.
+        binary_path : str
+            If the pdftocairo binary is not in the system PATH, add the path to the binary here. Can also be used to trace
+            specific versions of the binary.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        """
+        super().__init__(doc_path=doc_path)
+        self._temp_folders_dir = temp_folders_dir
+        self._cmd_path = 'pdftocairo' if binary_path is None else binary_path
+
+    def _check_for_tracer(self) -> bool:
+        try:
+            subprocess.check_output(self._cmd_path + " -v", shell=True)
+            pdftocairo_present = True
+        except subprocess.CalledProcessError as e:
+            pdftocairo_present = False
+        return pdftocairo_present
+
+    def get_doc_path(self):
+        return self._doc_path
+
+    @staticmethod
+    def get_name():
+        return 'PDFtoCairo'
+
+    def _parse_document(self):
+
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            out_path = os.path.join(temp_path, 'out.pdf')
+            sp = subprocess.Popen('%s -ps %s %s' % (self._cmd_path, self._doc_path, out_path), executable='/bin/bash',
+                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+            (stdout, err) = sp.communicate()
+        decoder = locale.getpreferredencoding()
+        err = fix_splits(err.decode(decoder))
+        error_arr = [message for message in err.split('\n') if len(message) > 0]
+        self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
+
+    def _clean_message(self, err):
+        cleaned = re.sub(r'\([\d]+\)', '', err)
+        cleaned = re.sub(r'<[\w]{2}>', '', cleaned)
+        cleaned = re.sub(r"\'[^']+\'", "\'x\'", cleaned)
+        cleaned = re.sub(r'\([^)]+\)', "\'x\'", cleaned)
+        cleaned = re.sub(r'xref num [\d]+', "xref num \'x\'", cleaned)
+        cleaned:str = 'Syntax Error: Unknown character collection Adobe-Identity' if cleaned.startswith(
+            'Syntax Error: Unknown character collection Adobe-Identity') else cleaned
+        return cleaned
+
+    def _scrub_messages(self):
+
+        if self._messages is None:
+            self._parse_document()
+        scrubbed_messages = [self._clean_message(err) for err in self._messages]
+        error_dict: Dict[str, int] = dict()
+        for (index, error) in enumerate(scrubbed_messages):
+            if error.startswith('warning: ... repeated '):
+                repeated = re.sub(r'[^\d]', '', error)
+                error_dict[self._messages[index - 1]] = error_dict.get(error, 0) + int(repeated)
+            else:
+                error_dict[error] = error_dict.get(error, 0) + 1
+        self._cleaned = error_dict
+
+
+class PDFtoText(TextExtractor):
+
+    def __init__(self, doc_path: str,
+                 binary_path: str = None,
+                 page_delimiter: str = '\x0c',
+                 maintain_layout: bool = False):
+        super().__init__(doc_path=doc_path)
+        self._page_delimiter = page_delimiter
+        self._maintain_layout = maintain_layout
+        self._cmd_path = 'pdftotext' if binary_path is None else binary_path
+
+    def _check_for_text_extraction(self) -> bool:
+        try:
+            subprocess.check_output(self._cmd_path + " -v", shell=True)
+            pdftotext_present = True
+        except subprocess.CalledProcessError as e:
+            pdftotext_present = False
+        return pdftotext_present
+
+    @staticmethod
+    def get_name():
+        return "PDFtoText"
+
+    @property
+    def page_delimiter(self):
+        return self._page_delimiter
+
+    @property
+    def maintain_layout(self):
+        return self._maintain_layout
+
+    @maintain_layout.setter
+    def maintain_layout(self, layout: bool):
+        self.clear_cache()
+        self._maintain_layout = layout
+
+    def _extract_doc(self):
+        layout = '' if self._maintain_layout else '-layout '
+        command = '%s %s%s -' % (self._cmd_path, layout, self._doc_path)
+        overall_text = self._pdftotext_subprocess(command)
+        for (page, text) in enumerate(overall_text.split(self._page_delimiter)[0:-1]):
+            self._text[page] = text
+        self._full_text_extracted = True
+
+    def _extract_page(self, page):
+        layout = '' if self._maintain_layout else '-layout '
+        command = '%s -f %i -l %i %s%s -' % (self._cmd_path, page, page, layout, self._doc_path)
+        text = self._pdftotext_subprocess(command)
+        self._text[page] = text
+
+    def _pdftotext_subprocess(self, command):
+        decoder = locale.getpreferredencoding()
+        sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        (stdout, err) = sp.communicate()
+
+        err = err.decode(decoder)
+        if err:
+            warnings.warn("Problem encountered: %s" % err)
+
+        return stdout.decode(decoder)

@@ -32,7 +32,7 @@ class PRCViz:
         renderers : List[Renderer] or List[str]
             The list of renderers to use for the PRC comparison
         parser_args : Dict[str, Dict[str, Any]]
-            A dictionary of dictionaries containing any optional parameters to pass into the renderers. See an each
+            A dictionary of dictionaries containing any optional parameters to pass into the renderers. See each
             renderer for it's possible parameters.
         """
         self._doc_path = doc_path
@@ -47,9 +47,15 @@ class PRCViz:
             print('\t%s:' % name)
             args = parser_args.get(name, dict())
             args['cache_renders'] = True
-            self._renders[name] = renderer(doc_path=doc_path, **args)
+            if isinstance(renderer, Renderer):
+                self._renders[name] = renderer
+                self._renders[name].caching = True
+            else:
+                self._renders[name] = renderer(doc_path=doc_path, **args)
             # if mpg_path is not None:
             #     self._mpg_renders[name] = renderer(doc_path=doc_path, **args)
+        assert len(set([renderer.doc_path for renderer in self._renders.values()])) == 1, \
+            "Document paths do not match for all renderers"
         self._ssim_keys = list(itertools.combinations(self._renders.keys(), 2))
         for combo in self._ssim_keys:
             print('SSIMing %s/%s' % (combo[0], combo[1]))
@@ -140,7 +146,7 @@ class PRCViz:
             titles = [combo[0], combo[1], 'diff']
             if nrows > 1:
                 for col in range(3):
-                    image: PngImageFile = images[col]
+                    image = np.asarray(images[col])
                     axes[row, col].set_title(titles[col])
                     axes[row, col].set_xticklabels([])
                     axes[row, col].set_yticklabels([])
