@@ -47,9 +47,15 @@ class PRCViz:
             print('\t%s:' % name)
             args = parser_args.get(name, dict())
             args['cache_renders'] = True
-            self._renders[name] = renderer(doc_path=doc_path, **args)
+            if isinstance(renderer, Renderer):
+                self._renders[name] = renderer
+                self._renders[name].caching = True
+            else:
+                self._renders[name] = renderer(doc_path=doc_path, **args)
             # if mpg_path is not None:
             #     self._mpg_renders[name] = renderer(doc_path=doc_path, **args)
+        assert len(set([renderer.doc_path for renderer in self._renders.values()])) == 1, \
+            "Document paths do not match for all renderers"
         self._ssim_keys = list(itertools.combinations(self._renders.keys(), 2))
         for combo in self._ssim_keys:
             print('SSIMing %s/%s' % (combo[0], combo[1]))

@@ -22,7 +22,7 @@ class PDFMiner(TextExtractor):
         self._laparams = LAParams(detect_vertical=self._detect_vertical, all_texts=self._all_texts)
 
     def _check_for_text_extraction(self) -> bool:
-        return "pdfminer.six" in sys.modules.keys()
+        return "pdfminer" in sys.modules.keys()
 
     @staticmethod
     def get_name():

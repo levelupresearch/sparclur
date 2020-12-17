@@ -51,7 +51,7 @@ def shingler(s, shingle_size):
     assert is_iterable, "Object must be iterable to be shingled."
     if shingle_size >= len(s):
         return set(s)
-    return set([s[i:i+shingle_size] for i in range(len(s) - shingle_size + 1)])
+    return set([', '.join(gram for gram in s[i:i+shingle_size]) for i in range(len(s) - shingle_size + 1)])
 
 
 def jac_dist(set1, set2):
@@ -59,7 +59,8 @@ def jac_dist(set1, set2):
     size1 = len(set1)
     size2 = len(set2)
     union = size1 + size2 - intersect
-    return 1 - intersect / union
+    d = 1 - intersect / union if union > 0 else 0
+    return d
 
 
 def lev_dist(s1, s2):

@@ -260,7 +260,7 @@ class PDFtoCairo(Tracer):
 
     @staticmethod
     def get_name():
-        return 'PDFToCairo'
+        return 'PDFtoCairo'
 
     def _parse_document(self):
 

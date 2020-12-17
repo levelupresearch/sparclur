@@ -92,23 +92,23 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
         text = self.get_text(page=page)
         if page is not None:
             if page not in self._tokens:
-                self._tokens[page] = tokenizer(text)
+                tokens = [str(token) for token in tokenizer(text)]
+                self._tokens[page] = tokens
             tokens = self._tokens[page]
         else:
             if not self._document_tokenized:
-                for (page, t) in text:
-                    self._tokens[page] = tokenizer(t)
+                for (page, t) in text.items():
+                    tokens = [str(token) for token in tokenizer(t)]
+                    self._tokens[page] = tokens
                 self._document_tokenized = True
             tokens = self._tokens
         return tokens
 
     def compare_text(self, other: 'TextExtractor', page=None, shingle_size=4):
-        def _jaccard(s1, s2):
-            return jac_dist(shingler(s1, shingle_size=shingle_size), shingler(s2, shingle_size=shingle_size))
         s1 = self.get_tokens(page=page)
         s2 = other.get_tokens(page=page)
         if page is not None:
-            metric = _jaccard(s1, s2)
+            metric = jac_dist(shingler(s1, shingle_size=shingle_size), shingler(s2, shingle_size=shingle_size))
         else:
             all_s1 = set()
             for (_, tokens) in s1.items():
@@ -119,5 +119,5 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
             # pages = {*s1.keys()}.union({*s2.keys()})
             # metrics = [_jaccard(s1.get(key, ''), s2.get(key, '')) for key in pages]
             # metric = sum(metrics) / len(metrics)
-            metric = _jaccard(s1, s2)
+            metric = jac_dist(all_s1, all_s2)
         return metric
