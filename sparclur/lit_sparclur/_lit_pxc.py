@@ -36,9 +36,10 @@ def app(parsers):
             row = dict()
             row[''] = left
             for top in present_texters:
-                row[top] = 0 if left == top else metrics[frozenset((left, top))]
+                row[top] = 1 if left == top else 1 - metrics[frozenset((left, top))]
             data.append(row)
         df = pd.DataFrame(data)
+        st.write("Jaccard Similarity")
         st.dataframe(df)
 
         cols = st.beta_columns(2)
