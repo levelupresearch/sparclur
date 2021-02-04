@@ -12,9 +12,21 @@ class SSIM:
         result : str
             A 'Compared Successfully' message if the comparison was successful, otherwise the generated error message
         """
-        self.ssim = ssim
-        self.diff = diff
-        self.result = result
+        self._ssim = ssim
+        self._diff = diff
+        self._result = result
+
+    @property
+    def ssim(self):
+        return self._ssim
+
+    @property
+    def result(self):
+        return self._result
+
+    @property
+    def diff(self):
+        return self._diff
 
     def show(self):
         """Display the visual difference, if available."""

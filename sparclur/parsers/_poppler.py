@@ -304,11 +304,21 @@ class PDFtoText(TextExtractor):
     def __init__(self, doc_path: str,
                  binary_path: str = None,
                  page_delimiter: str = '\x0c',
-                 maintain_layout: bool = False):
+                 maintain_layout: bool = False,
+                 verbose: bool = False):
         super().__init__(doc_path=doc_path)
         self._page_delimiter = page_delimiter
         self._maintain_layout = maintain_layout
         self._cmd_path = 'pdftotext' if binary_path is None else binary_path
+        self._verbose = verbose
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, v: bool):
+        self._verbose = v
 
     def _check_for_text_extraction(self) -> bool:
         try:
@@ -355,7 +365,8 @@ class PDFtoText(TextExtractor):
         (stdout, err) = sp.communicate()
 
         err = err.decode(decoder)
-        if err:
+
+        if err and self._verbose:
             warnings.warn("Problem encountered: %s" % err)
 
         return stdout.decode(decoder)

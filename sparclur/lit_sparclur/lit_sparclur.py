@@ -6,9 +6,6 @@ import sys
 module_path = os.path.abspath('../../../sparclur/')
 if module_path not in sys.path:
     sys.path.append(module_path)
-from sparclur._tracer import Tracer
-from sparclur._renderer import Renderer
-from sparclur._text_extractor import TextExtractor
 
 from sparclur.parsers import MuPDF
 from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc
