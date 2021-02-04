@@ -8,6 +8,7 @@ from tqdm import tqdm
 from pebble import ProcessPool
 import os
 
+
 class Analyzer:
     """Runs pairwise comparisons for the defined renderers over each page of the specified document list or directory"""
     def __init__(self, files, renderers=get_sparclur_renderers(), parser_args=dict(), max_workers=1, timeout=None,
@@ -155,4 +156,4 @@ class Analyzer:
             col_name = '%s_%s' % (combo[0], combo[1])
             d['%s_ssim' % col_name] = None
             d['%s_result' % col_name] = error
-        return [d]
+        return d
