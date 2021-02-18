@@ -144,6 +144,7 @@ class MuPDF(Tracer, TextExtractor):
     def __init__(self, doc_path: str,
                  parse_streams: bool = True,
                  binary_path: str = None,
+                 temp_folders_dir: str = None
                  ):
         """
         Parameters
@@ -156,9 +157,12 @@ class MuPDF(Tracer, TextExtractor):
         binary_path : str
             If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
             specific versions of the binary.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
         """
         super().__init__(doc_path=doc_path)
         self._parse_streams = parse_streams
+        self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
 
     def _check_for_text_extraction(self) -> bool:
