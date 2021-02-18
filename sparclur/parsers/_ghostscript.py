@@ -10,6 +10,7 @@ from typing import Dict, Tuple
 import ghostscript as external_gs
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
+from func_timeout import func_timeout, FunctionTimedOut
 
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
@@ -22,7 +23,8 @@ class Ghostscript(Renderer):
                  dpi: int = 200,
                  size: Tuple[int] or int = None,
                  cache_renders: bool = False,
-                 verbose: bool = False):
+                 verbose: bool = False,
+                 timeout: int = None):
         """
         Parameters
         ----------
@@ -38,8 +40,10 @@ class Ghostscript(Renderer):
             Specify whether or not renders should be retained in the object
         verbose : bool
             Specify whether additional logging should be saved, such as successful renders and timing
+        timeout : int
+            Specify a timeout for rendering
         """
-        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose)
+        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose, timeout=timeout)
         # self._ghostscript_present = 'ghostscript' in sys.modules.keys()
         # assert self._ghostscript_present, "Ghostscript not found"
         self._temp_folders_dir = temp_folders_dir
@@ -61,11 +65,16 @@ class Ghostscript(Renderer):
         self._clear_renders()
         self._size = s
 
+    def _timedout_render(self, arg_list):
+        gs = external_gs.Ghostscript(*arg_list)
+        gs.exit()
+
     def _render_page(self, page):
         if self._verbose:
             start_time = time.perf_counter()
-        try:
-            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
+
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
+            try:
                 args = ["-dSAFER",
                         "-dBATCH",
                         "-dUseCropBox",
@@ -93,29 +102,43 @@ class Ghostscript(Renderer):
 
                 encoding = locale.getpreferredencoding()
                 args = [arg.encode(encoding) for arg in args]
-                gs = external_gs.Ghostscript(*args)
+                if self._timeout is not None:
+                    func_timeout(
+                        self._timeout,
+                        self._timedout_render,
+                        kwargs={
+                            'arg_list': args
+                        }
+                    )
+                else:
+                    gs = external_gs.Ghostscript(*args)
+                    gs.exit()
 
                 pil = Image.open(os.path.join(tmpdir, "out.png"))
-                gs.exit()
-                external_gs.cleanup()
                 if self._caching:
                     self._renders[page] = pil
                 if self._verbose:
                     timing = time.perf_counter() - start_time
-                    self._logging[page] = {'result': SUCCESS, 'timing': timing}
-        except Exception as e:
-            print(e)
-            pil: PngImageFile = None
-            if self._verbose:
-                timing = time.perf_counter() - start_time
-                self._logging[page] = {'result': str(e), 'timing': timing}
+                    self._logs[page] = {'result': SUCCESS, 'timing': timing}
+            except FunctionTimedOut:
+                pil: PngImageFile = None
+                if self._verbose:
+                    self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
+            except Exception as e:
+                pil: PngImageFile = None
+                if self._verbose:
+                    timing = time.perf_counter() - start_time
+                    self._logs[page] = {'result': str(e), 'timing': timing}
+            finally:
+                external_gs.cleanup()
         return pil
 
     def _render_doc(self):
         if self._verbose:
             start_time = time.perf_counter()
-        try:
-            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
+
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
+            try:
                 args = ["-dSAFER",
                         "-dBATCH",
                         "-dUseCropBox",
@@ -145,7 +168,17 @@ class Ghostscript(Renderer):
 
                 encoding = locale.getpreferredencoding()
                 args = [arg.encode(encoding) for arg in args]
-                gs = external_gs.Ghostscript(*args)
+                if self._timeout is not None:
+                    func_timeout(
+                        self._timeout,
+                        self._timedout_render,
+                        kwargs={
+                            'arg_list': args
+                        }
+                    )
+                else:
+                    gs = external_gs.Ghostscript(*args)
+                    gs.exit()
 
                 pils: Dict[int, PngImageFile] = dict()
                 for png in [file for file in os.listdir(tmpdir) if file.endswith('.png')]:
@@ -155,8 +188,7 @@ class Ghostscript(Renderer):
                         pils[i] = pil
                     except:
                        pass
-                gs.exit()
-                external_gs.cleanup()
+
                 if self._caching:
                     self._full_doc_rendered = True
                     self._renders = pils
@@ -164,11 +196,16 @@ class Ghostscript(Renderer):
                     timing = time.perf_counter() - start_time
                     num_pages = len(pils)
                     for page in pils.keys():
-                        self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
-        except Exception as e:
-            print(e)
-            pils: Dict[int, PngImageFile] = dict()
-            if self._verbose:
-                timing = time.perf_counter() - start_time
-                self._logging[0] = {'result': str(e), 'timing': timing}
+                        self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+            except FunctionTimedOut:
+                pils: Dict[int, PngImageFile] = dict()
+                if self._verbose:
+                    self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
+            except Exception as e:
+                pils: Dict[int, PngImageFile] = dict()
+                if self._verbose:
+                    timing = time.perf_counter() - start_time
+                    self._logs[0] = {'result': str(e), 'timing': timing}
+            finally:
+                external_gs.cleanup()
         return pils

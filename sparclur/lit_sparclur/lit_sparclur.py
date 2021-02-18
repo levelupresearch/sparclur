@@ -7,15 +7,17 @@ module_path = os.path.abspath('../../../sparclur/')
 if module_path not in sys.path:
     sys.path.append(module_path)
 
-from sparclur.parsers import MuPDF
-from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc
+from sparclur.parsers import MuPDF, PDFMiner
+from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc, _lit_raw, _lit_meta
+from sparclur.lit_sparclur._non_parser import NonParser
 from sparclur.lit_sparclur._lit_helper import parse_init
 from sparclur.utils.tools import create_file_list, is_pdf
 
 from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_renderers, \
     get_sparclur_tracers, \
-    get_sparclur_parsers
+    get_sparclur_parsers, \
+    get_sparclur_metadata
 
 import streamlit as st
 from func_timeout import func_timeout
@@ -23,11 +25,13 @@ from func_timeout import func_timeout
 
 PARSERS = {parser.get_name(): parser for parser in get_sparclur_parsers()}
 
-TEXTERS = [texter.get_name()for texter in get_sparclur_texters()]
+TEXTERS = [texter.get_name()for texter in get_sparclur_texters() if texter.get_name() not in get_sparclur_renderers()]
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
 TRACERS = [tracer.get_name() for tracer in get_sparclur_tracers()]
+
+METAS = [metas.get_name() for metas in get_sparclur_metadata()]
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 
@@ -37,7 +41,9 @@ PAGES = {
     # "Select Parsers": "select",
     "PTC": _lit_ptc,
     "PRC": _lit_prc,
-    "PXC": _lit_pxc
+    "PXC": _lit_pxc,
+    "Metadata": _lit_meta,
+    "Raw": _lit_raw
 }
 
 
@@ -114,16 +120,23 @@ def parse_document(selected_parser_kwargs):
     p = dict()
 
     for name, kwa in selected_parser_kwargs.items():
-        if name == MuPDF.get_name()+'-s':
+        if name == NonParser.get_name():
+            p[name] = NonParser(**kwargs)
+        elif name == MuPDF.get_name()+'-s':
             p[name] = MuPDF(**kwa)
+        elif name == PDFMiner.get_name()+'-text':
+            p[name] = PDFMiner(**kwa)
         else:
             p[name] = PARSERS[name](**kwa)
         if p[name].get_name() in TRACERS:
-            tmp = p[name].cleaned
+            _ = p[name].cleaned
         if p[name].get_name() in RENDERERS:
-            tmp = p[name].get_renders()
+            _ = p[name].get_renders()
         if p[name].get_name() in TEXTERS:
-            tmp = p[name].get_tokens()
+            _ = p[name].get_tokens()
+        if p[name].get_name() in METAS:
+            _ = p[name].metadata
+
     return p
 
 
@@ -154,7 +167,7 @@ else:
         filepath = file_dict[filepath]
 
 parser_kwargs = dict()
-
+parser_kwargs[NonParser.get_name()] = {'doc_path': filepath}
 st.sidebar.markdown('___')
 for p_name, parser in PARSERS.items():
     use_parser = st.sidebar.checkbox(p_name, value=True, key='%s_cb' % p_name)
@@ -170,6 +183,8 @@ for p_name, parser in PARSERS.items():
                 val = True
             elif key == 'temp_folders_dir':
                 val = None
+            elif key == 'timeout':
+                val = 30
             elif param_type == 'bool':
                 val = st.sidebar.checkbox(key, value=True if default == 'True' else False, key='%s_%s' % (p_name, key))
             elif param_type == 'Tuple[int]':
@@ -195,10 +210,20 @@ for p_name, parser in PARSERS.items():
             kwargs[key] = val
             kwargs['doc_path'] = filepath
         print(p_name, kwargs)
-        parser_kwargs[p_name] = kwargs
         if p_name == MuPDF.get_name():
-            kwargs['parse_streams'] = True
-            parser_kwargs[p_name + '-s'] = kwargs
+            ps_kwargs = {key: value for (key, value) in kwargs.items()}
+            ps_kwargs['parse_streams'] = True
+            kwargs['parse_streams'] = False
+            parser_kwargs[p_name + '-s'] = ps_kwargs
+            parser_kwargs[p_name] = kwargs
+        elif p_name == PDFMiner.get_name():
+            so_kwargs = {key: value for (key, value) in kwargs.items()}
+            so_kwargs['stream_output'] = 'text'
+            kwargs['stream_output'] = None
+            parser_kwargs[p_name+'-text'] = so_kwargs
+            parser_kwargs[p_name] = kwargs
+        else:
+            parser_kwargs[p_name] = kwargs
     st.sidebar.markdown('___')
 
 if not is_pdf(filepath):

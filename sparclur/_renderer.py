@@ -4,6 +4,7 @@ import sys
 from typing import Dict
 from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
+from func_timeout import func_timeout, FunctionTimedOut
 from skimage.metrics import structural_similarity
 import numpy as np
 from sparclur._text_extractor import TextExtractor
@@ -46,6 +47,7 @@ def _single_page_compare(pil1, pil2, full):
             ssim = structural_similarity(np1[0:width, 0:height], np2[0:width, 0:height], full=full)
             diff = None
         result = 'Compared Successfully'
+
     except Exception as e:
         ssim = -1.0
         diff = Image.new("RGB", (width, height), (255, 255, 255)) if width * height != 0 \
@@ -60,7 +62,7 @@ class Renderer(TextExtractor, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, dpi, cache_renders, verbose, *args, **kwargs):
+    def __init__(self, doc_path, dpi, cache_renders, verbose, timeout, *args, **kwargs):
         super().__init__(doc_path=doc_path, *args, **kwargs)
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
@@ -68,6 +70,7 @@ class Renderer(TextExtractor, metaclass=abc.ABCMeta):
         self._caching = cache_renders
         self._verbose = verbose
         self._logs = dict()
+        self._timeout = timeout
 
     @abc.abstractmethod
     def _check_for_renderer(self) -> bool:
@@ -81,6 +84,18 @@ class Renderer(TextExtractor, metaclass=abc.ABCMeta):
 
     def _check_for_text_extraction(self) -> bool:
         return 'pytesseract' in sys.modules.keys()
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, to: int):
+        self._timeout = to
+
+    @timeout.deleter
+    def timeout(self):
+        self._timeout = None
 
     @property
     def verbose(self):
@@ -248,7 +263,19 @@ class Renderer(TextExtractor, metaclass=abc.ABCMeta):
         keyset = {*left}.union({*right})
         result = dict()
         for k in keyset:
-            result[k] = _single_page_compare(left.get(k, None), right.get(k, None), full)
+            try:
+                if self._timeout is None:
+                    result[k] = _single_page_compare(left.get(k, None), right.get(k, None), full)
+                else:
+                    result[k] = func_timeout(
+                        self._timeout,
+                        _single_page_compare,
+                        args=(left.get(k, None), right.get(k, None), full)
+                    )
+            except FunctionTimedOut:
+                result[k] = SSIM(-1.0, 'Comparison Timed Out')
+            except Exception as e:
+                result[k] = SSIM(-1.0, e.message)
         return result if page is None else result[page]
 
     def _extract_doc(self):

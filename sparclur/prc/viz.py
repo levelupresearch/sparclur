@@ -12,6 +12,7 @@ import numpy as np
 import os
 from sparclur.prc._prc import _parse_renderers
 
+AVAILABLE_RENDERERS = {r.get_name(): r for r in get_sparclur_renderers()}
 
 class PRCViz:
     """
@@ -49,17 +50,18 @@ class PRCViz:
         self._ssims = dict()
         if verbose:
             print('Rendering:')
-        for (name, renderer) in self._renderers.items():
+        for name in self._renderers:
             if verbose:
                 print('\t%s:' % name)
             args = parser_args.get(name, dict())
             args['cache_renders'] = True
             args['dpi'] = dpi
-            if isinstance(renderer, Renderer):
-                self._renders[name] = renderer
-                self._renders[name].caching = True
-            else:
-                self._renders[name] = renderer(doc_path=doc_path, **args)
+            self._renders[name] = AVAILABLE_RENDERERS[name](doc_path=doc_path, **args)
+            # if isinstance(renderer, Renderer):
+            #     self._renders[name] = renderer
+            #     self._renders[name].caching = True
+            # else:
+            #     self._renders[name] = renderer(doc_path=doc_path, **args)
             # if mpg_path is not None:
             #     self._mpg_renders[name] = renderer(doc_path=doc_path, **args)
         assert len(set([renderer.doc_path for renderer in self._renders.values()])) == 1, \

@@ -12,7 +12,8 @@ def parse_init(cls):
                    'kwargs',
                    'doc_path',
                    'parse_streams',
-                   'verbose'
+                   'verbose',
+                   'stream_output'
                    ]
     init_keys = [key for key in list(sig.parameters.keys()) if key not in skip_params]
     result = dict()

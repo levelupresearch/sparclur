@@ -11,7 +11,7 @@ from sparclur.parsers.present_parsers import get_sparclur_texters
 
 TEXTERS = [texter.get_name() for texter in get_sparclur_texters()]
 
-print(TEXTERS)
+#print(TEXTERS)
 def app(parsers):
     st.subheader("Parser Text Comparator")
 
@@ -19,9 +19,8 @@ def app(parsers):
 
     if len(texters) == 1:
         texter = [txtr for txtr in texters.values()][0]
-        print(texter.get_name())
+        st.write(texter.get_name())
         text = texter.get_text()
-        print(text)
         page_selected = st.selectbox('Page', list(text.keys()), key='ps_%s' % texter.get_name())
         page_text = text[page_selected]
         st.write(page_text)
@@ -48,7 +47,8 @@ def app(parsers):
             texter_selected = col.selectbox('Text', list(texters.keys()), index=idx, key='tx_%s' % str(idx))
             texter = texters[texter_selected]
             text = texter.get_text()
-            print(list(text.keys()))
-            page_selected = col.selectbox('Page', list(text.keys()), key='%s_ps_%s' % (texter.get_name(), str(idx)))
+            pages = list(text.keys())
+            pages.sort()
+            page_selected = col.selectbox('Page', pages, key='%s_ps_%s' % (texter.get_name(), str(idx)))
             page_text = text[page_selected]
             col.write(page_text)

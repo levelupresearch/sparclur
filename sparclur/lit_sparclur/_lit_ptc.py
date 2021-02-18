@@ -29,6 +29,7 @@ def app(parsers):
                 parse_streams = col.checkbox('Parse Streams', key='cb_%s' % str(idx))
                 if parse_streams:
                     trace_selected = MuPDF.get_name()+'-s'
+                print(tracers[trace_selected].streams_parsed)
             message_type = col.radio('Messages', ['Raw', 'Cleaned'], key='mt_%s' % str(idx))
             tracer = tracers[trace_selected]
             if message_type == 'Raw':
