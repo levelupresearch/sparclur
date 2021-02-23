@@ -1,9 +1,12 @@
 import locale
 from typing import List, Dict
 
+from func_timeout import func_timeout, FunctionTimedOut
+
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._tracer import Tracer
+from sparclur._text_extractor import TextExtractor
 from sparclur.utils.tools import fix_splits
 
 import os
@@ -19,15 +22,130 @@ from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
 
-class MuPDF(Tracer, Renderer):
+class MuDraw(Renderer):
+    """MuPDF renderer"""
+    def __init__(self, doc_path: str,
+                 dpi: int = 200,
+                 cache_renders: bool = False,
+                 verbose: bool = False,
+                 timeout: int = None
+                 ):
+        """
+        Parameters
+        ----------
+        doc_path : str
+            Full path to the document to be traced.
+        dpi : int
+            Dots per inch used in rendering the document
+        cache_renders : bool
+            Specify whether or not renders should be retained in the object
+        verbose : bool
+            Specify whether additional logging should be saved, such as successful renders and timing
+        timeout : int
+            Specify a timeout for rendering
+        """
+        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose, timeout=timeout)
+
+    def _check_for_renderer(self) -> bool:
+        return 'fitz' in sys.modules.keys()
+
+    @staticmethod
+    def get_name():
+        return 'MuDraw'
+
+    def _mudraw(self, page, mat):
+        pix = page.getPixmap(matrix=mat)
+        width = pix.width
+        height = pix.height
+        return Image.frombytes("RGB", [width, height], pix.samples)
+
+    def _render_page(self, page):
+        if self._verbose:
+            start_time = time.perf_counter()
+        try:
+            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
+            doc = fitz.open(self._doc_path)
+            page = doc[page]
+            if self._timeout is None:
+                mu_pil: PngImageFile = self._mudraw(page, mat)
+            else:
+                mu_pil: PngImageFile = func_timeout(
+                    self._timeout,
+                    self._mudraw,
+                    kwargs={
+                        'page': doc[page],
+                        'mat': mat
+                    }
+                )
+            doc.close()
+            if self._caching:
+                self._renders[page] = mu_pil
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logs[page] = {'result': SUCCESS, 'timing': timing}
+        except FunctionTimedOut:
+            mu_pil: PngImageFile = None
+            if self._verbose:
+                self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
+        except Exception as e:
+            mu_pil: PngImageFile = None
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logs[page] = {'result': str(e), 'timing': timing}
+        return mu_pil
+
+    def _render_doc(self):
+        if self._verbose:
+            start_time = time.perf_counter()
+        try:
+            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
+            doc = fitz.open(self._doc_path)
+            if len(doc) == 0:
+                doc.close()
+                raise Exception('Document failed to load')
+            pils: Dict[int, PngImageFile] = dict()
+            for page in doc:
+                try:
+                    if self._timeout is None:
+                        pils[page.number] = self._mudraw(page, mat)
+                    else:
+                        pils[page.number] = func_timeout(
+                            self._timeout,
+                            self._mudraw,
+                            kwargs={
+                                'page': page,
+                                'mat': mat
+                            }
+                        )
+                except FunctionTimedOut:
+                    if self._verbose:
+                        self._logs[page.number] = {'result': 'Timed out', 'timing': self._timeout}
+                except Exception as e:
+                    pass
+            doc.close()
+            if self._caching:
+                self._full_doc_rendered = True
+                self._renders = pils
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                num_pages = len(pils)
+                for page in pils.keys():
+                    self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+        except Exception as e:
+            pils: Dict[int, PngImageFile] = dict()
+            if self._verbose:
+                timing = time.perf_counter() - start_time
+                self._logs[0] = {'result': str(e), 'timing': timing}
+        return pils
+
+
+class MuPDF(Tracer, TextExtractor):
     """MuPDF tracer and renderer """
     def __init__(self, doc_path: str,
                  parse_streams: bool = True,
                  binary_path: str = None,
-                 temp_folders_dir: str = None,
-                 dpi: int = 200,
-                 cache_renders: bool = False,
-                 verbose: bool = False):
+                 temp_folders_dir: str = None
+                 ):
         """
         Parameters
         ----------
@@ -41,19 +159,13 @@ class MuPDF(Tracer, Renderer):
             specific versions of the binary.
         temp_folders_dir : str
             Path to create the temporary directories used for temporary files.
-        dpi : int
-            Dots per inch used in rendering the document
-        cache_renders : bool
-            Specify whether or not renders should be retained in the object
-        verbose : bool
-            Specify whether additional logging should be saved, such as successful renders and timing
         """
-        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose)
+        super().__init__(doc_path=doc_path)
         self._parse_streams = parse_streams
         self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
 
-    def _check_for_renderer(self) -> bool:
+    def _check_for_text_extraction(self) -> bool:
         return 'fitz' in sys.modules.keys()
 
     def _check_for_tracer(self) -> bool:
@@ -162,58 +274,14 @@ class MuPDF(Tracer, Renderer):
                 error_dict[error] = error_dict.get(error, 0) + 1
         self._cleaned = error_dict
 
-    def _render_page(self, page):
-        if self._verbose:
-            start_time = time.perf_counter()
-        try:
-            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
-            doc = fitz.open(self._doc_path)
-            pix = doc[page].getPixmap(matrix=mat)
-            width = pix.width
-            height = pix.height
-            mu_pil: PngImageFile = Image.frombytes("RGB", [width, height], pix.samples)
-            doc.close()
-            if self._caching:
-                self._renders[page] = mu_pil
-            if self._verbose:
-                timing = time.perf_counter() - start_time
-                self._logging[page] = {'result': SUCCESS, 'timing': timing}
-        except Exception as e:
-            print(str(e))
-            mu_pil: PngImageFile = None
-            if self._verbose:
-                timing = time.perf_counter() - start_time
-                self._logging[page] = {'result': str(e), 'timing': timing}
-        return mu_pil
+    def _extract_page(self, page: int):
+        doc = fitz.open(self._doc_path)
+        text = doc[page].getText()
+        doc.close()
+        self._text[page] = text
 
-    def _render_doc(self):
-        if self._verbose:
-            start_time = time.perf_counter()
-        try:
-            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
-            doc = fitz.open(self._doc_path)
-            pils: Dict[int, PngImageFile] = dict()
-            for page in doc:
-                try:
-                    pix = page.getPixmap(matrix=mat)
-                    width = pix.width
-                    height = pix.height
-                    pils[page.number] = Image.frombytes("RGB", [width, height], pix.samples)
-                except:
-                    pass
-            doc.close()
-            if self._caching:
-                self._full_doc_rendered = True
-                self._renders = pils
-            if self._verbose:
-                timing = time.perf_counter() - start_time
-                num_pages = len(pils)
-                for page in pils.keys():
-                    self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
-        except Exception as e:
-            print(e)
-            pils: Dict[int, PngImageFile] = dict()
-            if self._verbose:
-                timing = time.perf_counter() - start_time
-                self._logging[0] = {'result': str(e), 'timing': timing}
-        return pils
+    def _extract_doc(self):
+        doc = fitz.open(self._doc_path)
+        for page in doc:
+            self._text[page.number] = page.getText()
+        self._full_text_extracted = True

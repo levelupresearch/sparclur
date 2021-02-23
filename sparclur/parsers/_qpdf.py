@@ -1,20 +1,20 @@
 import locale
 from typing import Dict
 
+from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._tracer import Tracer
 from sparclur.utils.tools import fix_splits
 
-import os
 import re
 import subprocess
-import tempfile
+import json
 
 
-class QPDF(Tracer):
+class QPDF(Tracer, MetadataExtractor):
     """QPDF tracer"""
     def __init__(self, doc_path: str,
-                 binary_path: str = None,
-                 temp_folders_dir: str = None):
+                 binary_path: str = None
+                 ):
         """
         Parameters
         ----------
@@ -28,7 +28,7 @@ class QPDF(Tracer):
         """
         super().__init__(doc_path=doc_path)
         self._doc_path = doc_path
-        self._temp_folders_dir = temp_folders_dir
+        #self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'qpdf' if binary_path is None else binary_path
         # try:
         #     subprocess.check_output(self._cmd_path + " --version", shell=True)
@@ -37,29 +37,48 @@ class QPDF(Tracer):
         #     print("QPDF binary not found: ", str(e))
         #     self.qpdf_present = False
 
-    def _check_for_tracer(self) -> bool:
+    def _check_for_qpdf(self) -> bool:
         try:
             subprocess.check_output(self._cmd_path + " --version", shell=True)
             qpdf_present = True
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             qpdf_present = False
         return qpdf_present
+
+    def _check_for_tracer(self) -> bool:
+        return self._check_for_qpdf()
+
+    def _check_for_metadata(self) -> bool:
+        return self._check_for_qpdf()
 
     @staticmethod
     def get_name():
         return 'QPDF'
 
-    def _parse_document(self):
-
-        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
-            out_path = os.path.join(temp_path, 'out.pdf')
-            sp = subprocess.Popen('%s --json %s' % (self._cmd_path, self._doc_path), executable='/bin/bash',
-                                  stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, shell=True)
-            (stdout, err) = sp.communicate()
+    def _run_json(self):
+        # with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+        # out_path = os.path.join(temp_path, 'out.pdf')
+        sp = subprocess.Popen('%s --json %s' % (self._cmd_path, self._doc_path), executable='/bin/bash',
+                              stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        (stdout, err) = sp.communicate()
         decoder = locale.getpreferredencoding()
-        err = fix_splits(err.decode(decoder))
+        err = fix_splits(err.decode(decoder, errors='ignore'))
+        stdout = stdout.decode(decoder, errors='ignore')
         error_arr = [message for message in err.split('\n') if len(message) > 0]
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
+        try:
+            file = json.loads(stdout)
+            objects = file['objects'].items()
+            self._metadata = dict(objects)
+            self._metadata_result = METADATA_SUCCESS
+        except Exception as e:
+            self._metadata_result = str(e)
+
+    def _parse_document(self):
+        self._run_json()
+
+    def _extract_metadata(self):
+        self._run_json()
 
     def _clean_message(self, err):
 

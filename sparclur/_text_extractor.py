@@ -76,7 +76,7 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
         if page is not None:
             if page not in self._text:
                 self._extract_page(page)
-            result = self._text[page]
+            result = self._text.get(page, '')
         else:
             if not self._full_text_extracted:
                 self._extract_doc()
@@ -92,8 +92,11 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
         text = self.get_text(page=page)
         if page is not None:
             if page not in self._tokens:
-                tokens = [str(token) for token in tokenizer(text)]
-                self._tokens[page] = tokens
+                if text == '':
+                    tokenized = ['']
+                else:
+                    tokenized = [str(token) for token in tokenizer(text)]
+                self._tokens[page] = tokenized
             tokens = self._tokens[page]
         else:
             if not self._document_tokenized:

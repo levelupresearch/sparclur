@@ -2,6 +2,8 @@ import locale
 import time
 import warnings
 
+from func_timeout import func_timeout, FunctionTimedOut
+
 from sparclur._renderer import Renderer
 from sparclur._text_extractor import TextExtractor
 from sparclur._tracer import Tracer
@@ -29,7 +31,8 @@ class PDFtoPPM(Tracer, Renderer):
                  dpi: int = 200,
                  size: Tuple[int] or int = None,
                  cache_renders: bool = False,
-                 verbose: bool = False):
+                 verbose: bool = False,
+                 timeout: int = None):
         """
         Parameters
         ----------
@@ -48,8 +51,10 @@ class PDFtoPPM(Tracer, Renderer):
             Specify whether or not renders should be retained in the object
         verbose : bool
             Specify whether additional logging should be saved, such as successful renders and timing
+        timeout : int
+            Specify a timeout for rendering
         """
-        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose)
+        super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose, timeout=timeout)
         self._temp_folders_dir = temp_folders_dir
         self._size = size
         self._cmd_path = 'pdftoppm' if binary_path is None else binary_path
@@ -149,25 +154,46 @@ class PDFtoPPM(Tracer, Renderer):
         if self._verbose:
             start_time = time.perf_counter()
         try:
-            render: PngImageFile = self._poppler_render(page=page)
+            if self._timeout is None:
+                render: PngImageFile = self._poppler_render(page=page)
+            else:
+                render: PngImageFile = func_timeout(
+                    self._timeout,
+                    self._poppler_render,
+                    kwargs={
+                        'page': page
+                    }
+                )
             if self._caching:
                 self._renders[page] = render
             if self._verbose:
                 timing = time.perf_counter() - start_time
-                self._logging[page] = {'result': SUCCESS, 'timing': timing}
+                self._logs[page] = {'result': SUCCESS, 'timing': timing}
+        except FunctionTimedOut:
+            render: PngImageFile = None
+            if self._verbose:
+                self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
         except Exception as e:
-            print(e)
             render: PngImageFile = None
             if self._verbose:
                 timing = time.perf_counter() - start_time
-                self._logging[page] = {'result': str(e), 'timing': timing}
+                self._logs[page] = {'result': str(e), 'timing': timing}
         return render
 
     def _render_doc(self):
         if self._verbose:
             start_time = time.perf_counter()
         try:
-            renders: Dict[int, PngImageFile] = self._poppler_render(page=None)
+            if self._timeout is None:
+                renders: Dict[int, PngImageFile] = self._poppler_render(page=None)
+            else:
+                renders: Dict[int, PngImageFile] = func_timeout(
+                    self._timeout,
+                    self._poppler_render,
+                    kwargs={
+                        'page': None
+                    }
+                )
             if self._caching:
                 self._full_doc_rendered = True
                 self._renders = renders
@@ -175,13 +201,17 @@ class PDFtoPPM(Tracer, Renderer):
                 timing = time.perf_counter() - start_time
                 num_pages = len(renders)
                 for page in renders.keys():
-                    self._logging[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+                    self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+        except FunctionTimedOut:
+            renders: Dict[int, PngImageFile] = dict()
+            if self._verbose:
+                self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
         except Exception as e:
             print(e)
             renders: Dict[int, PngImageFile] = dict()
             if self._verbose:
                 timing = time.perf_counter() - start_time
-                self._logging[0] = {'result': str(e), 'timing': timing}
+                self._logs[0] = {'result': str(e), 'timing': timing}
         return renders
 
     def _poppler_render(self, page=None):
