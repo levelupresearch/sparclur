@@ -16,7 +16,7 @@ class InputError(Exception):
 
 
 def create_file_list(files, recurse=False, base_path=None):
-
+    fitz.TOOLS.mupdf_display_errors(False);
     try:
         if os.path.isfile(files):
             with open(files) as fp:

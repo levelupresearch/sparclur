@@ -11,7 +11,7 @@ from sparclur.parsers import MuPDF, PDFMiner
 from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc, _lit_raw, _lit_meta
 from sparclur.lit_sparclur._non_parser import NonParser
 from sparclur.lit_sparclur._lit_helper import parse_init
-from sparclur.utils.tools import create_file_list, is_pdf
+from sparclur.utils._tools import create_file_list, is_pdf
 
 from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_renderers, \

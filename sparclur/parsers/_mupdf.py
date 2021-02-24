@@ -7,7 +7,7 @@ from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._tracer import Tracer
 from sparclur._text_extractor import TextExtractor
-from sparclur.utils.tools import fix_splits
+from sparclur.utils._tools import fix_splits
 
 import os
 import sys

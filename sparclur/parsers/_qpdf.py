@@ -3,7 +3,7 @@ from typing import Dict
 
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._tracer import Tracer
-from sparclur.utils.tools import fix_splits
+from sparclur.utils._tools import fix_splits
 
 import re
 import subprocess

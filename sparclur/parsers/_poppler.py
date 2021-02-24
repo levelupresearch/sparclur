@@ -8,7 +8,7 @@ from sparclur._renderer import Renderer
 from sparclur._text_extractor import TextExtractor
 from sparclur._tracer import Tracer
 from sparclur.parsers._poppler_helpers import _parse_poppler_size
-from sparclur.utils.tools import fix_splits
+from sparclur.utils._tools import fix_splits
 
 from typing import List, Dict
 import tempfile

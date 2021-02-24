@@ -1,6 +1,6 @@
 import abc
 from sparclur._parser import Parser
-from sparclur.utils.tools import shingler, jac_dist, lev_dist
+from sparclur.utils._tools import shingler, jac_dist, lev_dist
 import sys
 from spacy.lang.en import English
 

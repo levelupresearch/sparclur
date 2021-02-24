@@ -5,7 +5,7 @@ from func_timeout import func_timeout, FunctionTimedOut
 from sparclur._ssim_result import SSIM
 from sparclur.parsers.present_parsers import get_sparclur_renderers
 from sparclur.prc._prc import _parse_renderers
-from sparclur.utils.tools import create_file_list, get_num_pages, gen_flatten
+from sparclur.utils._tools import create_file_list, get_num_pages, gen_flatten
 from tqdm import tqdm
 from pebble import ProcessPool
 from concurrent.futures import TimeoutError
@@ -90,7 +90,7 @@ def _parallel_prc(files, progress_bar, max_workers, overall_timeout, renderers):
                 result = _error_result(file, e, renderers)
             except Exception as error:
                 file = files[index]['path']
-                e = str(error.args[0])
+                e = str(error)
                 result = _error_result(file, e, renderers)
             finally:
                 if progress_bar:

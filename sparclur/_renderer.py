@@ -47,7 +47,11 @@ def _single_page_compare(pil1, pil2, full):
             ssim = structural_similarity(np1[0:width, 0:height], np2[0:width, 0:height], full=full)
             diff = None
         result = 'Compared Successfully'
-
+    except FunctionTimedOut:
+        ssim = -1.0
+        diff= Image.new("RGB", (width, height), (255,255,255)) if width * height != 0 \
+            else Image.new("RGB", (1, 1), (255,255,255))
+        result = "Compare Timed Out"
     except Exception as e:
         ssim = -1.0
         diff = Image.new("RGB", (width, height), (255, 255, 255)) if width * height != 0 \
