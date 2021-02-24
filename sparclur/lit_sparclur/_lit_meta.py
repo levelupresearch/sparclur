@@ -18,7 +18,7 @@ def sort_transform(obj):
         return int(obj.split(' ')[0])
 
 
-def app(parsers):
+def app(parsers, **kwargs):
     st.subheader("Parser Text Comparator")
 
     metas = {p_name: parser for (p_name, parser) in parsers.items() if p_name in METAS or p_name == PDFMiner.get_name()+'-text'}

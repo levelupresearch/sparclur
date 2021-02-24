@@ -7,14 +7,19 @@ class SSIM:
         ----------
         ssim : float
             The structural similarity metric
-        diff : PngImageFile
-            The visual difference between the original images
         result : str
             A 'Compared Successfully' message if the comparison was successful, otherwise the generated error message
+        diff : PngImageFile
+            The visual difference between the original images
         """
         self._ssim = ssim
         self._diff = diff
         self._result = result
+
+    def __iter__(self):
+        yield self._ssim
+        yield self._result
+        yield self._diff
 
     @property
     def ssim(self):

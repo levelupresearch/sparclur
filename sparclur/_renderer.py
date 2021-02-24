@@ -49,7 +49,7 @@ def _single_page_compare(pil1, pil2, full):
         result = 'Compared Successfully'
     except FunctionTimedOut:
         ssim = -1.0
-        diff= Image.new("RGB", (width, height), (255,255,255)) if width * height != 0 \
+        diff = Image.new("RGB", (width, height), (255,255,255)) if width * height != 0 \
             else Image.new("RGB", (1, 1), (255,255,255))
         result = "Compare Timed Out"
     except Exception as e:

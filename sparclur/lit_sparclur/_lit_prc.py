@@ -12,7 +12,7 @@ from sparclur.parsers.present_parsers import get_sparclur_renderers
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
 
-def app(parsers):
+def app(parsers, **kwargs):
     st.subheader("PDF Render Comparator")
 
     renderers = {p_name: parser for (p_name, parser) in parsers.items() if p_name in RENDERERS}
