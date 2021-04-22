@@ -14,6 +14,7 @@ class TextExtractor(Parser, metaclass=abc.ABCMeta):
         self._document_tokenized = False
         self._text = dict()
         self._tokens = dict()
+        self._can_extract: bool = None
 
     @abc.abstractmethod
     def _check_for_text_extraction(self) -> bool:

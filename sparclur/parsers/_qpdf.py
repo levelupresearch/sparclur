@@ -46,10 +46,18 @@ class QPDF(Tracer, MetadataExtractor):
         return qpdf_present
 
     def _check_for_tracer(self) -> bool:
-        return self._check_for_qpdf()
+        if self._can_trace is None:
+            qpdf_present = self._check_for_qpdf()
+            self._can_trace = qpdf_present
+            self._can_meta_extract = qpdf_present
+        return self._can_trace
 
     def _check_for_metadata(self) -> bool:
-        return self._check_for_qpdf()
+        if self._can_trace is None:
+            qpdf_present = self._check_for_qpdf()
+            self._can_trace = qpdf_present
+            self._can_meta_extract = qpdf_present
+        return self._can_meta_extract
 
     @staticmethod
     def get_name():

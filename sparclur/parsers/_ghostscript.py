@@ -50,7 +50,9 @@ class Ghostscript(Renderer):
         self._size = size
 
     def _check_for_renderer(self) -> bool:
-        return 'ghostscript' in sys.modules.keys()
+        if self._can_render is None:
+            self._can_render = 'ghostscript' in sys.modules.keys()
+        return self._can_render
 
     @staticmethod
     def get_name():

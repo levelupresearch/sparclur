@@ -2,7 +2,14 @@ import hashlib
 import os
 import fitz
 import re
+import numpy as np
 from inspect import signature
+from imagehash import average_hash, phash, dhash, whash
+from PIL.PngImagePlugin import PngImageFile
+from PIL.Image import Image as ImageType
+from math import log, e, sqrt
+import cv2
+
 
 class InputError(Exception):
     """Exception raised for errors in the input.
@@ -15,6 +22,11 @@ class InputError(Exception):
         self.message = message
 
 
+def pil_to_hex_array(pil):
+    array = np.array(pil, dtype='uint32')
+    return (array[:, :, 0] << 16) + (array[:, :, 1] << 8) + array[:, :, 2]
+
+
 def create_file_list(files, recurse=False, base_path=None):
     fitz.TOOLS.mupdf_display_errors(False);
     try:
@@ -24,8 +36,11 @@ def create_file_list(files, recurse=False, base_path=None):
                 files = files.split('\n')
     except:
         pass
-    if isinstance(files, list) and base_path is not None:
-        files = [os.path.join(*base_path.split(os.path.sep), *file.split(os.path.sep)) for file in files]
+    if isinstance(files, list):
+        if base_path is not None:
+            files = [os.path.join(*base_path.split(os.path.sep), *file.split(os.path.sep)) for file in files]
+        else:
+            files = files
     elif os.path.isdir(files):
         if recurse:
             files = scrape_pdfs(files)
@@ -141,3 +156,156 @@ def is_pdf(file):
     except Exception as e:
         _is_pdf = False
     return _is_pdf
+
+
+def ahash_sim(pil1, pil2, hash_size=128):
+    hash1 = average_hash(pil1, hash_size=hash_size)
+    hash2 = average_hash(pil2, hash_size=hash_size)
+    diff = hash1 - hash2
+    normalized = diff / (hash_size * hash_size)
+    return 1.0 - normalized
+
+
+def dhash_sim(pil1, pil2, hash_size=128):
+    hash1 = dhash(pil1, hash_size=hash_size)
+    hash2 = dhash(pil2, hash_size=hash_size)
+    diff = hash1 - hash2
+    normalized = diff / (hash_size * hash_size)
+    return 1.0 - normalized
+
+
+def phash_sim(pil1, pil2, hash_size=128):
+    hash1 = phash(pil1, hash_size=hash_size)
+    hash2 = phash(pil2, hash_size=hash_size)
+    diff = hash1 - hash2
+    normalized = diff / (hash_size * hash_size)
+    return 1.0 - normalized
+
+
+def whash_sim(pil1, pil2, hash_size=128):
+    hash1 = whash(pil1, hash_size=hash_size)
+    hash2 = whash(pil2, hash_size=hash_size)
+    diff = hash1 - hash2
+    normalized = diff / (hash_size * hash_size)
+    return 1.0 - normalized
+
+
+def entropy(a):
+    if isinstance(a, PngImageFile) or isinstance(a, ImageType):
+        a = pil_to_hex_array(a)
+    n = a.size
+
+    if n <= 1:
+        return 0
+    _, counts = np.unique(a, return_counts=True)
+    probs = counts / n
+
+    n_classes = np.count_nonzero(probs)
+
+    if n_classes <= 1:
+        return 0
+
+    ent = 0.
+
+    for p in probs:
+        ent -= p * log(p, e)
+
+    return ent
+
+
+def entropy_sim(a, b):
+    a_ent = entropy(a)
+    b_ent = entropy(b)
+
+    ent_min = min(a_ent, b_ent)
+    ent_max = max(a_ent, b_ent)
+
+    sim = ent_min / ent_max if ent_max > 0 else 1.0
+
+    return sim
+
+
+def pad_images(pil1, pil2):
+    if isinstance(pil1, PngImageFile) or isinstance(pil1, ImageType):
+        pil1 = np.array(pil1)
+    if isinstance(pil2, PngImageFile) or isinstance(pil2, ImageType):
+        pil2 = np.array(pil2)
+    h1, w1 = pil1.shape[0:2]
+    h2, w2 = pil2.shape[0:2]
+    delta_w = w1 - w2
+    delta_h = h1 - h2
+    #If the product of the deltas is greater than or equal to zero, then it's either the case that the dimensions are
+    #the same, exactly one of the dimensions is the same, or one of the images is smaller in both width and height. In
+    #these 3 cases no padding is needed to calculate the windowed similarity metrics between the two images. So we only
+    #need to explore the space where the product is less than 0. The remaining cases is that one image is taller and
+    #thinner than the other and padding will be necessary to calculate the similarity.
+    if delta_w * delta_h < 0:
+        if w1 > w2:
+            #This means that h1 < h2
+            padding = ((0, h2 - h1), (0, 0), (0, 0)) if len(pil1.shape) == 3 else ((0, h2 - h1), (0, 0))
+            pil1 = np.pad(pil1, padding, 'constant', constant_values=255)
+        else:
+            #Final case w1 < w2 and h1 > h2
+            padding = ( (0, 0), (0, w2 - w1), (0, 0)) if len(pil1.shape) == 3 else ((0, 0), (0, w2 - w1))
+            pil1 = np.pad(pil1, padding, 'constant', constant_values=255)
+    new_h1, new_w1 = pil1.shape[0:2]
+    new_h2, new_w2 = pil2.shape[0:2]
+    return (pil1, pil2) if new_w1 >= new_w2 and new_h1 >= new_h2 else (pil2, pil1)
+
+
+def _template_matching(pil1, pil2, method):
+    if isinstance(pil1, PngImageFile) or isinstance(pil1, ImageType):
+        pil1 = np.array(pil1)
+    if isinstance(pil2, PngImageFile) or isinstance(pil2, ImageType):
+        pil2 = np.array(pil2)
+
+    pil1, pil2 = pad_images(pil1, pil2)
+
+    res = cv2.matchTemplate(pil1, pil2, method)
+
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+
+    score = 1.0 - min_val if method == cv2.TM_SQDIFF_NORMED else max_val
+    position = min_loc if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED] else max_loc
+    return score, position
+
+
+def sum_square_sim(pil1, pil2):
+    return _template_matching(pil1, pil2, cv2.TM_SQDIFF_NORMED)
+
+
+def ccoeff_sim(pil1, pil2):
+    return _template_matching(pil1, pil2, cv2.TM_CCOEFF_NORMED)
+
+
+def ccorr_sim(pil1, pil2):
+    return _template_matching(pil1, pil2, cv2.TM_CCORR_NORMED)
+
+
+def orientation_sim(pil1, pil2):
+    if isinstance(pil1, PngImageFile) or isinstance(pil1, ImageType):
+        pil1 = np.array(pil1)
+    if isinstance(pil2, PngImageFile) or isinstance(pil2, ImageType):
+        pil2 = np.array(pil2)
+
+    h1, w1 = pil1.shape[0:2]
+    h2, w2 = pil2.shape[0:2]
+
+    num = w1 * w2 + h1 * h2
+    denom = sqrt(w1 * w1 + h1 * h1) * sqrt(w2 * w2 + h2 * h2)
+
+    return num / denom if denom > 0 else 0
+
+
+def size_sim(pil1, pil2):
+    if isinstance(pil1, PngImageFile) or isinstance(pil1, ImageType):
+        pil1 = np.array(pil1)
+    if isinstance(pil2, PngImageFile) or isinstance(pil2, ImageType):
+        pil2 = np.array(pil2)
+    h1, w1 = pil1.shape[0:2]
+    h2, w2 = pil2.shape[0:2]
+
+    width_ratio = min(w1/w2, w2/w1) if w1 * w2 > 0 else 0
+    height_ratio = min(h1/h2, h2/h1) if h1 * h2 > 0 else 0
+
+    return min(width_ratio, height_ratio)

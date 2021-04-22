@@ -2,7 +2,7 @@ import itertools
 
 from func_timeout import func_timeout, FunctionTimedOut
 
-from sparclur._ssim_result import SSIM
+from sparclur._prc_sim import PRCSim
 from sparclur.parsers.present_parsers import get_sparclur_renderers
 from sparclur.prc._prc import _parse_renderers
 from sparclur.utils._tools import create_file_list, get_num_pages, gen_flatten
@@ -46,8 +46,8 @@ def _prc_worker(entry):
             i_result['%s_timing' % name] = page_log.get('timing', None)
         for combo in itertools.combinations(renders.keys(), 2):
             col_name = '%s_%s' % (combo[0], combo[1]) if combo[0] < combo[1] else '%s_%s' % (combo[1], combo[0])
-            ssim_result: SSIM = renders[combo[0]].compare(renders[combo[1]], page=i, full=False)
-            i_result['%s_ssim' % col_name] = ssim_result.ssim
+            ssim_result: PRCSim = renders[combo[0]].compare(renders[combo[1]], page=i, full=False)
+            i_result['%s_sim' % col_name] = ssim_result.sim
             i_result['%s_result' % col_name] = ssim_result.result
         overall_result.append(i_result)
     return overall_result
@@ -62,7 +62,7 @@ def _error_result(path, error, renderers):
         d['%s_timing' % renderer] = None
     for combo in combos:
         col_name = '%s_%s' % (combo[0], combo[1]) if combo[0] < combo[1] else '%s_%s' % (combo[1], combo[0])
-        d['%s_ssim' % col_name] = None
+        d['%s_sim' % col_name] = None
         d['%s_result' % col_name] = error
     return [d]
 

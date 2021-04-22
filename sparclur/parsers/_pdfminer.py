@@ -134,10 +134,18 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         return "pdfminer" in sys.modules.keys()
 
     def _check_for_text_extraction(self) -> bool:
-        return self._check_for_pdfminer()
+        if self._can_extract is None:
+            pdfminer_present = self._check_for_pdfminer()
+            self._can_extract = pdfminer_present
+            self._can_meta_extract = pdfminer_present
+        return self._can_extract
 
     def _check_for_metadata(self) -> bool:
-        return self._check_for_pdfminer()
+        if self._can_extract is None:
+            pdfminer_present = self._check_for_pdfminer()
+            self._can_extract = pdfminer_present
+            self._can_meta_extract = pdfminer_present
+        return self._can_meta_extract
 
     @staticmethod
     def get_name():

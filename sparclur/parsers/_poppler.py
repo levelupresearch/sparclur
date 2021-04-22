@@ -66,15 +66,26 @@ class PDFtoPPM(Tracer, Renderer):
         #     self._poppler_present = False
 
     def _check_for_renderer(self) -> bool:
-        try:
-            subprocess.check_output(self._cmd_path + " -v", shell=True)
-            pdftoppm_present = True
-        except subprocess.CalledProcessError as e:
-            pdftoppm_present = False
-        return pdftoppm_present
+        if self._can_render is None:
+            try:
+                subprocess.check_output(self._cmd_path + " -v", shell=True)
+                pdftoppm_present = True
+            except subprocess.CalledProcessError as e:
+                pdftoppm_present = False
+            self._can_render = pdftoppm_present
+            self._can_trace = pdftoppm_present
+        return self._can_render
 
     def _check_for_tracer(self) -> bool:
-        return self._check_for_renderer()
+        if self._can_render is None:
+            try:
+                subprocess.check_output(self._cmd_path + " -v", shell=True)
+                pdftoppm_present = True
+            except subprocess.CalledProcessError as e:
+                pdftoppm_present = False
+            self._can_render = pdftoppm_present
+            self._can_trace = pdftoppm_present
+        return self._can_trace
 
     @staticmethod
     def get_name():
@@ -252,7 +263,15 @@ class PDFtoPPM(Tracer, Renderer):
                 page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
                 result[page_index] = Image.open(os.path.join(temp_path, render))
         if return_single_page:
-            result: PngImageFile = result.get(int(page) - 1)
+            single_page_result = result.get(int(page) - 1)
+            if single_page_result is not None:
+                if single_page_result.width * single_page_result.height == 1:
+                    result = self._render_doc().get(int(page) - 1)
+                else:
+                    result = single_page_result
+            else:
+                result = None
+            # result: PngImageFile = result.get(int(page) - 1)
         return result
 
 
@@ -278,12 +297,14 @@ class PDFtoCairo(Tracer):
         self._cmd_path = 'pdftocairo' if binary_path is None else binary_path
 
     def _check_for_tracer(self) -> bool:
-        try:
-            subprocess.check_output(self._cmd_path + " -v", shell=True)
-            pdftocairo_present = True
-        except subprocess.CalledProcessError as e:
-            pdftocairo_present = False
-        return pdftocairo_present
+        if self._can_trace is None:
+            try:
+                subprocess.check_output(self._cmd_path + " -v", shell=True)
+                pdftocairo_present = True
+            except subprocess.CalledProcessError as e:
+                pdftocairo_present = False
+            self._can_trace = pdftocairo_present
+        return self._can_trace
 
     def get_doc_path(self):
         return self._doc_path
@@ -351,12 +372,14 @@ class PDFtoText(TextExtractor):
         self._verbose = v
 
     def _check_for_text_extraction(self) -> bool:
-        try:
-            subprocess.check_output(self._cmd_path + " -v", shell=True)
-            pdftotext_present = True
-        except subprocess.CalledProcessError as e:
-            pdftotext_present = False
-        return pdftotext_present
+        if self._can_extract is None:
+            try:
+                subprocess.check_output(self._cmd_path + " -v", shell=True)
+                pdftotext_present = True
+            except subprocess.CalledProcessError as e:
+                pdftotext_present = False
+            self._can_extract = pdftotext_present
+        return self._can_extract
 
     @staticmethod
     def get_name():

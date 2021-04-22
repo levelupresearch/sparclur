@@ -47,7 +47,9 @@ class MuDraw(Renderer):
         super().__init__(doc_path=doc_path, dpi=dpi, cache_renders=cache_renders, verbose=verbose, timeout=timeout)
 
     def _check_for_renderer(self) -> bool:
-        return 'fitz' in sys.modules.keys()
+        if self._can_render is None:
+            self._can_render = 'fitz' in sys.modules.keys()
+        return self._can_render
 
     @staticmethod
     def get_name():
@@ -166,15 +168,19 @@ class MuPDF(Tracer, TextExtractor):
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
 
     def _check_for_text_extraction(self) -> bool:
-        return 'fitz' in sys.modules.keys()
+        if self._can_extract is None:
+            self._can_extract = 'fitz' in sys.modules.keys()
+        return self._can_extract
 
     def _check_for_tracer(self) -> bool:
-        try:
-            subprocess.check_output("mutool -v", shell=True)
-            mutool_present = True
-        except subprocess.CalledProcessError as e:
-            mutool_present = False
-        return mutool_present
+        if self._can_trace is None:
+            try:
+                subprocess.check_output("mutool -v", shell=True)
+                mutool_present = True
+            except subprocess.CalledProcessError as e:
+                mutool_present = False
+            self._can_trace = mutool_present
+        return self._can_trace
 
     @staticmethod
     def get_name():

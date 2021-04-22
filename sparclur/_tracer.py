@@ -17,6 +17,7 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         super().__init__(doc_path=doc_path, *args, **kwargs)
         self._messages: List[str] = None
         self._cleaned: Dict[str, int] = None
+        self._can_trace: bool = None
 
     @abc.abstractmethod
     def _check_for_tracer(self) -> bool:
