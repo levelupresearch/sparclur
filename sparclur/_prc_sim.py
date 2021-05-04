@@ -8,7 +8,8 @@ class PRCSim:
         self._ccorr_sim = similarity_scores.get('ccorr_sim', 0.0)
         self._ccoeff_sim = similarity_scores.get('ccoeff_sim', 0.0)
         self._size_sim = similarity_scores.get('size_sim', 1.0)
-        self._sim = ((sum(similarity_scores.values()) - self._size_sim) / 6.0) * self._size_sim * self._size_sim
+        sim_sum = self._entropy_sim + self._whash_sim + self._phash_sim + self._sum_square_sim + self._ccorr_sim + self._ccoeff_sim
+        self._sim = (sim_sum / 6.0) * self._size_sim * self._size_sim
         self._ssim = similarity_scores.get('ssim', 0.0)
         self._result = result
         self._diff = diff
@@ -17,6 +18,18 @@ class PRCSim:
         yield self._sim
         yield self._result
         yield self._diff
+
+    @property
+    def all_metrics(self):
+        metrics = {'sim': self._sim,
+                   'entropy_sim': self._entropy_sim,
+                   'whash_sim': self._whash_sim,
+                   'phash_sim': self._phash_sim,
+                   'sum_square_sim': self._sum_square_sim,
+                   'ccorr_sim': self._ccorr_sim,
+                   'ccoeff_sim': self._ccoeff_sim,
+                   'size_sim': self._size_sim}
+        return metrics
 
     @property
     def sim(self):

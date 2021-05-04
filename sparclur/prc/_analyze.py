@@ -5,7 +5,7 @@ from func_timeout import func_timeout, FunctionTimedOut
 from sparclur._prc_sim import PRCSim
 from sparclur.parsers.present_parsers import get_sparclur_renderers
 from sparclur.prc._prc import _parse_renderers
-from sparclur.utils._tools import create_file_list, get_num_pages, gen_flatten
+from sparclur.utils._tools import create_file_list, gen_flatten
 from tqdm import tqdm
 from pebble import ProcessPool
 from concurrent.futures import TimeoutError
@@ -13,12 +13,22 @@ import os
 import pandas as pd
 
 AVAILABLE_RENDERERS = {r.get_name(): r for r in get_sparclur_renderers()}
+AVAILABLE_METRICS = ['sim',
+                     'entropy_sim',
+                     'whash_sim',
+                     'phash_sim',
+                     'sum_square_sim',
+                     'ccorr_sim',
+                     'ccoeff_sim',
+                     'size_sim'
+                     ]
 
 
 def _prc_worker(entry):
     path = entry['path']
     file = path.split(os.path.sep)[-1]
     renderers = {renderer: AVAILABLE_RENDERERS[renderer] for renderer in entry['renderers']}
+    metrics = entry['metrics']
     parser_args = entry['parser_args']
     timeout = entry['timeout']
     result = {'file': file, 'path': path}
@@ -46,14 +56,17 @@ def _prc_worker(entry):
             i_result['%s_timing' % name] = page_log.get('timing', None)
         for combo in itertools.combinations(renders.keys(), 2):
             col_name = '%s_%s' % (combo[0], combo[1]) if combo[0] < combo[1] else '%s_%s' % (combo[1], combo[0])
-            ssim_result: PRCSim = renders[combo[0]].compare(renders[combo[1]], page=i, full=False)
-            i_result['%s_sim' % col_name] = ssim_result.sim
-            i_result['%s_result' % col_name] = ssim_result.result
+            sim_result: PRCSim = renders[combo[0]].compare(renders[combo[1]], page=i, full=False)
+            sim_metrics = sim_result.all_metrics
+            for metric in metrics:
+                i_result['%s_%s' % (col_name, metric)] = sim_metrics[metric]
+            # i_result['%s_sim' % col_name] = ssim_result.sim
+            i_result['%s_result' % col_name] = sim_result.result
         overall_result.append(i_result)
     return overall_result
 
 
-def _error_result(path, error, renderers):
+def _error_result(path, error, renderers, metrics):
     file = path.split(os.path.sep)[-1]
     d = {'file': file, 'path': path, 'page': 0}
     combos = itertools.combinations(renderers, 2)
@@ -62,12 +75,13 @@ def _error_result(path, error, renderers):
         d['%s_timing' % renderer] = None
     for combo in combos:
         col_name = '%s_%s' % (combo[0], combo[1]) if combo[0] < combo[1] else '%s_%s' % (combo[1], combo[0])
-        d['%s_sim' % col_name] = None
+        for metric in metrics:
+            d['%s_%s' % (col_name, metric)] = None
         d['%s_result' % col_name] = error
     return [d]
 
 
-def _parallel_prc(files, progress_bar, max_workers, overall_timeout, renderers):
+def _parallel_prc(files, progress_bar, max_workers, overall_timeout, renderers, metrics):
     if progress_bar:
         pbar = tqdm(total=len(files))
     results = []
@@ -87,11 +101,11 @@ def _parallel_prc(files, progress_bar, max_workers, overall_timeout, renderers):
             except TimeoutError:
                 file = files[index]['path']
                 e = 'PRC Timed Out'
-                result = _error_result(file, e, renderers)
+                result = _error_result(file, e, renderers, metrics)
             except Exception as error:
                 file = files[index]['path']
                 e = str(error)
-                result = _error_result(file, e, renderers)
+                result = _error_result(file, e, renderers, metrics)
             finally:
                 if progress_bar:
                     pbar.update(1)
@@ -103,7 +117,7 @@ def _parallel_prc(files, progress_bar, max_workers, overall_timeout, renderers):
     return gen_flatten(results)
 
 
-def _serial_prc(files, progress_bar, compare_timeout, renderers):
+def _serial_prc(files, progress_bar, compare_timeout, renderers, metrics):
     results = []
 
     if progress_bar:
@@ -119,10 +133,10 @@ def _serial_prc(files, progress_bar, compare_timeout, renderers):
             )
         except FunctionTimedOut:
             error = 'PRC Timed Out'
-            result = _error_result(entry['path'], error, renderers)
+            result = _error_result(entry['path'], error, renderers, metrics)
         except Exception as e:
             error = str(e)
-            result = _error_result(entry['path'], error, renderers)
+            result = _error_result(entry['path'], error, renderers, metrics)
         results.append(result)
         if progress_bar:
             pbar.update(1)
@@ -135,6 +149,7 @@ class Analyzer:
     """Runs pairwise comparisons for the defined renderers over each page of the specified document list or directory"""
     def __init__(self, files,
                  renderers=get_sparclur_renderers(),
+                 metrics='sim',
                  parser_args=dict(),
                  max_workers=1,
                  timeout=None,
@@ -151,6 +166,10 @@ class Analyzer:
             Path to a directory or a text file of PDF paths or a List of paths
         renderers : List[str] or List[Renderer]
             The desired renderers to compare. Must select at least 2 renderers. Default is all SPARCLUR renderers.
+        metrics: str or List[str]
+            List of metrics to return in the final results. Default is just the SPARCLUR similarity score. Full list:
+            whash, phash, size, sum_square, ccorr, ccoeff, entropy
+            Use 'all' to do the full set.
         parser_args : Dict[str, Dict[str, Any]]
             A dictionary of dictionaries containing any optional parameters to pass into the renderers. See an each
             renderer for it's possible parameters.
@@ -170,6 +189,17 @@ class Analyzer:
             If specified, will save a csv of the run results to save_path
         """
         self._renderers = _parse_renderers(renderers)
+        if isinstance(metrics, str):
+            if metrics == 'all':
+                self._metrics = AVAILABLE_METRICS
+            else:
+                assert(metrics in AVAILABLE_METRICS,
+                       "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
+                self._metrics = [metrics]
+        elif isinstance(metrics, list):
+            self._metrics = AVAILABLE_METRICS.intersection(metrics)
+            assert(len(self._metrics) != 0,
+                   "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
         self._parser_args = parser_args
         self._files = create_file_list(files, recurse=recurse, base_path=base_path)
         self._max_workers = max_workers
