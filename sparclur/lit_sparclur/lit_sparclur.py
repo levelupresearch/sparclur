@@ -57,7 +57,7 @@ recurse = st.sidebar.checkbox('Recurse into base directory', key='f')
 
 
 @st.cache
-def parse_document(selected_parser_kwargs, ocr, render_cache):
+def parse_document(selected_parser_kwargs, ocr):
     p = dict()
 
     for name, kwa in selected_parser_kwargs.items():
@@ -65,15 +65,16 @@ def parse_document(selected_parser_kwargs, ocr, render_cache):
             p[name] = NonParser(**kwargs)
         elif name == MuPDF.get_name() + '-s':
             p[name] = MuPDF(**kwa)
+            _ = p[name].cleaned
         elif name == PDFMiner.get_name() + '-text':
             p[name] = PDFMiner(**kwa)
+            _ = p[name].metadata
         else:
             p[name] = PARSERS[name](**kwa)
         if p[name].get_name() in TRACERS:
             _ = p[name].cleaned
         if p[name].get_name() in RENDERERS:
-            if render_cache:
-                _ = p[name].get_renders()
+            _ = p[name].get_renders()
         if p[name].get_name() in TEXTERS:
             if ocr or p[name].get_name() not in RENDERERS:
                 _ = p[name].get_tokens()
@@ -112,7 +113,7 @@ parser_kwargs = dict()
 parser_kwargs[NonParser.get_name()] = {'doc_path': filepath}
 st.sidebar.markdown('___')
 ocr = st.sidebar.checkbox('OCR', value=False, key='ocr')
-render_cache = st.sidebar.checkbox('Cache Renders', value=False, key='render_cache')
+#render_cache = st.sidebar.checkbox('Cache Renders', value=False, key='render_cache')
 dpi = st.sidebar.number_input('DPI', min_value=72, max_value=400, value=72,
                               key='dpi')
 st.sidebar.markdown('___')
@@ -127,7 +128,7 @@ for p_name, parser in PARSERS.items():
             param_type = values['param_type']
             print(key, default, param_type)
             if key == 'cache_renders':
-                val = render_cache
+                val = True
             elif key == 'temp_folders_dir':
                 val = None
             elif key == 'timeout':
@@ -178,7 +179,7 @@ for p_name, parser in PARSERS.items():
 if not is_pdf(filepath):
     st.write("Please select a PDF")
 else:
-    parsers = parse_document(parser_kwargs, ocr, render_cache)
+    parsers = parse_document(parser_kwargs, ocr)
     page.app(parsers, ocr=ocr)
     # if isinstance(page, str):
     #     st.subheader("Select Parsers")

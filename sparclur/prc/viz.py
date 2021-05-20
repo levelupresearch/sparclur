@@ -153,7 +153,7 @@ class PRCViz:
 
         for (row, combo) in enumerate(renderers):
             images = [self._renders[combo[0]].get_renders(page), self._renders[combo[1]].get_renders(page), self._sims[combo][page].diff]
-            labels = ['', '', self._sims[combo][page].ssim]
+            labels = ['', '', self._sims[combo][page].sim]
             titles = [combo[0], combo[1], 'diff']
             if nrows > 1:
                 for col in range(3):

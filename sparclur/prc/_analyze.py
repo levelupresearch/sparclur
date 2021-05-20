@@ -151,18 +151,19 @@ def _set_metrics(m):
         if m == 'all':
             metrics = AVAILABLE_METRICS
         else:
-            assert (m in AVAILABLE_METRICS,
-                    "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
+            assert m in AVAILABLE_METRICS, \
+                "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS)
             metrics = [m]
     elif isinstance(m, list):
         metrics = AVAILABLE_METRICS.intersection(m)
-        assert (len(metrics) != 0,
-                "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
+        assert len(metrics) != 0, \
+            "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS)
     return metrics
 
 
 class Analyzer:
     """Runs pairwise comparisons for the defined renderers over each page of the specified document list or directory"""
+
     def __init__(self, files,
                  renderers=get_sparclur_renderers(),
                  metrics='sim',
@@ -326,7 +327,7 @@ class Analyzer:
                                     renderers=self._renderers,
                                     metrics=self._metrics
                                     )
-            
+
         if self._save_path is not None:
             pd.DataFrame(results).to_csv(path_or_buf=self._save_path, index=False)
         else:

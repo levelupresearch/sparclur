@@ -28,7 +28,7 @@ def app(parsers, **kwargs):
         viz = PRCViz(doc_path=filename, renderers=[renderer for renderer in renderers.values()])
         # viz = get_viz(renderers)
 
-        fig = viz.plot_ssims()
+        fig = viz.plot_sims()
         st.pyplot(fig)
         select_page = st.selectbox('Page', options=list(range(viz.get_observed_pages())))
         display_fig = viz.display(page=select_page)

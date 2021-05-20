@@ -122,7 +122,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     """PDFMiner Text Extraction"""
 
     def __init__(self, doc_path: str,
-                 skip_check=False,
+                 skip_check: bool = False,
                  page_delimiter: str = '\x0c',
                  detect_vertical: bool = False,
                  all_texts: bool = False,
