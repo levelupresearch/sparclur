@@ -2,6 +2,7 @@ import itertools
 
 from func_timeout import func_timeout, FunctionTimedOut
 
+from sparclur._parser import REJECTED_AMBIG
 from sparclur._prc_sim import PRCSim
 from sparclur.parsers.present_parsers import get_sparclur_renderers
 from sparclur.prc._prc import _parse_renderers
@@ -35,11 +36,9 @@ def _prc_worker(entry):
     renders = dict()
     for (name, renderer) in renderers.items():
         args = parser_args.get(name, dict())
-        args['verbose'] = True
         args['cache_renders'] = True
         args['timeout'] = timeout
-        renders[name] = renderer(doc_path=path, **args)
-
+        renders[name] = renderer(doc_path=path, skip_check=True, **args)
     observed_pages = []
     for renderer in renders.values():
         r = renderer.get_renders()
@@ -54,6 +53,7 @@ def _prc_worker(entry):
             page_log = renderer.logs[i]
             i_result['%s_render' % name] = page_log.get('result', None)
             i_result['%s_timing' % name] = page_log.get('timing', None)
+            i_result['%s_status' % name] = renderer.validate_renderer()['status']
         for combo in itertools.combinations(renders.keys(), 2):
             col_name = '%s_%s' % (combo[0], combo[1]) if combo[0] < combo[1] else '%s_%s' % (combo[1], combo[0])
             sim_result: PRCSim = renders[combo[0]].compare(renders[combo[1]], page=i, full=False)
@@ -73,6 +73,7 @@ def _error_result(path, error, renderers, metrics):
     for renderer in renderers:
         d['%s_render' % renderer] = error
         d['%s_timing' % renderer] = None
+        d['%s_status' % renderer] = REJECTED_AMBIG
     for combo in combos:
         col_name = '%s_%s' % (combo[0], combo[1]) if combo[0] < combo[1] else '%s_%s' % (combo[1], combo[0])
         for metric in metrics:
@@ -145,6 +146,21 @@ def _serial_prc(files, progress_bar, compare_timeout, renderers, metrics):
     return gen_flatten(results)
 
 
+def _set_metrics(m):
+    if isinstance(m, str):
+        if m == 'all':
+            metrics = AVAILABLE_METRICS
+        else:
+            assert (m in AVAILABLE_METRICS,
+                    "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
+            metrics = [m]
+    elif isinstance(m, list):
+        metrics = AVAILABLE_METRICS.intersection(m)
+        assert (len(metrics) != 0,
+                "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
+    return metrics
+
+
 class Analyzer:
     """Runs pairwise comparisons for the defined renderers over each page of the specified document list or directory"""
     def __init__(self, files,
@@ -189,17 +205,7 @@ class Analyzer:
             If specified, will save a csv of the run results to save_path
         """
         self._renderers = _parse_renderers(renderers)
-        if isinstance(metrics, str):
-            if metrics == 'all':
-                self._metrics = AVAILABLE_METRICS
-            else:
-                assert(metrics in AVAILABLE_METRICS,
-                       "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
-                self._metrics = [metrics]
-        elif isinstance(metrics, list):
-            self._metrics = AVAILABLE_METRICS.intersection(metrics)
-            assert(len(self._metrics) != 0,
-                   "Please select one or more of the available metrics: %s" % ', '.join(AVAILABLE_METRICS))
+        self._metrics = _set_metrics(metrics)
         self._parser_args = parser_args
         self._files = create_file_list(files, recurse=recurse, base_path=base_path)
         self._max_workers = max_workers
@@ -249,11 +255,20 @@ class Analyzer:
     @property
     def renderer_list(self):
         """List of the renderers to be compared"""
-        return list(self._renderers.keys())
+        return self._renderers
 
     @renderer_list.setter
     def renderer_list(self, rl):
         self._renderers = _parse_renderers(rl)
+
+    @property
+    def metrics(self):
+        """List of the metrics to be returned"""
+        return self._metrics
+
+    @metrics.setter
+    def metrics(self, m):
+        self._metrics = _set_metrics(m)
 
     @property
     def progress_bar(self):
@@ -292,21 +307,24 @@ class Analyzer:
             {'path': path,
              'renderers': self._renderers,
              'parser_args': self._parser_args,
-             'timeout': self._timeout}
+             'timeout': self._timeout,
+             'metrics': self._metrics}
             for path in self._files
         ]
         if self._max_workers == 1:
-            results = _serial_prc(transformed_data,
-                                  self._progress_bar,
-                                  self._overall_timeout,
-                                  self._renderers
+            results = _serial_prc(files=transformed_data,
+                                  progress_bar=self._progress_bar,
+                                  compare_timeout=self._overall_timeout,
+                                  renderers=self._renderers,
+                                  metrics=self._metrics
                                   )
         else:
-            results = _parallel_prc(transformed_data,
-                                    self._progress_bar,
-                                    self._max_workers,
-                                    self._overall_timeout,
-                                    self._renderers
+            results = _parallel_prc(files=transformed_data,
+                                    progress_bar=self._progress_bar,
+                                    max_workers=self._max_workers,
+                                    overall_timeout=self._overall_timeout,
+                                    renderers=self._renderers,
+                                    metrics=self._metrics
                                     )
             
         if self._save_path is not None:

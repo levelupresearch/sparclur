@@ -2,6 +2,8 @@ import locale
 import re
 import sys
 
+from typing import Dict, Any
+
 from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
 
@@ -14,6 +16,7 @@ from pdfminer.utils import isnumber
 
 from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TEXT
 
 
 ESC_PAT = re.compile(r'[\000-\037&<>()"\042\047\134\177-\377]')
@@ -119,11 +122,12 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     """PDFMiner Text Extraction"""
 
     def __init__(self, doc_path: str,
+                 skip_check=False,
                  page_delimiter: str = '\x0c',
                  detect_vertical: bool = False,
                  all_texts: bool = False,
                  stream_output: str = None):
-        super().__init__(doc_path=doc_path)
+        super().__init__(doc_path=doc_path, skip_check=skip_check)
         self._page_delimiter = page_delimiter
         self._detect_vertical = detect_vertical
         self._all_texts = all_texts
@@ -140,12 +144,40 @@ class PDFMiner(TextExtractor, MetadataExtractor):
             self._can_meta_extract = pdfminer_present
         return self._can_extract
 
+    def validate_text(self) -> Dict[str, Any]:
+        if TEXT not in self._validity:
+            validity_results = dict()
+            decoder = locale.getpreferredencoding()
+            try:
+                _ = extract_text(self._doc_path, page_numbers=None, codec=decoder, laparams=self._laparams)
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            except Exception as e:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = str(e)
+            self._validity[TEXT] = validity_results
+        return self._validity[TEXT]
+
     def _check_for_metadata(self) -> bool:
         if self._can_extract is None:
             pdfminer_present = self._check_for_pdfminer()
             self._can_extract = pdfminer_present
             self._can_meta_extract = pdfminer_present
         return self._can_meta_extract
+
+    def validate_metadata(self) -> Dict[str, Any]:
+        if META not in self._validity:
+            validity_results = dict()
+            if self._metadata is None:
+                self._extract_metadata()
+            if self._metadata_result == METADATA_SUCCESS:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            else:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = self._metadata_result
 
     @staticmethod
     def get_name():

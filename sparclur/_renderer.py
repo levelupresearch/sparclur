@@ -1,7 +1,7 @@
 import abc
 
 import sys
-from typing import Dict
+from typing import Dict, Any
 from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
 from func_timeout import func_timeout, FunctionTimedOut
@@ -9,11 +9,10 @@ from skimage.metrics import structural_similarity
 import numpy as np
 
 from sparclur._prc_sim import PRCSim
-from sparclur._text_extractor import TextExtractor
+from sparclur._text_compare import TextCompare
 import re
 from pytesseract import image_to_string
 import cv2
-import imagehash
 from sparclur.utils import entropy_sim, whash_sim, phash_sim, size_sim, sum_square_sim, ccorr_sim, ccoeff_sim, \
     pad_images
 
@@ -199,22 +198,32 @@ def _template_ssim(pil1, pil2, top_left):
     return ssim, diff
 
 
-class Renderer(TextExtractor, metaclass=abc.ABCMeta):
+class Renderer(TextCompare, metaclass=abc.ABCMeta):
     """
     Abstract class for PDF renderers.
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, dpi, cache_renders, verbose, timeout, *args, **kwargs):
+    def __init__(self, doc_path, dpi, cache_renders, timeout, *args, **kwargs):
         super().__init__(doc_path=doc_path, *args, **kwargs)
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
         self._dpi = dpi
         self._caching = cache_renders
-        self._verbose = verbose
         self._logs = dict()
         self._timeout = timeout
         self._can_render: bool = None
+
+    @abc.abstractmethod
+    def validate_renderer(self) -> Dict[str, Any]:
+        """
+        Performs a validity check for this tracer.
+
+        Returns
+        -------
+        Dict[str, Any]
+        """
+        pass
 
     @abc.abstractmethod
     def _check_for_renderer(self) -> bool:
@@ -243,20 +252,20 @@ class Renderer(TextExtractor, metaclass=abc.ABCMeta):
     def timeout(self):
         self._timeout = None
 
-    @property
-    def verbose(self):
-        """Return verbose setting"""
-        return self._verbose
-
-    @verbose.setter
-    def verbose(self, v: bool):
-        """
-        Set the verbose setting for the renderer
-        Parameters
-        ----------
-        v : bool
-        """
-        self._verbose = v
+    # @property
+    # def verbose(self):
+    #     """Return verbose setting"""
+    #     return self._verbose
+    #
+    # @verbose.setter
+    # def verbose(self, v: bool):
+    #     """
+    #     Set the verbose setting for the renderer
+    #     Parameters
+    #     ----------
+    #     v : bool
+    #     """
+    #     self._verbose = v
 
     @property
     def logs(self):
@@ -362,7 +371,7 @@ class Renderer(TextExtractor, metaclass=abc.ABCMeta):
         -------
         PngImageFile or Dict[int, PngImageFile]
         """
-        assert self._check_for_renderer(), "%s not found" % self.get_name()
+        assert self._skip_check or self._check_for_renderer(), "%s not found" % self.get_name()
         if self._renders:
             if page is not None:
                 if page in self._renders:

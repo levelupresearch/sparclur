@@ -28,6 +28,17 @@ class MetadataExtractor(Parser, metaclass=abc.ABCMeta):
         """
         pass
 
+    @abc.abstractmethod
+    def validate_metadata(self) -> Dict[str, Any]:
+        """
+        Performs a validity check for this metadata extractor.
+
+        Returns
+        -------
+        Dict[str, Any]
+        """
+        pass
+
     @property
     def metadata(self) -> Dict[str, Any]:
         """

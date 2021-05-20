@@ -1,7 +1,8 @@
 import locale
-from typing import Dict
+from typing import Dict, Any
 
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER
 from sparclur._tracer import Tracer
 from sparclur.utils._tools import fix_splits
 
@@ -13,6 +14,7 @@ import json
 class QPDF(Tracer, MetadataExtractor):
     """QPDF tracer"""
     def __init__(self, doc_path: str,
+                 skip_check: bool = False,
                  binary_path: str = None
                  ):
         """
@@ -26,10 +28,11 @@ class QPDF(Tracer, MetadataExtractor):
         temp_folders_dir : str
             Path to create the temporary directories used for temporary files.
         """
-        super().__init__(doc_path=doc_path)
+        super().__init__(doc_path=doc_path, skip_check=skip_check)
         self._doc_path = doc_path
         #self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'qpdf' if binary_path is None else binary_path
+        self._exit_code = None
         # try:
         #     subprocess.check_output(self._cmd_path + " --version", shell=True)
         #     self.qpdf_present = True
@@ -52,12 +55,48 @@ class QPDF(Tracer, MetadataExtractor):
             self._can_meta_extract = qpdf_present
         return self._can_trace
 
+    def validate_tracer(self) -> Dict[str, Any]:
+        if TRACER not in self._validity:
+            validity_results = dict()
+            if self._messages is None:
+                self._parse_document()
+            if self._cleaned is None:
+                self._scrub_messages()
+            observed_messages = list(self._cleaned.keys())
+            if self._exit_code > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Exit code: %i' % self._exit_code
+            elif observed_messages == ['No warnings']:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            elif len([message for message in observed_messages if 'ERROR' in message]) > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Errors returned'
+            elif len([message for message in observed_messages if 'WARNING' in message]) == len(observed_messages):
+                validity_results['valid'] = True
+                validity_results['status'] = VALID_WARNINGS
+                validity_results['info'] = 'Warnings only'
+            else:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED_AMBIG
+                validity_results['info'] = 'Unknown message type returned'
+            self._validity[TRACER] = validity_results
+            self._validity[META] = validity_results
+        return self._validity[TRACER]
+
     def _check_for_metadata(self) -> bool:
         if self._can_trace is None:
             qpdf_present = self._check_for_qpdf()
             self._can_trace = qpdf_present
             self._can_meta_extract = qpdf_present
         return self._can_meta_extract
+
+    def validate_metadata(self) -> Dict[str, Any]:
+        if META not in self._validity:
+            _ = self.validate_tracer()
+        return self._validity[META]
 
     @staticmethod
     def get_name():
@@ -69,6 +108,7 @@ class QPDF(Tracer, MetadataExtractor):
         sp = subprocess.Popen('%s --json %s' % (self._cmd_path, self._doc_path), executable='/bin/bash',
                               stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         (stdout, err) = sp.communicate()
+        self._exit_code = sp.returncode
         decoder = locale.getpreferredencoding()
         err = fix_splits(err.decode(decoder, errors='ignore'))
         stdout = stdout.decode(decoder, errors='ignore')
@@ -110,7 +150,7 @@ class QPDF(Tracer, MetadataExtractor):
 
         if self._messages is None:
             self._parse_document()
-        scrubbed_messages = [self._clean_message(err) for err in self._messages]
+        scrubbed_messages = [self._clean_message(err) for err in self._messages if err != 'qpdf: operation succeeded with warnings']
         error_dict: Dict[str, int] = dict()
         for (index, error) in enumerate(scrubbed_messages):
             if error.startswith('warning: ... repeated '):

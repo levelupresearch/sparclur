@@ -1,7 +1,7 @@
 import abc
 
 from sparclur._parser import Parser
-from typing import List, Dict
+from typing import List, Dict, Any
 
 
 class Tracer(Parser, metaclass=abc.ABCMeta):
@@ -18,6 +18,17 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         self._messages: List[str] = None
         self._cleaned: Dict[str, int] = None
         self._can_trace: bool = None
+
+    @abc.abstractmethod
+    def validate_tracer(self) -> Dict[str, Any]:
+        """
+        Performs a validity check for this tracer.
+
+        Returns
+        -------
+        bool
+        """
+        pass
 
     @abc.abstractmethod
     def _check_for_tracer(self) -> bool:
@@ -46,7 +57,7 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         List[str]
             The list of all raw messages from the parser over the given document
         """
-        assert self._check_for_tracer(), "%s not found" % self.get_name()
+        assert self._skip_check or self._check_for_tracer(), "%s not found" % self.get_name()
 
         if self._messages is None:
             self._parse_document()
@@ -70,7 +81,7 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
             A dictionary with each normalized message as the key and the occurrence count as the value
         """
         if self._messages is None:
-            _ = self.messages
+            self._parse_document()
 
         if self._cleaned is None:
             self._scrub_messages()
