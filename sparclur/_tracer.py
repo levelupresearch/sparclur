@@ -13,8 +13,8 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, *args, **kwargs):
-        super().__init__(doc_path=doc_path, *args, **kwargs)
+    def __init__(self, doc_path, skip_check, *args, **kwargs):
+        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
         self._messages: List[str] = None
         self._cleaned: Dict[str, int] = None
         self._can_trace: bool = None

@@ -4,10 +4,12 @@ import warnings
 
 from func_timeout import func_timeout, FunctionTimedOut
 
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, IMAGE
 from sparclur._hybrid import Hybrid
 from sparclur._tracer import Tracer
-from sparclur._renderer import Renderer
+from sparclur._renderer import Renderer, _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
+from sparclur._font_extractor import FontExtractor
+from sparclur._image_data_extractor import ImageDataExtractor
 from sparclur.parsers._poppler_helpers import _parse_poppler_size, _pdftocairo_clean_message, _pdftoppm_clean_message
 from sparclur.utils._tools import fix_splits
 
@@ -21,10 +23,9 @@ from typing import Tuple
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
-from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 
 
-class Poppler(Tracer, Hybrid):
+class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
     """Poppler wrapper for pdftoppm, pdftocairo, and pdftotext"""
     def __init__(self, doc_path:str,
                  skip_check: bool = False,
@@ -81,11 +82,17 @@ class Poppler(Tracer, Hybrid):
         self._pdftoppm_path = 'pdftoppm' if binary_path is None else os.path.join(binary_path, 'pdftoppm')
         self._pdftocairo_path = 'pdftocairo' if binary_path is None else os.path.join(binary_path, 'pdftocairo')
         self._pdftotext_path = 'pdftotext' if binary_path is None else os.path.join(binary_path, 'pdftotext')
+        self._pdffonts_path = 'pdffonts' if binary_path is None else os.path.join(binary_path, 'pdffonts')
+        self._pdfimages_path = 'pdfimages' if binary_path is None else os.path.join(binary_path, 'pdfimages')
         self._trace_cmd = self._pdftoppm_path if trace == 'pdftoppm' else self._pdftocairo_path
         self._trace_exit_code = None
         self._render_exit_code = None
         self._text_exit_code = None
+        self._fonts_exit_code = None
+        self._images_exit_code = None
         self._text_messages = None
+        self._font_messages = None
+        self._image_messages = None
 
     @property
     def trace(self):
@@ -224,6 +231,59 @@ class Poppler(Tracer, Hybrid):
                 self._ocr = True
         return self._validity[TEXT]
 
+    def validate_image_data(self):
+        if IMAGE not in self._validity:
+            validity_results = dict()
+            if self._images is None:
+                self._get_image_data()
+            if self._images_exit_code > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Exit code: %i' % self._images_exit_code
+            elif len(self._image_messages) == 0:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            elif len([message for message in self._image_messages if 'Error' in message]) > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Errors returned'
+            elif len([message for message in self._image_messages if 'Warning' in message]) == len(self._text_messages):
+                validity_results['valid'] = True
+                validity_results['status'] = VALID_WARNINGS
+                validity_results['info'] = 'Warnings only'
+            else:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED_AMBIG
+                validity_results['info'] = 'Not enough info in message'
+            self._validity[IMAGE] = validity_results
+        return self._validity[IMAGE]
+
+    def validate_fonts(self):
+        if FONT not in self._validity:
+            validity_results = dict()
+            if self._fonts is None:
+                self._get_fonts()
+            if self._fonts_exit_code > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Exit code: %i' % self._fonts_exit_code
+            elif len(self._font_messages) == 0:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            elif len([message for message in self._font_messages if 'Error' in message]) > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Errors returned'
+            elif len([message for message in self._font_messages if 'Warning' in message]) == len(self._text_messages):
+                validity_results['valid'] = True
+                validity_results['status'] = VALID_WARNINGS
+                validity_results['info'] = 'Warnings only'
+            else:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED_AMBIG
+                validity_results['info'] = 'Not enough info in message'
+            self._validity[FONT] = validity_results
+        return self._validity[FONT]
 
     def _check_for_text_extraction(self) -> bool:
         if self._can_extract is None:
@@ -245,8 +305,7 @@ class Poppler(Tracer, Hybrid):
             sp = subprocess.Popen('%s %s %s' % (self._trace_cmd, self._doc_path, os.path.join(temp_path, 'out')),
                                   executable='/bin/bash', stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
             (_, err) = sp.communicate()
-            decoder = locale.getpreferredencoding()
-            err = fix_splits(err.decode(decoder))
+            err = fix_splits(err.decode(self._decoder))
         error_arr = [message for message in err.split('\n') if len(message) > 0]
         self._trace_exit_code = sp.returncode
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
@@ -357,8 +416,7 @@ class Poppler(Tracer, Hybrid):
             self._render_exit_code = sp.returncode
             (_, err) = sp.communicate()
             if page is None and self._messages is None and self._trace == 'pdftoppm':
-                decoder = locale.getpreferredencoding()
-                err = fix_splits(err.decode(decoder))
+                err = fix_splits(err.decode(self._decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
                 self._trace_exit_code = sp.returncode
@@ -400,17 +458,59 @@ class Poppler(Tracer, Hybrid):
             self._text[page] = text
 
     def _pdftotext_subprocess(self, command):
-        decoder = locale.getpreferredencoding()
         sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         (stdout, err) = sp.communicate()
         self._text_exit_code = sp.returncode
-        err = fix_splits(err.decode(decoder))
+        err = fix_splits(err.decode(self._decoder))
         error_arr = [message for message in err.split('\n') if len(message) > 0]
 
         self._text_messages = error_arr
 
-        return stdout.decode(decoder)
+        return stdout.decode(self._decoder)
 
+    def _get_fonts(self):
+        sp = subprocess.Popen('%s %s' % (self._pdffonts_path, self._doc_path), stderr=subprocess.PIPE,
+                              stdout=subprocess.PIPE, shell=True)
+        (stdout, err) = sp.communicate()
+        stdout = stdout.decode(self._decoder)
+        err = err.decode(self._decoder)
+        self._font_messages = [message for message in err.split('\n') if len(message) > 0]
+        self._fonts_exit_code = sp.returncode
+        lines = [line for line in stdout.split('\n') if line != '']
+        if len(lines) == 0 or len(lines) == 2:
+            self._fonts = []
+        else:
+            field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
+            header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i+1])].strip()
+                      for i in range(len(field_lengths))]
+            font_results = []
+            for line in lines[2:]:
+                d = dict()
+                for (idx, head) in enumerate(header[:-1]):
+                    value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx+1])].strip()
+                    if value == 'yes':
+                        value = True
+                    if value == 'no':
+                        value = False
+                    d[head] = value
+                d[header[-1]] = line[sum(field_lengths[:len(header) - 1]):].strip() + ' R'
+                font_results.append(d)
+            self._fonts = font_results
+
+    def _get_image_data(self):
+        sp = subprocess.Popen('%s -list %s' % (self._pdfimages_path, self._doc_path), stderr=subprocess.PIPE,
+                              stdout=subprocess.PIPE, shell=True)
+        (stdout, err) = sp.communicate()
+        stdout = stdout.decode(self._decoder)
+        err = err.decode(self._decoder)
+        self._image_messages = [message for message in err.split('\n') if len(message) > 0]
+        self._images_exit_code = sp.returncode
+        lines = [line for line in stdout.split('\n') if line != '']
+        if len(lines) == 0 or len(lines) == 2:
+            self._images = []
+        else:
+            header = re.split('\s+', lines[0])
+            self._images = [dict(zip(header, re.split('\s+', line)[1:])) for line in lines[2:]]
 
 # class PDFtoPPM(Tracer, Renderer):
 #     """PDFtoPPM tracer and renderer """

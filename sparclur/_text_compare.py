@@ -9,8 +9,8 @@ from spacy.lang.en import English
 class TextCompare(Parser, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def __init__(self, doc_path, *args, **kwargs):
-        super().__init__(doc_path=doc_path, *args, **kwargs)
+    def __init__(self, doc_path, skip_check, *args, **kwargs):
+        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
         self._full_text_extracted = False
         self._document_tokenized = False
         self._text = dict()

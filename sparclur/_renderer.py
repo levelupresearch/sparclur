@@ -204,8 +204,8 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, dpi, cache_renders, timeout, *args, **kwargs):
-        super().__init__(doc_path=doc_path, *args, **kwargs)
+    def __init__(self, doc_path, skip_check, dpi, cache_renders, timeout, *args, **kwargs):
+        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
         self._dpi = dpi

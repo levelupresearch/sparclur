@@ -10,6 +10,8 @@ RENDER = 'Renderer'
 TRACER = 'Tracer'
 TEXT = 'Text Extractor'
 META = 'Metadata Extractor'
+FONT = 'Font Extractor'
+IMAGE = 'Image Data'
 
 
 class Parser(metaclass=abc.ABCMeta):

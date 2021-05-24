@@ -8,8 +8,8 @@ from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RE
 from sparclur._hybrid import Hybrid
 from sparclur._tracer import Tracer
 from sparclur._renderer import Renderer
-from sparclur.parsers._poppler_helpers import _parse_poppler_size, _pdftocairo_clean_message, _pdftoppm_clean_message
-from sparclur.utils._tools import fix_splits
+from sparclur.parsers._poppler_helpers import _pdftoppm_clean_message
+from sparclur.utils import fix_splits
 
 from typing import List, Dict, Any
 import tempfile
@@ -26,7 +26,7 @@ from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 
 class XPDF(Tracer, Hybrid):
     """XPDF wrapper for pdftoppm, and pdftotext"""
-    def __init__(self, doc_path:str,
+    def __init__(self, doc_path: str,
                  skip_check: bool = False,
                  binary_path: str = None,
                  temp_folders_dir: str = None,
@@ -144,22 +144,7 @@ class XPDF(Tracer, Hybrid):
 
     def validate_renderer(self) -> Dict[str, Any]:
         if RENDER not in self._validity:
-            if self._trace != 'pdftoppm':
-                orig_trace = self._trace
-                orig_message = self._messages
-                orig_cleaned = self._cleaned
-                orig_trace_cmd = self._trace_cmd
-                self._trace = 'pdftoppm'
-                self._trace_cmd = self._pdftoppm_path
-                self._messages = None
-                self._cleaned = None
-                validity_results = self.validate_tracer()
-                self._trace = orig_trace
-                self._messages = orig_message
-                self._cleaned = orig_cleaned
-                self._trace_cmd = orig_trace_cmd
-            else:
-                validity_results = self.validate_tracer()
+            validity_results = self.validate_tracer()
             self._validity[RENDER] = validity_results
         return self._validity[RENDER]
 
@@ -195,7 +180,6 @@ class XPDF(Tracer, Hybrid):
             if swap:
                 self._ocr = True
         return self._validity[TEXT]
-
 
     def _check_for_text_extraction(self) -> bool:
         if self._can_extract is None:
@@ -299,7 +283,7 @@ class XPDF(Tracer, Hybrid):
     def _xpdf_render(self, page=None):
 
         return_single_page = False
-        cmd = [self._pdftoppm_path, '-png', '-cropbox', '-r', str(self._dpi)]
+        cmd = [self._pdftoppm_path, '-r', str(self._dpi)]
         if page is not None:
             page = str(int(page) + 1)
             return_single_page = True
@@ -317,8 +301,8 @@ class XPDF(Tracer, Hybrid):
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
             result: Dict[int, PngImageFile] = dict()
-            for render in [file for file in os.listdir(temp_path) if file.endswith('.png')]:
-                page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
+            for render in [file for file in os.listdir(temp_path) if file.endswith('.ppm')]:
+                page_index = int(re.sub('out-', '', re.sub('.ppm', '', render))) - 1
                 result[page_index] = Image.open(os.path.join(temp_path, render))
         if return_single_page:
             single_page_result = result.get(int(page) - 1)

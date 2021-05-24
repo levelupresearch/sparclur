@@ -10,8 +10,9 @@ class Hybrid(TextExtractor, Renderer, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, dpi, cache_renders, timeout, ocr, *args, **kwargs):
+    def __init__(self, doc_path, skip_check, dpi, cache_renders, timeout, ocr, *args, **kwargs):
         super().__init__(doc_path=doc_path,
+                         skip_check=skip_check,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          timeout=timeout,
