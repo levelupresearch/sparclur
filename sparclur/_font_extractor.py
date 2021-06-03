@@ -2,7 +2,7 @@ import abc
 from sparclur._parser import Parser
 from typing import Dict, Any, List
 
-SYSTEM_FONTS = baseFonts = ["Courier",
+SYSTEM_FONTS = ["Courier",
                             "Courier-Bold",
                             "Courier-Oblique",
                             "Courier-BoldOblique",
@@ -16,6 +16,7 @@ SYSTEM_FONTS = baseFonts = ["Courier",
                             "Times-BoldItalic",
                             "Symbol",
                             "ZapfDingbats"]
+
 
 class FontExtractor(Parser, metaclass=abc.ABCMeta):
     """
@@ -40,7 +41,13 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
             if len(self._fonts) == 0:
                 self._non_embedded_fonts = False
             else:
-                embs = [d['emb'] for d in self._fonts]
+                filter_fonts = []
+                for font_info in self._fonts.items():
+                    is_system = font_info['name'].split('+')[-1] in SYSTEM_FONTS
+                    is_type1 = font_info['type'] == 'Type 1'
+                    if not is_system and not is_type1:
+                        filter_fonts.append(font_info)
+                embs = [d['emb'] for d in filter_fonts]
                 result = True
                 for emb in embs:
                     result = emb and result

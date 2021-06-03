@@ -1,4 +1,5 @@
 import abc
+import re
 from typing import Dict, Any
 from sparclur._parser import Parser
 from sparclur.utils._tools import shingler, jac_dist, lev_dist
@@ -98,13 +99,16 @@ class TextCompare(Parser, metaclass=abc.ABCMeta):
                     tokenized = ['']
                 else:
                     tokenized = [str(token) for token in tokenizer(text)]
-                self._tokens[page] = tokenized
+                    remove_white_space_tokens = [t for t in [re.sub('\s+', '', token) for token in tokenized] if t != '']
+                self._tokens[page] = remove_white_space_tokens
             tokens = self._tokens[page]
         else:
             if not self._document_tokenized:
-                for (page, t) in text.items():
-                    tokens = [str(token) for token in tokenizer(t)]
-                    self._tokens[page] = tokens
+                for (page, text) in text.items():
+                    tokenized = [str(token) for token in tokenizer(text)]
+                    remove_white_space_tokens = [t for t in [re.sub('\s+', '', token) for token in tokenized] if
+                                                 t != '']
+                    self._tokens[page] = remove_white_space_tokens
                 self._document_tokenized = True
             tokens = self._tokens
         return tokens
@@ -113,7 +117,7 @@ class TextCompare(Parser, metaclass=abc.ABCMeta):
         s1 = self.get_tokens(page=page)
         s2 = other.get_tokens(page=page)
         if page is not None:
-            metric = jac_dist(shingler(s1, shingle_size=shingle_size), shingler(s2, shingle_size=shingle_size))
+            metric = 1.0 - jac_dist(shingler(s1, shingle_size=shingle_size), shingler(s2, shingle_size=shingle_size))
         else:
             all_s1 = set()
             for (_, tokens) in s1.items():
@@ -124,5 +128,5 @@ class TextCompare(Parser, metaclass=abc.ABCMeta):
             # pages = {*s1.keys()}.union({*s2.keys()})
             # metrics = [_jaccard(s1.get(key, ''), s2.get(key, '')) for key in pages]
             # metric = sum(metrics) / len(metrics)
-            metric = jac_dist(all_s1, all_s2)
+            metric = 1.0 - jac_dist(all_s1, all_s2)
         return metric

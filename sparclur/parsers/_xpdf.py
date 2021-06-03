@@ -4,9 +4,10 @@ import warnings
 
 from func_timeout import func_timeout, FunctionTimedOut
 
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT
 from sparclur._hybrid import Hybrid
 from sparclur._tracer import Tracer
+from sparclur._font_extractor import FontExtractor
 from sparclur._renderer import Renderer
 from sparclur.parsers._poppler_helpers import _pdftoppm_clean_message
 from sparclur.utils import fix_splits
@@ -24,7 +25,7 @@ from PIL.PngImagePlugin import PngImageFile
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 
 
-class XPDF(Tracer, Hybrid):
+class XPDF(Tracer, Hybrid, FontExtractor):
     """XPDF wrapper for pdftoppm, and pdftotext"""
     def __init__(self, doc_path: str,
                  skip_check: bool = False,
@@ -84,6 +85,10 @@ class XPDF(Tracer, Hybrid):
     @property
     def page_delimiter(self):
         return self._page_delimiter
+
+    @page_delimiter.setter
+    def page_delimiter(self, p):
+        self._page_delimiter = p
 
     @property
     def maintain_layout(self):
@@ -151,12 +156,18 @@ class XPDF(Tracer, Hybrid):
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
-            if len(self._text) == 0:
-                if self._ocr:
-                    swap = True
-                    self._ocr = False
+            if self._ocr:
+                if len(self._text) > 0:
+                    old_text = self._text
+                    self._text = dict()
                 else:
-                    swap = False
+                    old_text = dict()
+                swap = True
+                self._ocr = False
+            else:
+                swap = False
+            if len(self._text) == 0:
+                _ = self.get_text()
             if self._text_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
@@ -179,7 +190,35 @@ class XPDF(Tracer, Hybrid):
             self._validity[TEXT] = validity_results
             if swap:
                 self._ocr = True
+                self._text = old_text
         return self._validity[TEXT]
+
+    def validate_fonts(self):
+        if FONT not in self._validity:
+            validity_results = dict()
+            if self._fonts is None:
+                self._get_fonts()
+            if self._fonts_exit_code > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Exit code: %i' % self._fonts_exit_code
+            elif len(self._font_messages) == 0:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            elif len([message for message in self._font_messages if 'Error' in message]) > 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'Errors returned'
+            elif len([message for message in self._font_messages if 'Warning' in message]) == len(self._text_messages):
+                validity_results['valid'] = True
+                validity_results['status'] = VALID_WARNINGS
+                validity_results['info'] = 'Warnings only'
+            else:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED_AMBIG
+                validity_results['info'] = 'Not enough info in message'
+            self._validity[FONT] = validity_results
+        return self._validity[FONT]
 
     def _check_for_text_extraction(self) -> bool:
         if self._can_extract is None:
@@ -338,13 +377,42 @@ class XPDF(Tracer, Hybrid):
             self._text[page] = text
 
     def _pdftotext_subprocess(self, command):
-        decoder = locale.getpreferredencoding()
         sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         (stdout, err) = sp.communicate()
         self._text_exit_code = sp.returncode
-        err = fix_splits(err.decode(decoder))
+        err = fix_splits(err.decode(self._decoder))
         error_arr = [message for message in err.split('\n') if len(message) > 0]
 
         self._text_messages = error_arr
 
-        return stdout.decode(decoder)
+        return stdout.decode(self._decoder, errors='ignore')
+
+    def _get_fonts(self):
+        sp = subprocess.Popen('%s -loc %s' %(self._pdffonts_path, self._doc_path), stderr=subprocess.PIPE,
+                              stdout=subprocess.PIPE, shell=True)
+        (stdout, err) = sp.communicate()
+        stdout = stdout.decode(self._decoder)
+        err = err.decode(self._decoder)
+        self._font_messages = [message for message in err.split('\n') if len(message) > 0]
+        self._fonts_exit_code = sp.returncode
+        lines = [line for line in stdout.split('\n') if line != '']
+        if len(lines) == 0 or len(lines) == 2:
+            self._fonts = []
+        else:
+            field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
+            header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i+1])].strip() for i in range(len(field_lengths))]
+            font_results = []
+            for line in lines[2:]:
+                d = dict()
+                for (idx, head) in enumerate(header[:-1]):
+                    value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx+1])].strip()
+                    if value == 'yes':
+                        value = True
+                    if value == 'no':
+                        value = False
+                    if head == 'object ID':
+                        value = value + ' R'
+                    d[head] = value
+                d[header[-1]] = line[sum(field_lengths[:len(header) - 1]):].strip()
+                font_results.append(d)
+            self._fonts = font_results

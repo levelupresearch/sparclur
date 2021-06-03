@@ -17,7 +17,8 @@ kaleido~=0.1.0
 Pweave~=0.30.3
 dill~=0.3.3
 scikit-learn~=0.23.2
-pdfminer.six==20201018
+pdfminer-six==20201018
 opencv-python~=4.5.1.48
 imagehash~=4.2.0
 func-timeout~=4.3.5
+jpype1~=1.2.0
