@@ -178,6 +178,8 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = self._metadata_result
+            self._validity[META] = validity_results
+        return self._validity
 
     @staticmethod
     def get_name():

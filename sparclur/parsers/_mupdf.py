@@ -228,7 +228,11 @@ class MuPDF(Tracer, Hybrid):
             try:
                 doc = fitz.open(self._doc_path)
                 for page in doc:
-                    _ = page.getText()
+                    text = page.getText()
+                    if not self._ocr and page.number not in self._text:
+                        self._text[page.number] = text
+                if not self._ocr:
+                    self._full_text_extracted = True
                 warnings = fitz.TOOLS.mupdf_warnings()
                 error = None
             except Exception as e:

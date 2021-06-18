@@ -100,12 +100,18 @@ def lev_dist(s1, s2):
 
 
 def hash_file(file):
+    assert isinstance(file, bytes) or os.path.isfile(file), "Please provide bytes array or file path"
     sha256_hash = hashlib.sha256()
-    with open(file, "rb") as f:
-        # Read and update hash string value in blocks of 4K
-        for byte_block in iter(lambda: f.read(4096), b""):
+    if isinstance(file, bytes):
+        for i in range(0, len(file), 4096):
+            byte_block = file[i:i+4096]
             sha256_hash.update(byte_block)
-        return sha256_hash.hexdigest()
+    else:
+        with open(file, "rb") as f:
+            # Read and update hash string value in blocks of 4K
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
 
 
 def if_dir_not_exists(directory):

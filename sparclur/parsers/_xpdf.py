@@ -77,6 +77,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         self._decoder = locale.getpreferredencoding()
         self._pdftoppm_path = 'pdftoppm' if binary_path is None else os.path.join(binary_path, 'pdftoppm')
         self._pdftotext_path = 'pdftotext' if binary_path is None else os.path.join(binary_path, 'pdftotext')
+        self._pdffonts_path = 'pdffonts' if binary_path is None else os.path.join(binary_path, 'pdffonts')
         self._trace_exit_code = None
         self._render_exit_code = None
         self._text_exit_code = None
