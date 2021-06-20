@@ -201,12 +201,16 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
-            if len(self._text) == 0:
-                if self._ocr:
-                    swap = True
-                    self._ocr = False
+            if self._ocr:
+                if len(self._text) > 0:
+                    old_text = self._text
+                    self._text = dict()
                 else:
-                    swap = False
+                    old_text = dict()
+                swap = True
+                self._ocr = False
+            if len(self._text) == 0:
+                _ = self.get_text()
             if self._text_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
@@ -229,6 +233,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
             self._validity[TEXT] = validity_results
             if swap:
                 self._ocr = True
+                self._text = old_text
         return self._validity[TEXT]
 
     def validate_image_data(self):
