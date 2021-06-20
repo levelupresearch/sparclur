@@ -5,6 +5,7 @@ from sparclur._renderer import Renderer
 from sparclur._hybrid import Hybrid
 from sparclur._text_compare import TextCompare
 from sparclur._metadata_extractor import MetadataExtractor
+from sparclur._text_extractor import TextExtractor
 
 from typing import List, Dict
 
@@ -41,7 +42,7 @@ def get_sparclur_texters(no_ocr=False):
         [texter for texter in _sparclur_parsers.values() if issubclass(texter, TextCompare)]
     if no_ocr:
         present_texters: List[TextCompare] = \
-            [texter for texter in present_texters if issubclass(texter, Renderer) and not issubclass(texter, Hybrid)]
+            [texter for texter in present_texters if issubclass(texter, TextExtractor) or issubclass(texter, Hybrid)]
     return present_texters
 
 def get_sparclur_metadata():
