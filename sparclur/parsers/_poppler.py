@@ -209,6 +209,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
                     old_text = dict()
                 swap = True
                 self._ocr = False
+            else:
+                swap = False
             if len(self._text) == 0:
                 _ = self.get_text()
             if self._text_exit_code > 0:
