@@ -118,12 +118,12 @@ def _single_page_compare(pil1, pil2, full):
     except Exception as e:
         ccorr_loc = None
         results['ccorr_sim'] = str(e)
-    try:
-        ccoeff, ccoeff_loc = ccoeff_sim(array1, array2)
-        similarities['ccoeff_sim'] = ccoeff
-    except Exception as e:
-        ccoeff_loc = None
-        results['ccoeff_sim'] = ccoeff_loc
+    # try:
+    #     ccoeff, ccoeff_loc = ccoeff_sim(array1, array2)
+    #     similarities['ccoeff_sim'] = ccoeff
+    # except Exception as e:
+    #     ccoeff_loc = None
+    #     results['ccoeff_sim'] = str(e)
     try:
         similarities['size_sim'] = size_sim(array1, array2)
     except Exception as e:
@@ -137,7 +137,8 @@ def _single_page_compare(pil1, pil2, full):
                 ssim, diff = structural_similarity(array1_gray, array2_gray, full=True)
                 diff = Image.fromarray(np.uint8(diff * 255), 'L').convert('RGB')
                 similarities['ssim'] = ssim
-            elif sss_loc is not None or ccorr_loc is not None or ccoeff_loc is not None:
+            # elif sss_loc is not None or ccorr_loc is not None or ccoeff_loc is not None:
+            elif sss_loc is not None or ccorr_loc is not None:
                 diffs = []
                 # print("before pad_images")
                 padded_pil1, padded_pil2 = pad_images(array1, array2)
@@ -154,11 +155,11 @@ def _single_page_compare(pil1, pil2, full):
                     ccorr_ssim, ccorr_diff = _template_ssim(array1_gray, array2_gray, ccorr_loc)
                     # print("ccorr ssim complete: %f" % ccorr_ssim)
                     diffs.append((ccorr_ssim, ccorr_diff))
-                if ccoeff_loc is not None:
-                    # print("ccoeff ssim")
-                    ccoeff_ssim, ccoeff_diff = _template_ssim(array1_gray, array2_gray, ccoeff_loc)
-                    # print("ccoeff ssim complete: %f" % ccoeff_ssim)
-                    diffs.append((ccoeff_ssim, ccoeff_diff))
+                # if ccoeff_loc is not None:
+                #     # print("ccoeff ssim")
+                #     ccoeff_ssim, ccoeff_diff = _template_ssim(array1_gray, array2_gray, ccoeff_loc)
+                #     # print("ccoeff ssim complete: %f" % ccoeff_ssim)
+                #     diffs.append((ccoeff_ssim, ccoeff_diff))
                 # print(len(diffs))
                 diffs.sort(reverse=True, key=lambda x: x[0])
                 ssim, diff = diffs[0]
