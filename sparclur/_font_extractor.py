@@ -50,7 +50,7 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
                 embs = [d['emb'] for d in filter_fonts]
                 result = True
                 for emb in embs:
-                    result = emb and result
+                    result = not emb and result
                 self._non_embedded_fonts = result
             return self._non_embedded_fonts
 
