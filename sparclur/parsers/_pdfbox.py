@@ -242,9 +242,14 @@ class PDFBox(Hybrid):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             output_file = os.path.join(temp_path, 'out.txt')
             options.append(output_file)
-            self._pdfbox_tools.ExtractText.main(options)
-            with open(output_file, 'r') as file:
-                text = ''.join(line for line in file)
+            try:
+                self._pdfbox_tools.ExtractText.main(options)
+                with open(output_file, 'r') as file:
+                    text = ''.join(line for line in file)
+                self._text_message = 'No warnings'
+            except Exception as e:
+                self._text_message = str(e)
+                text = ''
         return text
 
     def _extract_doc(self):
