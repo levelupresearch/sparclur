@@ -3,6 +3,7 @@ import re
 import time
 
 import jpype
+import jpype.imports
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from func_timeout import func_timeout, FunctionTimedOut
