@@ -67,6 +67,9 @@ class PDFBox(Hybrid):
             except:
                 self._can_render = False
                 self._can_extract = False
+        else:
+            self._can_render = True
+            self._can_extract = True
         if self._can_render:
             import org.apache.pdfbox.tools as tools
             self._pdfbox_tools = tools
