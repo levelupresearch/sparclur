@@ -1,4 +1,5 @@
 import locale
+import shlex
 from typing import List, Dict, Any
 
 from func_timeout import func_timeout, FunctionTimedOut
@@ -260,7 +261,7 @@ class MuPDF(Tracer, Hybrid):
     def _check_for_tracer(self) -> bool:
         if self._can_trace is None:
             try:
-                subprocess.check_output("mutool -v", shell=True)
+                subprocess.check_output(shlex.split("mutool -v"), shell=False)
                 mutool_present = True
             except subprocess.CalledProcessError as e:
                 mutool_present = False
@@ -312,9 +313,8 @@ class MuPDF(Tracer, Hybrid):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             try:
                 out_path = os.path.join(temp_path, 'out.pdf')
-                sp = subprocess.Popen('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path),
-                                      executable='/bin/bash',
-                                      stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+                sp = subprocess.Popen(shlex.split('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path)),
+                                      stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))

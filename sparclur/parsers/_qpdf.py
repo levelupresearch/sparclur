@@ -1,4 +1,5 @@
 import locale
+import shlex
 from typing import Dict, Any
 
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
@@ -121,8 +122,8 @@ class QPDF(Tracer, MetadataExtractor):
         # with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
         # out_path = os.path.join(temp_path, 'out.pdf')
         try:
-            sp = subprocess.Popen('%s --json %s' % (self._cmd_path, self._doc_path), executable='/bin/bash',
-                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+            sp = subprocess.Popen(shlex.split('%s --json %s' % (self._cmd_path, self._doc_path)),
+                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
             (stdout, err) = sp.communicate(timeout=self._timeout or 600)
             self._exit_code = sp.returncode
             decoder = locale.getpreferredencoding()

@@ -1,4 +1,5 @@
 import locale
+import shlex
 import time
 import warnings
 
@@ -27,11 +28,12 @@ from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 
 class XPDF(Tracer, Hybrid, FontExtractor):
     """XPDF wrapper for pdftoppm, and pdftotext"""
+
     def __init__(self, doc_path: str,
                  skip_check: bool = False,
                  binary_path: str = None,
                  temp_folders_dir: str = None,
-                 page_delimiter: str ='\x0c',
+                 page_delimiter: str = '\x0c',
                  maintain_layout: bool = False,
                  dpi: int = 200,
                  size: Tuple[int] or int = None,
@@ -104,7 +106,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
 
     def _check_for_renderer(self) -> bool:
         if self._can_render is None:
-            sp = subprocess.Popen(self._pdftoppm_path + " -v", stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+            sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+                                  shell=False)
             (_, err) = sp.communicate()
             pdftoppm_present = 'Poppler' not in err.decode(self._decoder)
             self._can_render = pdftoppm_present
@@ -113,7 +116,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
 
     def _check_for_tracer(self) -> bool:
         if self._can_trace is None:
-            sp = subprocess.Popen(self._pdftoppm_path + " -v", stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+            sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+                                  shell=False)
             (_, err) = sp.communicate()
             trace_present = 'Poppler' not in err.decode(self._decoder)
             self._can_trace = trace_present
@@ -228,7 +232,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             if self._ocr:
                 self._can_extract = super(Renderer)._check_for_text_extraction() and self._check_for_renderer()
             else:
-                sp = subprocess.Popen(self._pdftotext_path + " -v", stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+                sp = subprocess.Popen(shlex.split(self._pdftotext_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+                                      shell=False)
                 (_, err) = sp.communicate()
                 self._can_extract = 'Poppler' not in err.decode(self._decoder)
         return self._can_extract
@@ -241,8 +246,9 @@ class XPDF(Tracer, Hybrid, FontExtractor):
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             try:
-                sp = subprocess.Popen('%s %s %s' % (self._pdftoppm_path, self._doc_path, os.path.join(temp_path, 'out')),
-                                  executable='/bin/bash', stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+                sp = subprocess.Popen(
+                    shlex.split('%s %s %s' % (self._pdftoppm_path, self._doc_path, os.path.join(temp_path, 'out'))),
+                    stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
                 err = fix_splits(err.decode(self._decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
@@ -353,7 +359,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             try:
                 cmd.extend([self._doc_path, os.path.join(temp_path, 'out')])
                 cmd = ' '.join([entry for entry in cmd])
-                sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+                sp = subprocess.Popen(shlex.split(cmd), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
                 self._render_exit_code = sp.returncode
                 (_, err) = sp.communicate(self._timeout or 600)
                 if page is None and self._messages is None:
@@ -431,7 +437,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         #
         # return stdout.decode(self._decoder, errors='ignore')
         try:
-            sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+            sp = subprocess.Popen(shlex.split(command), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
             (stdout, err) = sp.communicate(timeout=self._timeout or 600)
             self._text_exit_code = sp.returncode
             err = fix_splits(err.decode(self._decoder))
@@ -452,8 +458,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
 
     def _get_fonts(self):
         try:
-            sp = subprocess.Popen('%s -loc %s' %(self._pdffonts_path, self._doc_path), stderr=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, shell=True)
+            sp = subprocess.Popen(shlex.split('%s -loc %s' % (self._pdffonts_path, self._doc_path)), stderr=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, shell=False)
             (stdout, err) = sp.communicate(timeout=self._timeout or 600)
             stdout = stdout.decode(self._decoder)
             err = err.decode(self._decoder)
@@ -464,12 +470,13 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 self._fonts = []
             else:
                 field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
-                header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i+1])].strip() for i in range(len(field_lengths))]
+                header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i + 1])].strip() for i in
+                          range(len(field_lengths))]
                 font_results = []
                 for line in lines[2:]:
                     d = dict()
                     for (idx, head) in enumerate(header[:-1]):
-                        value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx+1])].strip()
+                        value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx + 1])].strip()
                         if value == 'yes':
                             value = True
                         if value == 'no':
