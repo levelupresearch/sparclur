@@ -314,8 +314,8 @@ class MuPDF(Tracer, Hybrid):
                 out_path = os.path.join(temp_path, 'out.pdf')
                 sp = subprocess.Popen('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path),
                                       executable='/bin/bash',
-                                      stderr=subprocess.PIPE, stdout=DEVNULL, shell=True, timeout=self._timeout or 600)
-                (_, err) = sp.communicate()
+                                      stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+                (_, err) = sp.communicate(timeout=self._timeout or 600)
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]

@@ -122,8 +122,8 @@ class QPDF(Tracer, MetadataExtractor):
         # out_path = os.path.join(temp_path, 'out.pdf')
         try:
             sp = subprocess.Popen('%s --json %s' % (self._cmd_path, self._doc_path), executable='/bin/bash',
-                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True, timeout=self._timeout or 600)
-            (stdout, err) = sp.communicate()
+                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+            (stdout, err) = sp.communicate(timeout=self._timeout or 600)
             self._exit_code = sp.returncode
             decoder = locale.getpreferredencoding()
             err = fix_splits(err.decode(decoder, errors='ignore'))

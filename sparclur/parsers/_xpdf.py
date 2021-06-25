@@ -242,8 +242,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             try:
                 sp = subprocess.Popen('%s %s %s' % (self._pdftoppm_path, self._doc_path, os.path.join(temp_path, 'out')),
-                                  executable='/bin/bash', stderr=subprocess.PIPE, stdout=DEVNULL, shell=True, timeout=self._timeout or 600)
-                (_, err) = sp.communicate()
+                                  executable='/bin/bash', stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
+                (_, err) = sp.communicate(timeout=self._timeout or 600)
                 err = fix_splits(err.decode(self._decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._trace_exit_code = sp.returncode
@@ -355,7 +355,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 cmd = ' '.join([entry for entry in cmd])
                 sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
                 self._render_exit_code = sp.returncode
-                (_, err) = sp.communicate()
+                (_, err) = sp.communicate(self._timeout or 600)
                 if page is None and self._messages is None:
                     self._trace_exit_code = sp.returncode
                     decoder = locale.getpreferredencoding()
@@ -431,8 +431,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         #
         # return stdout.decode(self._decoder, errors='ignore')
         try:
-            sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True, timeout=self._timeout or 600)
-            (stdout, err) = sp.communicate()
+            sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+            (stdout, err) = sp.communicate(timeout=self._timeout or 600)
             self._text_exit_code = sp.returncode
             err = fix_splits(err.decode(self._decoder))
             error_arr = [message for message in err.split('\n') if len(message) > 0]
@@ -453,8 +453,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
     def _get_fonts(self):
         try:
             sp = subprocess.Popen('%s -loc %s' %(self._pdffonts_path, self._doc_path), stderr=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, shell=True, timeout=self._timeout or 600)
-            (stdout, err) = sp.communicate()
+                                  stdout=subprocess.PIPE, shell=True)
+            (stdout, err) = sp.communicate(timeout=self._timeout or 600)
             stdout = stdout.decode(self._decoder)
             err = err.decode(self._decoder)
             self._font_messages = [message for message in err.split('\n') if len(message) > 0]
