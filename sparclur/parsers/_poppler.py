@@ -322,10 +322,18 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._trace_exit_code = sp.returncode
             except TimeoutExpired:
-                error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+                sp.kill()
+                (_, err) = sp.communicate()
+                err = fix_splits(err.decode(self._decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+                error_arr.insert(0, ['Error: Subprocess timed out: %i' % (self._timeout or 600)])
                 self._trace_exit_code = 0
             except Exception as e:
+                sp.kill()
+                (_, err) = sp.communicate()
+                err = fix_splits(err.decode(self._decoder))
                 error_arr = str(e).split('\n')
+                error_arr.extend([message for message in err.split('\n') if len(message) > 0])
                 self._trace_exit_code = 0
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
@@ -520,17 +528,22 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
             err = fix_splits(err.decode(self._decoder))
             error_arr = [message for message in err.split('\n') if len(message) > 0]
 
-            self._text_messages = error_arr
-            result = stdout.decode(self._decoder, errors='ignore')
         except TimeoutExpired:
             self._text_exit_code = 0
-            self._text_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
-            result = ''
+            sp.kill()
+            (stdout, err) = sp.communicate()
+            err = fix_splits(err.decode(self._decoder))
+            error_arr = [message for message in err.split('\n') if len(message) > 0]
+            error_arr.insert(0, ['Error: Subprocess timed out: %i' % (self._timeout or 600)])
         except Exception as e:
             self._text_exit_code = 0
-            self._text_messages = str(e).split('\n')
-            result = ''
-
+            sp.kill()
+            (stdout, err) = sp.communicate()
+            err = fix_splits(err.decode(self._decoder))
+            error_arr = str(e).split('\n')
+            error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+        self._text_messages = error_arr
+        result = stdout.decode(self._decoder, errors='ignore')
         return result
 
     def _get_fonts(self):
@@ -564,12 +577,23 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
                 self._fonts = font_results
         except TimeoutExpired:
             self._fonts = []
-            self._font_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+            sp.kill()
+            (_, err) = sp.communicate()
+            err = err.decode(self._decoder)
+            error_arr = [message for message in err.split('\n') if len(message) > 0]
+            error_arr.insert(0, ['Error: Subprocess timed out: %i' % (self._timeout or 600)])
+            self._font_messages = error_arr
             self._fonts_exit_code = 0
         except Exception as e:
             self._fonts = []
+            sp.kill()
+            (_, err) = sp.communicate()
+            err = err.decode(self._decoder)
+            error_arr = str(e).split('\n')
+            error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+            self._font_messages = error_arr
             self._fonts_exit_code = 0
-            self._font_messages = str(e).split('\n')
+
 
     def _get_image_data(self):
         try:

@@ -254,10 +254,18 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._trace_exit_code = sp.returncode
             except TimeoutExpired:
-                error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+                sp.kill()
+                (_, err) = sp.communicate()
+                err = fix_splits(err.decode(self._decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+                error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
                 self._trace_exit_code = 0
             except Exception as e:
+                sp.kill()
+                (_, err) = sp.communicate()
+                err = fix_splits(err.decode(self._decoder))
                 error_arr = str(e).split('\n')
+                error_arr.extend([message for message in err.split('\n') if len(message) > 0])
                 self._trace_exit_code = 0
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
@@ -447,11 +455,21 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             result = stdout.decode(self._decoder, errors='ignore')
         except TimeoutExpired:
             self._text_exit_code = 0
-            self._text_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+            sp.kill()
+            _, err = sp.communicate()
+            err = fix_splits(err.decode(self._decoder))
+            error_arr = [message for message in err.split('\n') if len(message) > 0]
+            error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
+            self._text_messages = error_arr
             result = ''
         except Exception as e:
             self._text_exit_code = 0
-            self._text_messages = str(e).split('\n')
+            sp.kill()
+            _, err = sp.communicate()
+            err = fix_splits(err.decode(self._decoder))
+            error_arr = str(e).split('\n')
+            error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+            self._text_messages = error_arr
             result = ''
 
         return result

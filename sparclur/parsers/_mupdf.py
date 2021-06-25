@@ -320,9 +320,18 @@ class MuPDF(Tracer, Hybrid):
                 err = fix_splits(err.decode(decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
             except TimeoutExpired:
-                error_arr = ['Subprocess timed out: %i' % (self._timeout or 600)]
+                sp.kill()
+                (_, err) = sp.communicate()
+                decoder = locale.getpreferredencoding()
+                err = fix_splits(err.decode(decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+                error_arr.insert(0, ['Subprocess timed out: %i' % (self._timeout or 600)])
             except Exception as e:
+                sp.kill()
+                decoder = locale.getpreferredencoding()
+                err = fix_splits(err.decode(decoder))
                 error_arr = str(e).split('\n')
+                error_arr.extend([message for message in err.split('\n') if len(message) > 0])
         self._trace_exit_code = sp.returncode
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 

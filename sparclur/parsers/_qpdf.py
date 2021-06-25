@@ -34,6 +34,7 @@ class QPDF(Tracer, MetadataExtractor):
         super().__init__(doc_path=doc_path, skip_check=skip_check)
         self._doc_path = doc_path
         #self._temp_folders_dir = temp_folders_dir
+        self._decoder = locale.getpreferredencoding()
         self._cmd_path = 'qpdf' if binary_path is None else binary_path
         self._exit_code = None
         self._timeout = timeout
@@ -126,18 +127,26 @@ class QPDF(Tracer, MetadataExtractor):
                                   stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
             (stdout, err) = sp.communicate(timeout=self._timeout or 600)
             self._exit_code = sp.returncode
-            decoder = locale.getpreferredencoding()
-            err = fix_splits(err.decode(decoder, errors='ignore'))
-            stdout = stdout.decode(decoder, errors='ignore')
+            err = fix_splits(err.decode(self._decoder, errors='ignore'))
+            stdout = stdout.decode(self._decoder, errors='ignore')
             error_arr = [message for message in err.split('\n') if len(message) > 0]
         except TimeoutExpired:
+            sp.kill()
+            (stdout, err) = sp.communicate()
+            err = fix_splits(err.decode(self._decoder, errors='ignore'))
+            stdout = stdout.decode(self._decoder, errors='ignore')
+            error_arr = [message for message in err.split('\n') if len(message) > 0]
             self._exit_code = 0
-            stdout = ''
-            error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+            stdout = stdout
+            error_arr.insert(0, ['Error: Subprocess timed out: %i' % (self._timeout or 600)])
         except Exception as e:
             self._exit_code = 0
-            stdout = ''
+            sp.kill()
+            (stdout, err) = sp.communicate()
+            err = fix_splits(err.decode(self._decoder, errors='ignore'))
+            stdout = stdout.decode(self._decoder, errors='ignore')
             error_arr = str(e).split('\n')
+            error_arr.extend([message for message in err.split('\n') if len(message) > 0])
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
         try:
             file = json.loads(stdout)
