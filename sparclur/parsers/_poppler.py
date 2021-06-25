@@ -376,7 +376,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
     #     return render
 
     def _render_page(self, page):
-        render: PngImageFile = self._poppler_render(page=page)
+        render: PngImageFile = self._poppler_render(page=page).get(page)
         if self._caching:
             self._renders[page] = render
         return render
@@ -483,11 +483,11 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
             single_page_result = result.get(int(page) - 1)
             if single_page_result is not None:
                 if single_page_result.width * single_page_result.height == 1:
-                    result = self._render_doc().get(int(page) - 1)
-                else:
-                    result = single_page_result
-            else:
-                result = None
+                    result[page] = self._render_doc().get(int(page) - 1)
+        #         else:
+        #             result = single_page_result
+        #     else:
+        #         result = None
             # result: PngImageFile = result.get(int(page) - 1)
         return result
 
