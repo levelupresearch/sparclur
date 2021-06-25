@@ -13,6 +13,7 @@ import os
 import sys
 import re
 import subprocess
+from subprocess import TimeoutExpired, DEVNULL
 import tempfile
 import time
 
@@ -309,14 +310,19 @@ class MuPDF(Tracer, Hybrid):
         stream_flag = ' -s' if self._parse_streams else ''
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
-            out_path = os.path.join(temp_path, 'out.pdf')
-            sp = subprocess.Popen('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path),
-                                  executable='/bin/bash',
-                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-            (stdout, err) = sp.communicate()
-        decoder = locale.getpreferredencoding()
-        err = fix_splits(err.decode(decoder))
-        error_arr = [message for message in err.split('\n') if len(message) > 0]
+            try:
+                out_path = os.path.join(temp_path, 'out.pdf')
+                sp = subprocess.Popen('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path),
+                                      executable='/bin/bash',
+                                      stderr=subprocess.PIPE, stdout=DEVNULL, shell=True, timeout=self._timeout or 600)
+                (_, err) = sp.communicate()
+                decoder = locale.getpreferredencoding()
+                err = fix_splits(err.decode(decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+            except TimeoutExpired:
+                error_arr = ['Subprocess timed out: %i' % (self._timeout or 600)]
+            except Exception as e:
+                error_arr = str(e).split('\n')
         self._trace_exit_code = sp.returncode
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 

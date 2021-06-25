@@ -2,7 +2,7 @@ import locale
 import time
 import warnings
 
-from func_timeout import func_timeout, FunctionTimedOut
+# from func_timeout import func_timeout, FunctionTimedOut
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT
 from sparclur._hybrid import Hybrid
@@ -15,7 +15,7 @@ from sparclur.utils import fix_splits
 from typing import List, Dict, Any
 import tempfile
 import subprocess
-from subprocess import DEVNULL
+from subprocess import DEVNULL, TimeoutExpired
 import re
 import os
 from typing import Tuple
@@ -238,13 +238,19 @@ class XPDF(Tracer, Hybrid, FontExtractor):
     def _parse_document(self):
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
-            sp = subprocess.Popen('%s %s %s' % (self._pdftoppm_path, self._doc_path, os.path.join(temp_path, 'out')),
-                                  executable='/bin/bash', stderr=subprocess.PIPE, stdout=DEVNULL, shell=True)
-            (_, err) = sp.communicate()
-            decoder = locale.getpreferredencoding()
-            err = fix_splits(err.decode(decoder))
-        error_arr = [message for message in err.split('\n') if len(message) > 0]
-        self._trace_exit_code = sp.returncode
+            try:
+                sp = subprocess.Popen('%s %s %s' % (self._pdftoppm_path, self._doc_path, os.path.join(temp_path, 'out')),
+                                  executable='/bin/bash', stderr=subprocess.PIPE, stdout=DEVNULL, shell=True, timeout=self._timeout or 600)
+                (_, err) = sp.communicate()
+                err = fix_splits(err.decode(self._decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+                self._trace_exit_code = sp.returncode
+            except TimeoutExpired:
+                error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+                self._trace_exit_code = 0
+            except Exception as e:
+                error_arr = str(e).split('\n')
+                self._trace_exit_code = 0
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
     def _scrub_messages(self):
@@ -264,87 +270,122 @@ class XPDF(Tracer, Hybrid, FontExtractor):
     def _clean_message(self, err):
         return _pdftoppm_clean_message(err)
 
-    def _render_page(self, page):
-        start_time = time.perf_counter()
-        try:
-            if self._timeout is None:
-                render: PngImageFile = self._xpdf_render(page=page)
-            else:
-                render: PngImageFile = func_timeout(
-                    self._timeout,
-                    self._xpdf_render,
-                    kwargs={
-                        'page': page
-                    }
-                )
-            if self._caching:
-                self._renders[page] = render
-            timing = time.perf_counter() - start_time
-            self._logs[page] = {'result': SUCCESS, 'timing': timing}
-        except FunctionTimedOut:
-            render: PngImageFile = None
-            self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
-        except Exception as e:
-            render: PngImageFile = None
-            timing = time.perf_counter() - start_time
-            self._logs[page] = {'result': str(e), 'timing': timing}
+    # def _render_page(self, page):
+    #     start_time = time.perf_counter()
+    #     try:
+    #         if self._timeout is None:
+    #             render: PngImageFile = self._xpdf_render(page=page)
+    #         else:
+    #             render: PngImageFile = func_timeout(
+    #                 self._timeout,
+    #                 self._xpdf_render,
+    #                 kwargs={
+    #                     'page': page
+    #                 }
+    #             )
+    #         if self._caching:
+    #             self._renders[page] = render
+    #         timing = time.perf_counter() - start_time
+    #         self._logs[page] = {'result': SUCCESS, 'timing': timing}
+    #     except FunctionTimedOut:
+    #         render: PngImageFile = None
+    #         self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
+    #     except Exception as e:
+    #         render: PngImageFile = None
+    #         timing = time.perf_counter() - start_time
+    #         self._logs[page] = {'result': str(e), 'timing': timing}
+    #     return render
+
+    def _render_page(self, page: int):
+        render: PngImageFile = self._xpdf_render(page=page)
+        if self._caching:
+            self._renders[page] = render
         return render
 
+    # def _render_doc(self):
+    #     start_time = time.perf_counter()
+    #     try:
+    #         if self._timeout is None:
+    #             renders: Dict[int, PngImageFile] = self._xpdf_render(page=None)
+    #         else:
+    #             renders: Dict[int, PngImageFile] = func_timeout(
+    #                 self._timeout,
+    #                 self._xpdf_render,
+    #                 kwargs={
+    #                     'page': None
+    #                 }
+    #             )
+    #         if self._caching:
+    #             self._full_doc_rendered = True
+    #             self._renders = renders
+    #         timing = time.perf_counter() - start_time
+    #         num_pages = len(renders)
+    #         for page in renders.keys():
+    #             self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+    #     except FunctionTimedOut:
+    #         renders: Dict[int, PngImageFile] = dict()
+    #         self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
+    #     except Exception as e:
+    #         print(e)
+    #         renders: Dict[int, PngImageFile] = dict()
+    #         timing = time.perf_counter() - start_time
+    #         self._logs[0] = {'result': str(e), 'timing': timing}
+    #     return renders
+
     def _render_doc(self):
-        start_time = time.perf_counter()
-        try:
-            if self._timeout is None:
-                renders: Dict[int, PngImageFile] = self._xpdf_render(page=None)
-            else:
-                renders: Dict[int, PngImageFile] = func_timeout(
-                    self._timeout,
-                    self._xpdf_render,
-                    kwargs={
-                        'page': None
-                    }
-                )
-            if self._caching:
-                self._full_doc_rendered = True
-                self._renders = renders
-            timing = time.perf_counter() - start_time
-            num_pages = len(renders)
-            for page in renders.keys():
-                self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
-        except FunctionTimedOut:
-            renders: Dict[int, PngImageFile] = dict()
-            self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
-        except Exception as e:
-            print(e)
-            renders: Dict[int, PngImageFile] = dict()
-            timing = time.perf_counter() - start_time
-            self._logs[0] = {'result': str(e), 'timing': timing}
+        renders: Dict[int, PngImageFile] = self._xpdf_render(page=None)
+        if self._caching:
+            self._full_doc_rendered = True
+            self._renders = renders
         return renders
 
     def _xpdf_render(self, page=None):
-
-        return_single_page = False
+        start_time = time.perf_counter()
+        # return_single_page = False
         cmd = [self._pdftoppm_path, '-r', str(self._dpi)]
         if page is not None:
             page = str(int(page) + 1)
-            return_single_page = True
+            # return_single_page = True
             cmd.extend(['-f', page, '-l', page])
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
-            cmd.extend([self._doc_path, os.path.join(temp_path, 'out')])
-            cmd = ' '.join([entry for entry in cmd])
-            sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-            self._render_exit_code = sp.returncode
-            (_, err) = sp.communicate()
-            if page is None and self._messages is None:
-                self._trace_exit_code = sp.returncode
-                decoder = locale.getpreferredencoding()
-                err = fix_splits(err.decode(decoder))
-                error_arr = [message for message in err.split('\n') if len(message) > 0]
-                self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
-            result: Dict[int, PngImageFile] = dict()
-            for render in [file for file in os.listdir(temp_path) if file.endswith('.ppm')]:
-                page_index = int(re.sub('out-', '', re.sub('.ppm', '', render))) - 1
-                result[page_index] = Image.open(os.path.join(temp_path, render))
-        if return_single_page:
+            try:
+                cmd.extend([self._doc_path, os.path.join(temp_path, 'out')])
+                cmd = ' '.join([entry for entry in cmd])
+                sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+                self._render_exit_code = sp.returncode
+                (_, err) = sp.communicate()
+                if page is None and self._messages is None:
+                    self._trace_exit_code = sp.returncode
+                    decoder = locale.getpreferredencoding()
+                    err = fix_splits(err.decode(decoder))
+                    error_arr = [message for message in err.split('\n') if len(message) > 0]
+                    self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
+                result: Dict[int, PngImageFile] = dict()
+                for render in [file for file in os.listdir(temp_path) if file.endswith('.ppm')]:
+                    page_index = int(re.sub('out-', '', re.sub('.ppm', '', render))) - 1
+                    result[page_index] = Image.open(os.path.join(temp_path, render))
+                num_pages = len(result)
+                timing = time.perf_counter() - start_time
+                for page in result.keys():
+                    self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+            except TimeoutError:
+                self._render_exit_code = 0
+                if page is None and self._messages is None:
+                    error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+                    self._messages = error_arr
+                    self._trace_exit_code = 0
+                result: Dict[int, PngImageFile] = dict()
+                self._logs[0] = {'result': 'Timed out', 'timing': (self._timeout or 600)}
+            except Exception as e:
+                if page is None and self._messages is None:
+                    error_arr = str(e).split('\n')
+                    self._messages = error_arr
+                    self._trace_exit_code = 0
+                result: Dict[int, PngImageFile] = dict()
+                timing = time.perf_counter() - start_time
+                self._logs[0] = {'result': str(e), 'timing': timing}
+
+        if page is not None:
             single_page_result = result.get(int(page) - 1)
             if single_page_result is not None:
                 if single_page_result.width * single_page_result.height == 1:
@@ -378,42 +419,70 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             self._text[page] = text
 
     def _pdftotext_subprocess(self, command):
-        sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-        (stdout, err) = sp.communicate()
-        self._text_exit_code = sp.returncode
-        err = fix_splits(err.decode(self._decoder))
-        error_arr = [message for message in err.split('\n') if len(message) > 0]
+        # sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        # (stdout, err) = sp.communicate()
+        # self._text_exit_code = sp.returncode
+        # err = fix_splits(err.decode(self._decoder))
+        # error_arr = [message for message in err.split('\n') if len(message) > 0]
+        #
+        # self._text_messages = error_arr
+        #
+        # return stdout.decode(self._decoder, errors='ignore')
+        try:
+            sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True, timeout=self._timeout or 600)
+            (stdout, err) = sp.communicate()
+            self._text_exit_code = sp.returncode
+            err = fix_splits(err.decode(self._decoder))
+            error_arr = [message for message in err.split('\n') if len(message) > 0]
 
-        self._text_messages = error_arr
+            self._text_messages = error_arr
+            result = stdout.decode(self._decoder, errors='ignore')
+        except TimeoutExpired:
+            self._text_exit_code = 0
+            self._text_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+            result = ''
+        except Exception as e:
+            self._text_exit_code = 0
+            self._text_messages = str(e).split('\n')
+            result = ''
 
-        return stdout.decode(self._decoder, errors='ignore')
+        return result
 
     def _get_fonts(self):
-        sp = subprocess.Popen('%s -loc %s' %(self._pdffonts_path, self._doc_path), stderr=subprocess.PIPE,
-                              stdout=subprocess.PIPE, shell=True)
-        (stdout, err) = sp.communicate()
-        stdout = stdout.decode(self._decoder)
-        err = err.decode(self._decoder)
-        self._font_messages = [message for message in err.split('\n') if len(message) > 0]
-        self._fonts_exit_code = sp.returncode
-        lines = [line for line in stdout.split('\n') if line != '']
-        if len(lines) == 0 or len(lines) == 2:
+        try:
+            sp = subprocess.Popen('%s -loc %s' %(self._pdffonts_path, self._doc_path), stderr=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, shell=True, timeout=self._timeout or 600)
+            (stdout, err) = sp.communicate()
+            stdout = stdout.decode(self._decoder)
+            err = err.decode(self._decoder)
+            self._font_messages = [message for message in err.split('\n') if len(message) > 0]
+            self._fonts_exit_code = sp.returncode
+            lines = [line for line in stdout.split('\n') if line != '']
+            if len(lines) == 0 or len(lines) == 2:
+                self._fonts = []
+            else:
+                field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
+                header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i+1])].strip() for i in range(len(field_lengths))]
+                font_results = []
+                for line in lines[2:]:
+                    d = dict()
+                    for (idx, head) in enumerate(header[:-1]):
+                        value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx+1])].strip()
+                        if value == 'yes':
+                            value = True
+                        if value == 'no':
+                            value = False
+                        if head == 'object ID':
+                            value = value + ' R'
+                        d[head] = value
+                    d[header[-1]] = line[sum(field_lengths[:len(header) - 1]):].strip()
+                    font_results.append(d)
+                self._fonts = font_results
+        except TimeoutError:
             self._fonts = []
-        else:
-            field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
-            header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i+1])].strip() for i in range(len(field_lengths))]
-            font_results = []
-            for line in lines[2:]:
-                d = dict()
-                for (idx, head) in enumerate(header[:-1]):
-                    value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx+1])].strip()
-                    if value == 'yes':
-                        value = True
-                    if value == 'no':
-                        value = False
-                    if head == 'object ID':
-                        value = value + ' R'
-                    d[head] = value
-                d[header[-1]] = line[sum(field_lengths[:len(header) - 1]):].strip()
-                font_results.append(d)
-            self._fonts = font_results
+            self._font_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+            self._fonts_exit_code = 0
+        except Exception as e:
+            self._fonts = []
+            self._fonts_exit_code = 0
+            self._font_messages = str(e).split('\n')

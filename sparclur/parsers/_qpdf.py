@@ -8,6 +8,7 @@ from sparclur.utils._tools import fix_splits
 
 import re
 import subprocess
+from subprocess import TimeoutExpired
 import json
 
 
@@ -15,7 +16,8 @@ class QPDF(Tracer, MetadataExtractor):
     """QPDF tracer"""
     def __init__(self, doc_path: str,
                  skip_check: bool = False,
-                 binary_path: str = None
+                 binary_path: str = None,
+                 timeout: int = None
                  ):
         """
         Parameters
@@ -33,6 +35,7 @@ class QPDF(Tracer, MetadataExtractor):
         #self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'qpdf' if binary_path is None else binary_path
         self._exit_code = None
+        self._timeout = timeout
         # try:
         #     subprocess.check_output(self._cmd_path + " --version", shell=True)
         #     self.qpdf_present = True
@@ -102,17 +105,38 @@ class QPDF(Tracer, MetadataExtractor):
     def get_name():
         return 'QPDF'
 
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, to: int):
+        self._timeout = to
+
+    @timeout.deleter
+    def timeout(self):
+        self._timeout = None
+
     def _run_json(self):
         # with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
         # out_path = os.path.join(temp_path, 'out.pdf')
-        sp = subprocess.Popen('%s --json %s' % (self._cmd_path, self._doc_path), executable='/bin/bash',
-                              stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-        (stdout, err) = sp.communicate()
-        self._exit_code = sp.returncode
-        decoder = locale.getpreferredencoding()
-        err = fix_splits(err.decode(decoder, errors='ignore'))
-        stdout = stdout.decode(decoder, errors='ignore')
-        error_arr = [message for message in err.split('\n') if len(message) > 0]
+        try:
+            sp = subprocess.Popen('%s --json %s' % (self._cmd_path, self._doc_path), executable='/bin/bash',
+                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True, timeout=self._timeout or 600)
+            (stdout, err) = sp.communicate()
+            self._exit_code = sp.returncode
+            decoder = locale.getpreferredencoding()
+            err = fix_splits(err.decode(decoder, errors='ignore'))
+            stdout = stdout.decode(decoder, errors='ignore')
+            error_arr = [message for message in err.split('\n') if len(message) > 0]
+        except TimeoutExpired:
+            self._exit_code = 0
+            stdout = ''
+            error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+        except Exception as e:
+            self._exit_code = 0
+            stdout = ''
+            error_arr = str(e).split('\n')
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
         try:
             file = json.loads(stdout)
