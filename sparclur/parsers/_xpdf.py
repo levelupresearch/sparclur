@@ -82,6 +82,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         self._render_exit_code = None
         self._text_exit_code = None
         self._text_messages = None
+        self._font_messages = None
+        self._fonts_exit_code = None
 
     @property
     def page_delimiter(self):
