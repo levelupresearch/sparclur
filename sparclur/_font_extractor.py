@@ -47,10 +47,11 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
                     is_type1 = font_info['type'] == 'Type 1'
                     if not is_system and not is_type1:
                         filter_fonts.append(font_info)
-                embs = [d['emb'] for d in filter_fonts]
-                result = True
-                for emb in embs:
-                    result = not emb and result
+                if len(filter_fonts) == 0:
+                    result = False
+                else:
+                    embs = [d['emb'] for d in filter_fonts]
+                    result = not min(embs)
                 self._non_embedded_fonts = result
             return self._non_embedded_fonts
 
