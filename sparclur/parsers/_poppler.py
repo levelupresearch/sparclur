@@ -564,15 +564,19 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
                           for i in range(len(field_lengths))]
                 font_results = []
                 for line in lines[2:]:
+                    potential_name = line.split()[0]
+                    line_shift = max(len(potential_name) - field_lengths[0], 0)
+                    shifted_field_lengths = field_lengths
+                    shifted_field_lengths[0] = field_lengths[0] + line_shift
                     d = dict()
                     for (idx, head) in enumerate(header[:-1]):
-                        value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx + 1])].strip()
+                        value = line[sum(shifted_field_lengths[:idx]):sum(shifted_field_lengths[:idx + 1])].strip()
                         if value == 'yes':
                             value = True
                         if value == 'no':
                             value = False
                         d[head] = value
-                    d[header[-1]] = line[sum(field_lengths[:len(header) - 1]):].strip() + ' R'
+                    d[header[-1]] = line[sum(shifted_field_lengths[:len(header) - 1]):].strip() + ' R'
                     font_results.append(d)
                 self._fonts = font_results
         except TimeoutExpired:
