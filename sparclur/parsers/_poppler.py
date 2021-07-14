@@ -285,7 +285,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Errors returned'
-            elif len([message for message in self._font_messages if 'Warning' in message]) == len(self._text_messages):
+            elif len([message for message in self._font_messages if 'Warning' in message]) == len(self._font_messages):
                 validity_results['valid'] = True
                 validity_results['status'] = VALID_WARNINGS
                 validity_results['info'] = 'Warnings only'
@@ -551,8 +551,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
             sp = subprocess.Popen(shlex.split('%s %s' % (self._pdffonts_path, self._doc_path)), stderr=subprocess.PIPE,
                                   stdout=subprocess.PIPE, shell=False)
             (stdout, err) = sp.communicate(timeout=self._timeout or 600)
-            stdout = stdout.decode(self._decoder)
-            err = err.decode(self._decoder)
+            stdout = stdout.decode(self._decoder, errors='ignore')
+            err = err.decode(self._decoder, errors='ignore')
             self._font_messages = [message for message in err.split('\n') if len(message) > 0]
             self._fonts_exit_code = sp.returncode
             lines = [line for line in stdout.split('\n') if line != '']
