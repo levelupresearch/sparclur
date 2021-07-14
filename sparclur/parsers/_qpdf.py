@@ -138,7 +138,7 @@ class QPDF(Tracer, MetadataExtractor):
             error_arr = [message for message in err.split('\n') if len(message) > 0]
             self._exit_code = 0
             stdout = stdout
-            error_arr.insert(0, ['Error: Subprocess timed out: %i' % (self._timeout or 600)])
+            error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
         except Exception as e:
             self._exit_code = 0
             sp.kill()

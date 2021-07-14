@@ -325,7 +325,7 @@ class MuPDF(Tracer, Hybrid):
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
-                error_arr.insert(0, ['Subprocess timed out: %i' % (self._timeout or 600)])
+                error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
             except Exception as e:
                 sp.kill()
                 decoder = locale.getpreferredencoding()
