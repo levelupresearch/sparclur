@@ -6,7 +6,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 
 from sparclur.parsers import MuPDF, PDFMiner
-from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc, _lit_raw, _lit_meta
+from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc, _lit_raw, _lit_meta, _lit_font
 from sparclur.lit_sparclur._non_parser import NonParser
 from sparclur.lit_sparclur._lit_helper import parse_init
 from sparclur.utils._tools import create_file_list, is_pdf
@@ -22,7 +22,7 @@ from func_timeout import func_timeout
 
 PARSERS = {parser.get_name(): parser for parser in get_sparclur_parsers()}
 
-TEXTERS = [texter.get_name() for texter in get_sparclur_texters()]
+TEXTERS = [texter.get_name() for texter in get_sparclur_texters(no_ocr=True)]
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
@@ -57,7 +57,7 @@ recurse = st.sidebar.checkbox('Recurse into base directory', key='f')
 
 
 @st.cache
-def parse_document(selected_parser_kwargs, ocr):
+def parse_document(selected_parser_kwargs):
     p = dict()
 
     for name, kwa in selected_parser_kwargs.items():
@@ -76,8 +76,7 @@ def parse_document(selected_parser_kwargs, ocr):
         if p[name].get_name() in RENDERERS:
             _ = p[name].get_renders()
         if p[name].get_name() in TEXTERS:
-            if ocr or p[name].get_name() not in RENDERERS:
-                _ = p[name].get_tokens()
+            _ = p[name].get_tokens()
         if p[name].get_name() in METAS:
             _ = p[name].metadata
 
@@ -179,8 +178,8 @@ for p_name, parser in PARSERS.items():
 if not is_pdf(filepath):
     st.write("Please select a PDF")
 else:
-    parsers = parse_document(parser_kwargs, ocr)
-    page.app(parsers, ocr=ocr)
+    parsers = parse_document(parser_kwargs)
+    page.app(parsers, ocr = False)
     # if isinstance(page, str):
     #     st.subheader("Select Parsers")
     #     parsers = parser_select(filepath)

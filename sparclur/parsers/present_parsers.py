@@ -6,6 +6,7 @@ from sparclur._hybrid import Hybrid
 from sparclur._text_compare import TextCompare
 from sparclur._metadata_extractor import MetadataExtractor
 from sparclur._text_extractor import TextExtractor
+from sparclur._font_extractor import FontExtractor
 
 from typing import List, Dict
 
@@ -19,10 +20,12 @@ _sparclur_parsers: Dict[str, Parser] = {
         QPDF.get_name(): QPDF
     }
 
+
 def get_sparclur_parsers():
     """Helper function that returns a list of all SPARCLUR Parsers"""
     present_parsers: List[Parser] = [parser for parser in _sparclur_parsers.values()]
     return present_parsers
+
 
 def get_sparclur_renderers():
     """Helper function that returns a list of all SPARCLUR Renderers"""
@@ -30,11 +33,13 @@ def get_sparclur_renderers():
         [renderer for renderer in _sparclur_parsers.values() if issubclass(renderer, Renderer)]
     return present_renderers
 
+
 def get_sparclur_tracers():
     """Helper function that returns a list of all SPARCLUR Tracers"""
     present_tracers: List[Tracer] = \
         [tracer for tracer in _sparclur_parsers.values() if issubclass(tracer, Tracer)]
     return present_tracers
+
 
 def get_sparclur_texters(no_ocr=False):
     """Helper function that returns a list of all SPARCLUR TextExtractors"""
@@ -45,8 +50,15 @@ def get_sparclur_texters(no_ocr=False):
             [texter for texter in present_texters if issubclass(texter, TextExtractor) or issubclass(texter, Hybrid)]
     return present_texters
 
+
 def get_sparclur_metadata():
     """Helper function that returns a list of all SPARCLUR MetadataExtractors"""
     present_metadata: List[MetadataExtractor] = \
         [meta for meta in _sparclur_parsers.values() if issubclass(meta, MetadataExtractor)]
     return present_metadata
+
+
+def get_sparclur_fonts():
+    present_fonts: List[FontExtractor] = \
+        [font for font in _sparclur_parsers.values() if issubclass(font, FontExtractor)]
+    return present_fonts
