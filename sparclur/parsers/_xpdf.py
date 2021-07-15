@@ -490,19 +490,28 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
                 header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i + 1])].strip() for i in
                           range(len(field_lengths))]
+                before_yes_nos_header = header[0:header.index('emb')]
+                yes_nos_header = header[header.index('emb'):header.index('uni') + 1]
+                after_yes_nos_header = header[header.index('uni') + 1:]
                 font_results = []
                 for line in lines[2:]:
+                    yes_nos = ''.join(re.findall(r'(yes\s|no\s\s)', line))
+                    before_yes_nos = line.split(yes_nos)[0]
+                    after_yes_nos = line.split(yes_nos)[-1]
+                    yes_nos_split = yes_nos.split()
                     d = dict()
-                    for (idx, head) in enumerate(header[:-1]):
-                        value = line[sum(field_lengths[:idx]):sum(field_lengths[:idx + 1])].strip()
-                        if value == 'yes':
-                            value = True
-                        if value == 'no':
-                            value = False
-                        if head == 'object ID':
-                            value = value + ' R'
-                        d[head] = value
-                    d[header[-1]] = line[sum(field_lengths[:len(header) - 1]):].strip()
+                    d['name'] = before_yes_nos[0:len(before_yes_nos) - sum(field_lengths[header.index(
+                        before_yes_nos_header[1]):header.index(before_yes_nos_header[-1]) + 1])].strip()
+                    d['type'] = before_yes_nos[len(before_yes_nos) - field_lengths[header.index('type')]:].strip()
+                    for (idx, head) in enumerate(yes_nos_header):
+                        d[head] = True if yes_nos_split[idx] == 'yes' else False
+                    d['prob'] = True if after_yes_nos.startswith('X') else False
+                    d['object ID'] = after_yes_nos[
+                                     field_lengths[header.index('prob')]:field_lengths[header.index('prob')] +
+                                                                         field_lengths[
+                                                                             header.index('object ID')]].strip() + ' R'
+                    d['location'] = after_yes_nos[field_lengths[header.index('prob')] + field_lengths[
+                        header.index('object ID')]:].strip()
                     font_results.append(d)
                 self._fonts = font_results
         except TimeoutError:

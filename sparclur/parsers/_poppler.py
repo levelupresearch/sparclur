@@ -562,21 +562,33 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
                 field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
                 header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i + 1])].strip()
                           for i in range(len(field_lengths))]
+                before_yes_nos_header = header[0:header.index('emb')]
+                yes_nos_header = header[header.index('emb'):header.index('uni') + 1]
+                after_yes_nos_header = header[header.index('uni')+1:]
+                after_yes_nos_field_lengths = field_lengths[header.index(after_yes_nos_header[0]):]
                 font_results = []
                 for line in lines[2:]:
-                    potential_name = line.split()[0]
-                    line_shift = max(len(potential_name) - field_lengths[0], 0)
-                    # shifted_field_lengths = field_lengths
-                    # shifted_field_lengths[0] = field_lengths[0] + line_shift
+                    yes_nos = ''.join(re.findall(r'(yes\s+|no\s+)', line))
+                    before_yes_nos = line.split(yes_nos)[0]
+                    after_yes_nos = line.split(yes_nos)[-1]
+                    yes_nos_split = yes_nos.split()
                     d = dict()
-                    for (idx, head) in enumerate(header[:-1]):
-                        value = line[sum(field_lengths[:idx]) + line_shift:sum(field_lengths[:idx + 1]) + line_shift].strip()
-                        if value == 'yes':
-                            value = True
-                        if value == 'no':
-                            value = False
+                    d['name'] = before_yes_nos[0:len(before_yes_nos) - sum(field_lengths[header.index(
+                        before_yes_nos_header[1]):header.index(before_yes_nos_header[-1]) + 1])].strip()
+                    d['type'] = before_yes_nos[
+                                len(before_yes_nos) - field_lengths[header.index('type')] - field_lengths[
+                                    header.index('encoding')]: len(before_yes_nos) - field_lengths[
+                                    header.index('encoding')]].strip()
+                    d['encoding'] = before_yes_nos[
+                                    len(before_yes_nos) - field_lengths[header.index('encoding')]:].strip()
+                    for (idx, head) in enumerate(yes_nos_header):
+                        d[head] = True if yes_nos_split[idx] == 'yes' else False
+                    for (idx, head) in enumerate(after_yes_nos_header[:-1]):
+                        value = after_yes_nos[sum(after_yes_nos_field_lengths[:idx]):sum(
+                            after_yes_nos_field_lengths[:idx + 1])].strip()
                         d[head] = value
-                    d[header[-1]] = line[sum(field_lengths[:len(header) - 1]) + line_shift:].strip() + ' R'
+                    d[after_yes_nos_header[-1]] = after_yes_nos[sum(after_yes_nos_field_lengths[
+                                                                    :len(after_yes_nos_header) - 1]):].strip() + ' R'
                     font_results.append(d)
                 self._fonts = font_results
         except TimeoutExpired:
@@ -597,7 +609,6 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
             error_arr.extend([message for message in err.split('\n') if len(message) > 0])
             self._font_messages = error_arr
             self._fonts_exit_code = 0
-
 
     def _get_image_data(self):
         try:
