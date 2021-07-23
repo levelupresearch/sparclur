@@ -149,10 +149,10 @@ def _parallel_messages(files, progress_bar, num_workers, parsers, file_col, labe
     results = []
     index = 0
 
-    context = multiprocessing.get_context('spawn') if 'PDFBox' in parsers else multiprocessing.get_context('fork')
+    # context = multiprocessing.get_context('spawn') if 'PDFBox' in parsers else multiprocessing.get_context('fork')
 
     # overall_timeout = None if timeout is None else int((len(tracers) + 0.5) * timeout)
-    with ProcessPool(max_workers=num_workers, context=context) as pool:
+    with ProcessPool(max_workers=num_workers, context=multiprocessing.get_context('spawn')) as pool:
         future = pool.map(_worker, files, timeout=600)
 
         iterator = future.result()
