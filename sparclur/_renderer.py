@@ -205,14 +205,13 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, skip_check, dpi, cache_renders, timeout, *args, **kwargs):
-        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
+    def __init__(self, doc_path, skip_check, timeout, dpi, cache_renders, *args, **kwargs):
+        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout, *args, **kwargs)
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
         self._dpi = dpi
         self._caching = cache_renders
         self._logs = dict()
-        self._timeout = timeout
         self._can_render: bool = None
 
     @abc.abstractmethod
@@ -241,17 +240,6 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
             self._can_extract = 'pytesseract' in sys.modules.keys()
         return self._can_extract
 
-    @property
-    def timeout(self):
-        return self._timeout
-
-    @timeout.setter
-    def timeout(self, to: int):
-        self._timeout = to
-
-    @timeout.deleter
-    def timeout(self):
-        self._timeout = None
 
     # @property
     # def verbose(self):

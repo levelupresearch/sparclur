@@ -22,9 +22,10 @@ class Parser(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, skip_check, *args, **kwargs):
+    def __init__(self, doc_path, skip_check, timeout, *args, **kwargs):
         self._doc_path = doc_path
         self._skip_check = skip_check
+        self._timeout = timeout
         self._validity: Dict[str, Dict[str, Any]] = dict()
         # self._status = None
         # self._root_cause = None
@@ -64,6 +65,18 @@ class Parser(metaclass=abc.ABCMeta):
     @property
     def validity(self):
         return self._validity
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, to: int):
+        self._timeout = to
+
+    @timeout.deleter
+    def timeout(self):
+        self._timeout = None
 
     # @property
     # def valid(self):

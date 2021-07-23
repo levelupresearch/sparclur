@@ -1,3 +1,4 @@
+import multiprocessing
 from typing import Callable, List, Dict, Any
 from inspect import isclass
 import os
@@ -10,8 +11,14 @@ from sklearn.model_selection import cross_val_score
 import pandas as pd
 import numpy as np
 
+from sparclur._parser import Parser
 from sparclur._tracer import Tracer
-from sparclur.parsers.present_parsers import get_sparclur_tracers
+from sparclur._renderer import Renderer
+from sparclur._text_extractor import TextExtractor
+from sparclur._metadata_extractor import MetadataExtractor
+from sparclur._font_extractor import FontExtractor
+
+from sparclur.parsers.present_parsers import get_sparclur_tracers, get_sparclur_parsers
 
 from tqdm import tqdm
 from pebble import ProcessPool
@@ -44,34 +51,67 @@ def _is_list_like(obj) -> bool:
     )
 
 
-def _parse_tracers(tracers):
+def _parse_parsers(parsers):
     """
     Parses the tracers to run for the astrotruth labels.
 
     Parameters
     ----------
-    tracers: List[str] or List[Tracer]
+    parsers: List[str] or List[Parser]
 
     """
-    renderer_dict = {tracer.get_name(): tracer for tracer in get_sparclur_tracers()}
+    parser_dict = {parser.get_name(): parser for parser in get_sparclur_parsers()}
     result = dict()
-    for tracer in tracers:
-        if isinstance(tracer, str):
-            if tracer in renderer_dict:
-                result[tracer] = renderer_dict[tracer]
-        elif isclass(tracer):
-            if issubclass(tracer, Tracer):
-                result[tracer.get_name()] = tracer
-        elif isinstance(tracer, Tracer):
-            result[tracer.get_name()] = tracer
+    for parser in parsers:
+        if isinstance(parser, str):
+            if parser in parser_dict:
+                result[parser] = parser_dict[parser]
+        elif isclass(parser):
+            if issubclass(parser, Parser):
+                result[parser.get_name()] = parser
+        elif isinstance(parser, Parser):
+            result[parser.get_name()] = parser
     return result
 
 
-def _parse_cleaned(tracer_name, doc, tracer_args):
-    tracer = [t for t in get_sparclur_tracers() if t.get_name() == tracer_name][0]
-    tracer = tracer(doc_path=doc, **tracer_args.get(tracer_name, dict()))
-    cleaned_messages = tracer.cleaned
-    return {'%s::%s' % (tracer.get_name(), key): value for key, value in cleaned_messages.items()}
+# def _parse_cleaned(tracer_name, doc, tracer_args):
+#     tracer = [t for t in get_sparclur_tracers() if t.get_name() == tracer_name][0]
+#     tracer = tracer(doc_path=doc, **tracer_args.get(tracer_name, dict()))
+#     cleaned_messages = tracer.cleaned
+#     return {'%s::%s' % (tracer.get_name(), key): value for key, value in cleaned_messages.items()}
+
+
+def _parse_document(parser_name, exclude, doc, timeout, parser_args):
+    parser = [p for p in get_sparclur_parsers() if p.get_name() == parser_name][0]
+    parser = parser(doc_path=doc, skip_check=True, timeout=timeout, **parser_args.get(parser_name, dict()))
+    if exclude is None:
+        exclude = []
+    elif isinstance(exclude, str):
+        exclude = [exclude]
+
+    exclude = [excluded.lower() for excluded in exclude]
+
+    vector = dict()
+    if isinstance(parser, Tracer) and 'tracer' not in exclude:
+        cleaned_messages = parser.cleaned
+        for key, value in cleaned_messages.items():
+            vector['%s::%s' % (parser.get_name(), key)] = value
+        if 'validity' not in exclude:
+            vector['%s::Tracer Valid'] = 1 if parser.validate_tracer()['valid'] else 0
+    if isinstance(parser, Renderer) and 'renderer' not in exclude:
+        if 'validity' not in exclude:
+            vector['%s::Renderer Valid'] = 1 if parser.validate_renderer()['valid'] else 0
+    if isinstance(parser, TextExtractor) and 'text' not in exclude:
+        if 'validity' not in exclude:
+            vector['%s::Text Extraction Valid'] = 1 if parser.validate_text()['valid'] else 0
+    if isinstance(parser, MetadataExtractor) and 'metadata' not in exclude:
+        if 'validity' not in exclude:
+            vector['%s::Metadata Extraction Valid'] = 1 if parser.validate_metadata()['valid'] else 0
+    if isinstance(parser, FontExtractor) and 'font' not in exclude:
+        vector['%s::Non-embedded Font'] = 1 if parser.non_embedded_fonts else 0
+        if 'validity' not in exclude:
+            vector['%s::Font Extraction Valid'] = 1 if parser.validate_fonts()['valid'] else 0
+    return vector
 
 
 def _worker(entry):
@@ -79,27 +119,20 @@ def _worker(entry):
     label_col = entry['label_col']
     file = entry[file_col]
     label = entry.get(label_col, "Prediction not run")
-    tracers = entry['tracers']
-    tracer_args = entry.get('tracer_args', dict())
+    parsers = entry['parsers']
+    parser_args = entry.get('parser_args', dict())
+    exclude = entry.get('exclude', [])
     timeout = entry['timeout']
     result = dict()
     result[file_col] = file
     result[label_col] = label
-    for tracer in tracers:
+    for parser in parsers:
         try:
-            tracer_result = func_timeout(
-                timeout,
-                _parse_cleaned,
-                kwargs={
-                    'tracer_name': tracer,
-                    'doc': file,
-                    'tracer_args': tracer_args
-                }
-            )
+            parser_result = _parse_document(parser, exclude, file, timeout, parser_args)
         except Exception as error:
             e = str(error)
-            tracer_result = {'%s::%s' % (tracer, e): 1}
-        result[tracer] = tracer_result
+            parser_result = {'%s::%s' % (parser, e): 1}
+        result[parser] = parser_result
     return result
 
 
@@ -110,15 +143,17 @@ def _error_result(file_col, label_col, path, label, error, tracer_names):
     return d
 
 
-def _parallel_messages(files, progress_bar, num_workers, timeout, tracers, file_col, label_col):
+def _parallel_messages(files, progress_bar, num_workers, parsers, file_col, label_col):
     if progress_bar:
         pbar = tqdm(total=len(files))
     results = []
     index = 0
 
-    overall_timeout = None if timeout is None else int((len(tracers) + 0.5) * timeout)
-    with ProcessPool(max_workers=num_workers) as pool:
-        future = pool.map(_worker, files, timeout=overall_timeout)
+    context = multiprocessing.get_context('spawn') if 'PDFBox' in parsers else multiprocessing.get_context('fork')
+
+    # overall_timeout = None if timeout is None else int((len(tracers) + 0.5) * timeout)
+    with ProcessPool(max_workers=num_workers, context=context) as pool:
+        future = pool.map(_worker, files, timeout=600)
 
         iterator = future.result()
 
@@ -134,13 +169,13 @@ def _parallel_messages(files, progress_bar, num_workers, timeout, tracers, file_
                 file = entry[file_col]
                 label = entry[label_col]
                 e = 'File Timed Out'
-                result = _error_result(file_col, label_col, file, label, e, tracers)
+                result = _error_result(file_col, label_col, file, label, e, parsers)
             except Exception as error:
                 entry = files[index]
                 file = entry[file_col]
                 label = entry[label_col]
                 e = str(error)
-                result = _error_result(file_col, label_col, file, label, e, tracers)
+                result = _error_result(file_col, label_col, file, label, e, parsers)
             finally:
                 if progress_bar:
                     pbar.update(1)

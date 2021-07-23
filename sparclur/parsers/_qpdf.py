@@ -31,13 +31,12 @@ class QPDF(Tracer, MetadataExtractor):
         temp_folders_dir : str
             Path to create the temporary directories used for temporary files.
         """
-        super().__init__(doc_path=doc_path, skip_check=skip_check)
+        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout)
         self._doc_path = doc_path
         #self._temp_folders_dir = temp_folders_dir
         self._decoder = locale.getpreferredencoding()
         self._cmd_path = 'qpdf' if binary_path is None else binary_path
         self._exit_code = None
-        self._timeout = timeout
         # try:
         #     subprocess.check_output(self._cmd_path + " --version", shell=True)
         #     self.qpdf_present = True
@@ -106,18 +105,6 @@ class QPDF(Tracer, MetadataExtractor):
     @staticmethod
     def get_name():
         return 'QPDF'
-
-    @property
-    def timeout(self):
-        return self._timeout
-
-    @timeout.setter
-    def timeout(self, to: int):
-        self._timeout = to
-
-    @timeout.deleter
-    def timeout(self):
-        self._timeout = None
 
     def _run_json(self):
         # with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:

@@ -4,6 +4,7 @@ import sys
 
 from typing import Dict, Any
 
+from func_timeout import func_timeout
 from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
 
@@ -236,7 +237,19 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         page_numbers = None if page is None else [page]
         decoder = locale.getpreferredencoding()
         try:
-            text = extract_text(self._doc_path, page_numbers=page_numbers, codec=decoder, laparams=self._laparams)
+            if self._timeout is None:
+                text = extract_text(self._doc_path, page_numbers=page_numbers, codec=decoder, laparams=self._laparams)
+            else:
+                text = func_timeout(
+                    self._timeout,
+                    extract_text,
+                    kwargs={
+                        'pdf_file': self._doc_path,
+                        'page_numbers': page_numbers,
+                        'codec': decoder,
+                        'laparams': self._laparams
+                    }
+                )
         except Exception as e:
             print(e)
             text = self._text = dict()
@@ -245,7 +258,13 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def _extract_metadata(self):
 
         try:
-            self._dumppdf()
+            if self._timeout is None:
+                self._dumppdf()
+            else:
+                func_timeout(
+                    self._timeout,
+                    self._dumppdf()
+                )
             self._metadata_result = METADATA_SUCCESS
         except Exception as e:
             self._metadata = dict()

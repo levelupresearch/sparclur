@@ -61,6 +61,8 @@ class MetadataExtractor(Parser, metaclass=abc.ABCMeta):
 
     @property
     def metadata_result(self):
+        if self._metadata is None:
+            _ = self.metadata
         return self._metadata_result
 
     @abc.abstractmethod
