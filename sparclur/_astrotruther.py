@@ -484,6 +484,7 @@ class Astrotruther:
                               self._label_col: "Not predicted yet",
                               'parsers': list(self._parsers.keys()),
                               'parser_args': self._parser_args,
+                              'exclude': self._exclude,
                               'timeout': self._timeout}
                              for file in data]
             messages = _parallel_messages(parallel_data,
