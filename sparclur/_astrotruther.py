@@ -18,7 +18,7 @@ from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor
 from sparclur._font_extractor import FontExtractor
 
-from sparclur.parsers.present_parsers import get_sparclur_tracers, get_sparclur_parsers
+from sparclur.parsers.present_parsers import get_sparclur_parsers
 
 from tqdm import tqdm
 from pebble import ProcessPool
@@ -136,10 +136,10 @@ def _worker(entry):
     return result
 
 
-def _error_result(file_col, label_col, path, label, error, tracer_names):
+def _error_result(file_col, label_col, path, label, error, parser_names):
     d = {file_col: path, label_col: label}
-    for tracer in tracer_names:
-        d[tracer] = {'%s::%s' % (tracer, error): 1}
+    for parser in parser_names:
+        d[parser] = {'%s::%s' % (parser, error): 1}
     return d
 
 
@@ -196,8 +196,9 @@ class Astrotruther:
                  label_col: str or int = 1,
                  base_path: str = None,
                  label_transform: Callable[[str], str] = None,
-                 parsers: List[Tracer] or List[str] = get_sparclur_tracers(),
+                 parsers: List[Parser] or List[str] = get_sparclur_parsers(),
                  parser_args: Dict[str, Dict[str, Any]] = dict(),
+                 exclude: str or List[str] = None,
                  classifier: str = 'decTree',
                  classifier_args: Dict[str, Any] = dict(),
                  k_folds: int = 3,
@@ -244,8 +245,9 @@ class Astrotruther:
         self._label_col = label_col
         self._base_path = base_path
         self._label_transform = label_transform
-        self._tracers = _parse_tracers(parsers)
+        self._parsers = _parse_parsers(parsers)
         self._parser_args = parser_args
+        self._exclude = exclude
         self._classifier = classifier
         self._classifier_args = classifier_args
         self._k_folds = k_folds
@@ -295,11 +297,11 @@ class Astrotruther:
 
     @property
     def parsers(self):
-        return [parser.get_name() for parser in self._tracers]
+        return [parser.get_name() for parser in self._parsers]
 
     @parsers.setter
-    def parsers(self, parsers: List[str] or List[Tracer]):
-        self._tracers = _parse_tracers(parsers)
+    def parsers(self, parsers: List[str] or List[Parser]):
+        self._parsers = _parse_parsers(parsers)
 
     @property
     def parser_args(self):
@@ -312,6 +314,18 @@ class Astrotruther:
     @parser_args.deleter
     def parser_args(self):
         self._parser_args = dict()
+
+    @property
+    def exclude(self):
+        return self._exclude
+
+    @exclude.setter
+    def exclude(self, e: str or List[str]):
+        self._exclude = e
+
+    @exclude.deleter
+    def exclude(self):
+        self._exclude = None
 
     @property
     def classifier(self):
@@ -454,15 +468,15 @@ class Astrotruther:
                               self._file_col: file,
                               'label_col': self._label_col,
                               self._label_col: "Not predicted yet",
-                              'tracers': list(self._tracers.keys()),
-                              'tracer_args': self._parser_args,
+                              'parsers': list(self._parsers.keys()),
+                              'parser_args': self._parser_args,
                               'timeout': self._timeout}
                              for file in data]
             messages = _parallel_messages(parallel_data,
                                           self._progress_bar,
                                           self._num_workers,
                                           self._timeout,
-                                          list(self._tracers.keys()),
+                                          list(self._parsers.keys()),
                                           self._file_col,
                                           self._label_col)
         X = {entry[file_col]: self._vectorfy(entry) for entry in messages}
@@ -494,21 +508,22 @@ class Astrotruther:
                               self._file_col: file,
                               'label_col': self._label_col,
                               self._label_col: label,
-                              'tracers': list(self._tracers.keys()),
-                              'tracer_args': self._parser_args,
+                              'parsers': list(self._parsers.keys()),
+                              'parser_args': self._parser_args,
+                              'exclude': self._exclude,
                               'timeout': self._timeout}
                              for file, label in data[[self._file_col, self._label_col]].values.tolist()]
             messages = _parallel_messages(parallel_data,
                                           self._progress_bar,
                                           self._num_workers,
                                           self._timeout,
-                                          list(self._tracers.keys()),
+                                          list(self._parsers.keys()),
                                           self._file_col,
                                           self._label_col)
         distinct_warnings = set()
         for dic in messages:
-            for tracer in self._tracers.keys():
-                distinct_warnings.update(set(dic[tracer]))
+            for parser in self._parsers.keys():
+                distinct_warnings.update(set(dic[parser]))
         distinct_warnings = list(distinct_warnings)
         distinct_warnings.sort()
         self._warnings_map = {warning: index for (index, warning) in enumerate(distinct_warnings)}
@@ -522,8 +537,8 @@ class Astrotruther:
     def _vectorfy(self, entry):
         vector = np.zeros(self._k)
         unseen_messages = False
-        for tracer_name in self._tracers.keys():
-            error_dict = entry[tracer_name]
+        for parser_name in self._parsers.keys():
+            error_dict = entry[parser_name]
             for (warning, count) in error_dict.items():
                 if warning in self._warnings_map:
                     vector[self._warnings_map[warning]] = count
@@ -540,18 +555,21 @@ class Astrotruther:
         result = dict()
         result[self._file_col] = file
         result[self._label_col] = label
-        for tracer_name in self._tracers.keys():
+        for parser_name in self._parsers.keys():
             try:
-                tracer_result = func_timeout(
-                    self._timeout,
-                    self._parse_cleaned,
+                parser_result = func_timeout(
+                    600,
+                    _parse_document,
                     kwargs={
-                        'tracer_name': tracer_name,
-                        'doc': file
+                        'parser_name': parser_name,
+                        'exclude': self._exclude,
+                        'doc': file,
+                        'timeout': self._timeout,
+                        'parser_args': self._parser_args
                     }
                 )
             except Exception as error:
                 e = str(error)
-                tracer_result = {'%s::%s' % (tracer_name, e): 1}
-            result[tracer_name] = tracer_result
+                parser_result = {'%s::%s' % (parser_name, e): 1}
+            result[parser_name] = parser_result
         return result
