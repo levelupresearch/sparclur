@@ -143,7 +143,7 @@ def _error_result(file_col, label_col, path, label, error, parser_names):
     return d
 
 
-def _parallel_messages(files, progress_bar, num_workers, parsers, file_col, label_col):
+def _parallel_messages(files, overall_timeout, progress_bar, num_workers, parsers, file_col, label_col):
     if progress_bar:
         pbar = tqdm(total=len(files))
     results = []
@@ -153,7 +153,7 @@ def _parallel_messages(files, progress_bar, num_workers, parsers, file_col, labe
 
     # overall_timeout = None if timeout is None else int((len(tracers) + 0.5) * timeout)
     with ProcessPool(max_workers=num_workers, context=multiprocessing.get_context('spawn')) as pool:
-        future = pool.map(_worker, files, timeout=600)
+        future = pool.map(_worker, files, timeout=overall_timeout or 600)
 
         iterator = future.result()
 
@@ -199,6 +199,7 @@ class Astrotruther:
                  parsers: List[Parser] or List[str] = get_sparclur_parsers(),
                  parser_args: Dict[str, Dict[str, Any]] = dict(),
                  exclude: str or List[str] = None,
+                 overall_timeout: int = None,
                  classifier: str = 'decTree',
                  classifier_args: Dict[str, Any] = dict(),
                  k_folds: int = 3,
@@ -253,11 +254,24 @@ class Astrotruther:
         self._k_folds = k_folds
         self._num_workers = num_workers
         self._timeout = timeout
+        self._overall_timeout = overall_timeout
         self._progress_bar = progress_bar
         self._model = None
         self._metrics: float = None
         self._warnings_map: Dict[str, int] = None
         self._k: int = None
+
+    @property
+    def overall_timeout(self):
+        return self._overall_timeout
+
+    @overall_timeout.setter
+    def overall_timeout(self, ot):
+        self._overall_timeout = ot
+
+    @overall_timeout.deleter
+    def overall_timeout(self):
+        self._overall_timeout = None
 
     @property
     def file_col(self):
@@ -473,6 +487,7 @@ class Astrotruther:
                               'timeout': self._timeout}
                              for file in data]
             messages = _parallel_messages(parallel_data,
+                                          self._overall_timeout,
                                           self._progress_bar,
                                           self._num_workers,
                                           self._timeout,
@@ -514,6 +529,7 @@ class Astrotruther:
                               'timeout': self._timeout}
                              for file, label in data[[self._file_col, self._label_col]].values.tolist()]
             messages = _parallel_messages(parallel_data,
+                                          self._overall_timeout,
                                           self._progress_bar,
                                           self._num_workers,
                                           list(self._parsers.keys()),
