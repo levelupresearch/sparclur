@@ -516,7 +516,6 @@ class Astrotruther:
             messages = _parallel_messages(parallel_data,
                                           self._progress_bar,
                                           self._num_workers,
-                                          self._timeout,
                                           list(self._parsers.keys()),
                                           self._file_col,
                                           self._label_col)
