@@ -44,8 +44,9 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
                 filter_fonts = []
                 for font_info in self._fonts:
                     is_system = font_info['name'].split('+')[-1] in SYSTEM_FONTS
-                    is_type1 = font_info['type'] == 'Type 1'
-                    if not is_system and not is_type1:
+                    #is_type1 = font_info['type'] == 'Type 1'
+                    # if not is_system and not is_type1:
+                    if not is_system:
                         filter_fonts.append(font_info)
                 if len(filter_fonts) == 0:
                     result = False
