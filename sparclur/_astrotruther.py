@@ -421,8 +421,8 @@ class Astrotruther:
             astro = pickle.load(f)
         return astro
 
-    def fit(self, docs, doc_loading_args=dict()):
-        X, Y = self._transform_training_data(docs, doc_loading_args)
+    def fit(self, docs, doc_loading_args=dict(), save_training_data=None):
+        X, Y = self._transform_training_data(docs, doc_loading_args, save_training_data=save_training_data)
         clf = _MODEL_SWITCHER[self._classifier](**self._classifier_args)
         self._model = clf.fit(X, Y)
         self._metrics = cross_val_score(clf, X, Y, cv=self._k_folds)
@@ -434,15 +434,16 @@ class Astrotruther:
                 doc_loading_args=dict(),
                 unseen_ignore=None,
                 unseen_message_default='Not enough info',
-                prediction_column='astrotruth'):
+                prediction_column='astrotruth',
+                save_eval_data=None):
         assert self._model is not None, "Model has not been generated"
         file_col = self._file_col if file_col is None else file_col
-        df = self._load_prediction_data(docs, file_col, doc_loading_args)
-        X = self._get_prediction_messages(df, file_col)
-        predictions = {key: self._predict(vector, unseen, unseen_ignore, unseen_message_default)
-                       for (key, (vector, unseen)) in X.items()}
-        df[prediction_column] = df[file_col].apply(lambda x: predictions.get(x, ("Not found", "Not found"))[0])
-        df['untrained_messages'] = df[file_col].apply(lambda x: predictions.get(x, ("Not found", "Not found"))[1])
+        X = self._load_prediction_data(docs, file_col, doc_loading_args, save_eval_data)
+        predictions = [{file_col: key,
+                        prediction_column: self._predict(vector, unseen, unseen_ignore, unseen_message_default)[0],
+                        'untrained_features': unseen}
+                       for (key, (vector, unseen)) in X.items()]
+        df = pd.DataFrame(predictions)
         return df
 
     def _predict(self, vector, unseen_messages, unseen_ignore, unseen_message_default):
@@ -457,84 +458,110 @@ class Astrotruther:
         else:
             return unseen_message_default, unseen_messages
 
-    def _load_prediction_data(self, docs, file_col, data_args):
-        if not isinstance(docs, pd.DataFrame):
-            if isinstance(docs, str):
-                if os.path.isfile(docs):
-                    data = pd.read_csv(docs, **data_args)
-                else:
-                    data = pd.DataFrame([docs], columns=[file_col])
+    def _load_prediction_data(self, docs, file_col, data_args, save_eval_data):
+        if isinstance(docs, str):
+            assert os.path.isfile(docs), "Data not found"
+            is_file = True
+        else:
+            is_file = False
+        try:
+            if is_file:
+                with open(docs, 'rb') as f:
+                    messages = pickle.load(f)
             else:
-                assert _is_list_like(docs), \
-                    "Data in unrecognizable format. " \
-                    "Please use a DataFrame, a list of filepaths, a single filepath, or the path to a csv"
-                data = pd.DataFrame(docs, columns=[file_col])
-        else:
-            data = docs
-        return data
-
-    def _get_prediction_messages(self, df, file_col):
-        data = list(df[file_col].values)
-        if self._num_workers == 1 or len(data) / self._num_workers < 20:
-            messages = [self._get_messages(entry) for entry in data]
-        else:
-            parallel_data = [{'file_col': self._file_col,
-                              self._file_col: file,
-                              'label_col': self._label_col,
-                              self._label_col: "Not predicted yet",
-                              'parsers': list(self._parsers.keys()),
-                              'parser_args': self._parser_args,
-                              'exclude': self._exclude,
-                              'timeout': self._timeout}
-                             for file in data]
-            messages = _parallel_messages(parallel_data,
-                                          self._overall_timeout,
-                                          self._progress_bar,
-                                          self._num_workers,
-                                          list(self._parsers.keys()),
-                                          self._file_col,
-                                          self._label_col)
+                raise Exception("Not a pickle")
+        except:
+            if not isinstance(docs, pd.DataFrame):
+                if isinstance(docs, str):
+                    if os.path.isfile(docs):
+                        df = pd.read_csv(docs, **data_args)
+                    else:
+                        df = pd.DataFrame([docs], columns=[file_col])
+                else:
+                    assert _is_list_like(docs), \
+                        "Data in unrecognizable format. " \
+                        "Please use a DataFrame, a list of filepaths, a single filepath, or the path to a csv"
+                    df = pd.DataFrame(docs, columns=[file_col])
+            else:
+                df = docs
+            data = list(df[file_col].values)
+            if self._num_workers == 1 or len(data) / self._num_workers < 20:
+                messages = [self._get_messages(entry) for entry in data]
+            else:
+                parallel_data = [{'file_col': self._file_col,
+                                  self._file_col: file,
+                                  'label_col': self._label_col,
+                                  self._label_col: "Not predicted yet",
+                                  'parsers': list(self._parsers.keys()),
+                                  'parser_args': self._parser_args,
+                                  'exclude': self._exclude,
+                                  'timeout': self._timeout}
+                                 for file in data]
+                messages = _parallel_messages(parallel_data,
+                                              self._overall_timeout,
+                                              self._progress_bar,
+                                              self._num_workers,
+                                              list(self._parsers.keys()),
+                                              self._file_col,
+                                              self._label_col)
+            if save_eval_data is not None:
+                with open(save_eval_data, 'wb') as f:
+                    pickle.dump(messages, f)
         X = {entry[file_col]: self._vectorfy(entry) for entry in messages}
         return X
 
-    def _transform_training_data(self, data, data_args):
-        if not isinstance(data, pd.DataFrame):
-            if isinstance(data, str):
-                assert os.path.isfile(data), "Data not found"
-                data = pd.read_csv(data, **data_args)
-            else:
-                assert _is_list_like(data), \
-                    "Data in unrecognizable format. Please use a DataFrame, a list of tuples, or the path to a csv"
-                data = pd.DataFrame(data, columns=[self._file_col, self._label_col])
-        if self._num_workers == 1:
-            messages = []
-            if self._progress_bar:
-                pbar = tqdm(total=len(data))
-            for entry in data[[self._file_col, self._label_col]].values.tolist():
-                messages.append(self._get_messages(entry))
-                if self._progress_bar:
-                    pbar.update(1)
-            if self._progress_bar:
-                pbar.close()
-            # messages = [self._get_messages(entry) for entry in
-            #             data[[self._file_col, self._label_col]].values.tolist()]
+    def _transform_training_data(self, data, data_args, save_training_data):
+        if isinstance(data, str):
+            assert os.path.isfile(data), "Data not found"
+            is_file = True
         else:
-            parallel_data = [{'file_col': self._file_col,
-                              self._file_col: file,
-                              'label_col': self._label_col,
-                              self._label_col: label,
-                              'parsers': list(self._parsers.keys()),
-                              'parser_args': self._parser_args,
-                              'exclude': self._exclude,
-                              'timeout': self._timeout}
-                             for file, label in data[[self._file_col, self._label_col]].values.tolist()]
-            messages = _parallel_messages(parallel_data,
-                                          self._overall_timeout,
-                                          self._progress_bar,
-                                          self._num_workers,
-                                          list(self._parsers.keys()),
-                                          self._file_col,
-                                          self._label_col)
+            is_file = False
+        try:
+            if is_file:
+                with open(data, 'rb') as f:
+                    messages = pickle.load(f)
+            else:
+                raise Exception("Not a pickle")
+        except:
+            if not isinstance(data, pd.DataFrame):
+                if is_file:
+                    data = pd.read_csv(data, **data_args)
+                else:
+                    assert _is_list_like(data), \
+                        "Data in unrecognizable format. Please use a DataFrame, a list of tuples, or the path to a csv"
+                    data = pd.DataFrame(data, columns=[self._file_col, self._label_col])
+            if self._num_workers == 1:
+                messages = []
+                if self._progress_bar:
+                    pbar = tqdm(total=len(data))
+                for entry in data[[self._file_col, self._label_col]].values.tolist():
+                    messages.append(self._get_messages(entry))
+                    if self._progress_bar:
+                        pbar.update(1)
+                if self._progress_bar:
+                    pbar.close()
+                # messages = [self._get_messages(entry) for entry in
+                #             data[[self._file_col, self._label_col]].values.tolist()]
+            else:
+                parallel_data = [{'file_col': self._file_col,
+                                  self._file_col: file,
+                                  'label_col': self._label_col,
+                                  self._label_col: label,
+                                  'parsers': list(self._parsers.keys()),
+                                  'parser_args': self._parser_args,
+                                  'exclude': self._exclude,
+                                  'timeout': self._timeout}
+                                 for file, label in data[[self._file_col, self._label_col]].values.tolist()]
+                messages = _parallel_messages(parallel_data,
+                                              self._overall_timeout,
+                                              self._progress_bar,
+                                              self._num_workers,
+                                              list(self._parsers.keys()),
+                                              self._file_col,
+                                              self._label_col)
+            if save_training_data is not None:
+                with open(save_training_data, 'wb') as f:
+                    pickle.dump(messages, f)
         distinct_warnings = set()
         for dic in messages:
             for parser in self._parsers.keys():
