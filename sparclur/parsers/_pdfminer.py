@@ -124,11 +124,12 @@ class PDFMiner(TextExtractor, MetadataExtractor):
 
     def __init__(self, doc_path: str,
                  skip_check: bool = False,
+                 timeout: int = None,
                  page_delimiter: str = '\x0c',
                  detect_vertical: bool = False,
                  all_texts: bool = False,
                  stream_output: str = None):
-        super().__init__(doc_path=doc_path, skip_check=skip_check)
+        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout)
         self._page_delimiter = page_delimiter
         self._detect_vertical = detect_vertical
         self._all_texts = all_texts

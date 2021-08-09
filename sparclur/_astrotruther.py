@@ -97,20 +97,20 @@ def _parse_document(parser_name, exclude, doc, timeout, parser_args):
         for key, value in cleaned_messages.items():
             vector['%s::%s' % (parser.get_name(), key)] = value
         if 'validity' not in exclude:
-            vector['%s::Tracer Valid'] = 1 if parser.validate_tracer()['valid'] else 0
+            vector['%s::Tracer Valid' % parser.get_name()] = 1 if parser.validate_tracer()['valid'] else 0
     if isinstance(parser, Renderer) and 'renderer' not in exclude:
         if 'validity' not in exclude:
-            vector['%s::Renderer Valid'] = 1 if parser.validate_renderer()['valid'] else 0
+            vector['%s::Renderer Valid' % parser.get_name()] = 1 if parser.validate_renderer()['valid'] else 0
     if isinstance(parser, TextExtractor) and 'text' not in exclude:
         if 'validity' not in exclude:
-            vector['%s::Text Extraction Valid'] = 1 if parser.validate_text()['valid'] else 0
+            vector['%s::Text Extraction Valid' % parser.get_name()] = 1 if parser.validate_text()['valid'] else 0
     if isinstance(parser, MetadataExtractor) and 'metadata' not in exclude:
         if 'validity' not in exclude:
-            vector['%s::Metadata Extraction Valid'] = 1 if parser.validate_metadata()['valid'] else 0
+            vector['%s::Metadata Extraction Valid' % parser.get_name()] = 1 if parser.validate_metadata()['valid'] else 0
     if isinstance(parser, FontExtractor) and 'font' not in exclude:
-        vector['%s::Non-embedded Font'] = 1 if parser.non_embedded_fonts else 0
+        vector['%s::Non-embedded Font' % parser.get_name()] = 1 if parser.non_embedded_fonts else 0
         if 'validity' not in exclude:
-            vector['%s::Font Extraction Valid'] = 1 if parser.validate_fonts()['valid'] else 0
+            vector['%s::Font Extraction Valid' % parser.get_name()] = 1 if parser.validate_fonts()['valid'] else 0
     return vector
 
 
