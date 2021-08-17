@@ -259,11 +259,22 @@ def pad_images(pil1, pil2):
     return (pil1, pil2) if new_w1 >= new_w2 and new_h1 >= new_h2 else (pil2, pil1)
 
 
+def _invert_pil(pil):
+    if isinstance(pil, PngImageFile) or isinstance(pil, ImageType):
+        pil = np.array(pil)
+    return (pil + 128) % 255
+
+
 def _template_matching(pil1, pil2, method):
     if isinstance(pil1, PngImageFile) or isinstance(pil1, ImageType):
         pil1 = np.array(pil1)
     if isinstance(pil2, PngImageFile) or isinstance(pil2, ImageType):
         pil2 = np.array(pil2)
+
+    if pil1.sum() == 0:
+        pil1 = _invert_pil(pil1)
+    if pil2.sum() == 0:
+        pil2 = _invert_pil(pil2)
 
     pil1, pil2 = pad_images(pil1, pil2)
 
