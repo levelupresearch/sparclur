@@ -260,9 +260,9 @@ class PDFMiner(TextExtractor, MetadataExtractor):
 
         try:
             if self._timeout is None:
-                self._dumppdf()
+                self._metadata = self._dumppdf()
             else:
-                func_timeout(
+                self._metadata = func_timeout(
                     self._timeout,
                     self._dumppdf()
                 )
@@ -274,12 +274,13 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def _dumppdf(self):
         fp = open(self._doc_path, 'rb')
         parser = PDFParser(fp)
+        fp.close()
         doc = PDFDocument(parser, '')
-        self._metadata = dict()
-        self._dumpallobjs(doc)
-        return
+        metadata = self._dumpallobjs(doc)
+        return metadata
 
     def _dumpallobjs(self, doc):
+        metadata = dict()
         visited = set()
         for xref in doc.xrefs:
             for objid in xref.get_objids():
@@ -290,11 +291,11 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                     obj = doc.getobj(objid)
                     if obj is None:
                         continue
-                    self.metadata['%i 0 R' % objid] = self._parseobj(obj)
+                    metadata['%i 0 R' % objid] = self._parseobj(obj)
                 except PDFObjectNotFound as error:
                     print('not found: %r' % error)
-        self.metadata['trailer'] = self._parsetrailers(doc)
-        return
+        metadata['trailer'] = self._parsetrailers(doc)
+        return metadata
 
     def _parseobj(self, obj):
         if obj is None:
