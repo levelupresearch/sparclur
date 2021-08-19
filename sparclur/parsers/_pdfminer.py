@@ -257,14 +257,13 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         return text
 
     def _extract_metadata(self):
-
         try:
             if self._timeout is None:
                 self._metadata = self._dumppdf()
             else:
                 self._metadata = func_timeout(
                     self._timeout,
-                    self._dumppdf()
+                    self._dumppdf
                 )
             self._metadata_result = METADATA_SUCCESS
         except Exception as e:
@@ -274,9 +273,9 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def _dumppdf(self):
         fp = open(self._doc_path, 'rb')
         parser = PDFParser(fp)
-        fp.close()
         doc = PDFDocument(parser, '')
         metadata = self._dumpallobjs(doc)
+        fp.close()
         return metadata
 
     def _dumpallobjs(self, doc):
