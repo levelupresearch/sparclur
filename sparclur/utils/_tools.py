@@ -272,9 +272,9 @@ def _template_matching(pil1, pil2, method):
         pil2 = np.array(pil2)
 
     if pil1.sum() == 0:
-        pil1 = _invert_pil(pil1)
+        pil1 = pil1 + 1
     if pil2.sum() == 0:
-        pil2 = _invert_pil(pil2)
+        pil2 = pil2 + 1
 
     pil1, pil2 = pad_images(pil1, pil2)
 
