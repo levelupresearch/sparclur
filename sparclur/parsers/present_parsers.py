@@ -1,3 +1,5 @@
+from inspect import isclass
+
 from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, Poppler, XPDF, QPDF, PDFBox
 from sparclur._parser import Parser
 from sparclur._tracer import Tracer
@@ -21,6 +23,26 @@ _sparclur_parsers: Dict[str, Parser] = {
         PDFBox.get_name(): PDFBox
     }
 
+
+def get_parser(parser):
+    if isinstance(parser, str):
+        assert parser in _sparclur_parsers, 'Parser not found'
+        result = _sparclur_parsers[parser]
+    elif isclass(parser):
+        try:
+            class_name = parser.get_name()
+            assert class_name in _sparclur_parsers, 'Parser not found'
+            result = parser
+        except:
+            print('Parser not found')
+            result = None
+    elif isinstance(parser, Parser):
+        assert parser.get_name() in _sparclur_parsers, 'Parser not found'
+        result = _sparclur_parsers[parser.get_name()]
+    else:
+        print('Parser not found')
+        result = None
+    return result
 
 def get_sparclur_parsers():
     """Helper function that returns a list of all SPARCLUR Parsers"""
