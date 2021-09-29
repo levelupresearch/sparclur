@@ -12,7 +12,7 @@ from sparclur.parsers import MuPDF
 TRACERS = [tracer.get_name() for tracer in get_sparclur_tracers()]
 
 
-def app(parsers):
+def app(parsers, **kwargs):
     st.subheader("Parser Trace Comparator")
 
     tracers = {p_name: parser for (p_name, parser) in parsers.items() if p_name in TRACERS or p_name == MuPDF.get_name()+'-s'}

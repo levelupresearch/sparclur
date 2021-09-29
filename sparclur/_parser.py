@@ -1,4 +1,17 @@
 import abc
+from typing import Dict, Any
+
+VALID = 'Valid'
+VALID_WARNINGS = 'Valid with Warnings'
+REJECTED = 'Rejected'
+REJECTED_AMBIG = 'Rejected; Ambiguous'
+
+RENDER = 'Renderer'
+TRACER = 'Tracer'
+TEXT = 'Text Extractor'
+META = 'Metadata Extractor'
+FONT = 'Font Extractor'
+IMAGE = 'Image Data'
 
 
 class Parser(metaclass=abc.ABCMeta):
@@ -9,8 +22,20 @@ class Parser(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, *args, **kwargs):
+    def __init__(self, doc_path, skip_check, timeout, *args, **kwargs):
         self._doc_path = doc_path
+        self._skip_check = skip_check
+        self._timeout = timeout
+        self._validity: Dict[str, Dict[str, Any]] = dict()
+        # self._status = None
+        # self._root_cause = None
+
+    # @abc.abstractmethod
+    # def _check_for_validity(self):
+    #     """
+    #     Performs the validity check.
+    #     """
+    #     pass
 
     @property
     def doc_path(self):
@@ -36,3 +61,59 @@ class Parser(metaclass=abc.ABCMeta):
             Parser name
         """
         pass
+
+    @property
+    def validity(self):
+        return self._validity
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, to: int):
+        self._timeout = to
+
+    @timeout.deleter
+    def timeout(self):
+        self._timeout = None
+
+    # @property
+    # def valid(self):
+    #     """
+    #     Return whether or not the given document is valid under the given parser.
+    #
+    #     Returns
+    #     -------
+    #     bool
+    #         Whether or not the document is valid
+    #     """
+    #     if self._valid is None:
+    #         self._check_for_validity()
+    #     return self._valid
+    #
+    # @property
+    # def status(self):
+    #     """
+    #     Return a more detailed validity status.
+    #
+    #     Returns
+    #     -------
+    #     str
+    #     """
+    #     if self._status is None:
+    #         self._check_for_validity()
+    #     return self._status
+    #
+    # @property
+    # def root_cause(self):
+    #     """
+    #     Return a possible root cause for pdf rejection.
+    #
+    #     Returns
+    #     -------
+    #     str
+    #     """
+    #     if self._root_cause is None:
+    #         self._check_for_validity()
+    #     return self._root_cause

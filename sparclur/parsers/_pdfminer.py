@@ -1,7 +1,12 @@
 import locale
+import logging
 import re
 import sys
 
+from typing import Dict, Any
+import warnings
+
+from func_timeout import func_timeout, FunctionTimedOut
 from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
 
@@ -14,6 +19,7 @@ from pdfminer.utils import isnumber
 
 from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TEXT
 
 
 ESC_PAT = re.compile(r'[\000-\037&<>()"\042\047\134\177-\377]')
@@ -119,25 +125,75 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     """PDFMiner Text Extraction"""
 
     def __init__(self, doc_path: str,
+                 skip_check: bool = False,
+                 timeout: int = None,
                  page_delimiter: str = '\x0c',
                  detect_vertical: bool = False,
                  all_texts: bool = False,
-                 stream_output: str = None):
-        super().__init__(doc_path=doc_path)
+                 stream_output: str = None,
+                 suppress_warnings: bool = True):
+        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout)
         self._page_delimiter = page_delimiter
         self._detect_vertical = detect_vertical
         self._all_texts = all_texts
         self._laparams = LAParams(detect_vertical=self._detect_vertical, all_texts=self._all_texts)
         self._stream_output = stream_output if stream_output in ['text', 'raw', 'binary'] else None
+        self._suppress_warnings = suppress_warnings
+        if suppress_warnings:
+            # pdflogs = [logging.getLogger(name) for name in logging.root.manager.loggerDict if name.startswith('pdfminer')]
+            # for ll in pdflogs:
+            #     ll.setLevel(logging.WARNING)
+            # logging.getLogger('pdfminer').setLevel(logging.WARNING)
+            # logging.propagate = False
+            # logging.getLogger().setLevel(logging.ERROR)
+            warnings.filterwarnings('ignore')
 
     def _check_for_pdfminer(self) -> bool:
         return "pdfminer" in sys.modules.keys()
 
     def _check_for_text_extraction(self) -> bool:
-        return self._check_for_pdfminer()
+        if self._can_extract is None:
+            pdfminer_present = self._check_for_pdfminer()
+            self._can_extract = pdfminer_present
+            self._can_meta_extract = pdfminer_present
+        return self._can_extract
+
+    def validate_text(self) -> Dict[str, Any]:
+        if TEXT not in self._validity:
+            validity_results = dict()
+            decoder = locale.getpreferredencoding()
+            try:
+                _ = extract_text(self._doc_path, page_numbers=None, codec=decoder, laparams=self._laparams)
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            except Exception as e:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = str(e)
+            self._validity[TEXT] = validity_results
+        return self._validity[TEXT]
 
     def _check_for_metadata(self) -> bool:
-        return self._check_for_pdfminer()
+        if self._can_extract is None:
+            pdfminer_present = self._check_for_pdfminer()
+            self._can_extract = pdfminer_present
+            self._can_meta_extract = pdfminer_present
+        return self._can_meta_extract
+
+    def validate_metadata(self) -> Dict[str, Any]:
+        if META not in self._validity:
+            validity_results = dict()
+            if self._metadata is None:
+                self._extract_metadata()
+            if self._metadata_result == METADATA_SUCCESS:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            else:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = self._metadata_result
+            self._validity[META] = validity_results
+        return self._validity[META]
 
     @staticmethod
     def get_name():
@@ -194,17 +250,42 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         page_numbers = None if page is None else [page]
         decoder = locale.getpreferredencoding()
         try:
-            text = extract_text(self._doc_path, page_numbers=page_numbers, codec=decoder, laparams=self._laparams)
+            if self._timeout is None:
+                text = extract_text(self._doc_path, page_numbers=page_numbers, codec=decoder, laparams=self._laparams)
+            else:
+                text = func_timeout(
+                    self._timeout,
+                    extract_text,
+                    kwargs={
+                        'pdf_file': self._doc_path,
+                        'page_numbers': page_numbers,
+                        'codec': decoder,
+                        'laparams': self._laparams
+                    }
+                )
+        except FunctionTimedOut as e:
+            print(e)
+            self._text = dict()
+            text = self._text
         except Exception as e:
             print(e)
-            text = self._text = dict()
+            self._text = dict()
+            text = self._text
         return text
 
     def _extract_metadata(self):
-
         try:
-            self._dumppdf()
+            if self._timeout is None:
+                self._metadata = self._dumppdf()
+            else:
+                self._metadata = func_timeout(
+                    self._timeout,
+                    self._dumppdf
+                )
             self._metadata_result = METADATA_SUCCESS
+        except FunctionTimedOut as e:
+            self._metadata = dict()
+            self._metadata_result = str(e)
         except Exception as e:
             self._metadata = dict()
             self._metadata_result = str(e)
@@ -213,11 +294,12 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         fp = open(self._doc_path, 'rb')
         parser = PDFParser(fp)
         doc = PDFDocument(parser, '')
-        self._metadata = dict()
-        self._dumpallobjs(doc)
-        return
+        metadata = self._dumpallobjs(doc)
+        fp.close()
+        return metadata
 
     def _dumpallobjs(self, doc):
+        metadata = dict()
         visited = set()
         for xref in doc.xrefs:
             for objid in xref.get_objids():
@@ -228,11 +310,12 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                     obj = doc.getobj(objid)
                     if obj is None:
                         continue
-                    self.metadata['%i 0 R' % objid] = self._parseobj(obj)
+                    metadata['%i 0 R' % objid] = self._parseobj(obj)
                 except PDFObjectNotFound as error:
-                    print('not found: %r' % error)
-        self.metadata['trailer'] = self._parsetrailers(doc)
-        return
+                    if not self._suppress_warnings:
+                        print('not found: %r' % error)
+        metadata['trailer'] = self._parsetrailers(doc)
+        return metadata
 
     def _parseobj(self, obj):
         if obj is None:

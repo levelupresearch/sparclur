@@ -11,8 +11,12 @@ from sparclur.parsers.present_parsers import get_sparclur_renderers
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
+# @st.cache
+# def get_viz(renderers):
+#     filename = [renderer for renderer in renderers.values()][0].doc_path
+#     return PRCViz(doc_path=filename, renderers=[renderer for renderer in renderers.values()])
 
-def app(parsers):
+def app(parsers, **kwargs):
     st.subheader("PDF Render Comparator")
 
     renderers = {p_name: parser for (p_name, parser) in parsers.items() if p_name in RENDERERS}
@@ -22,8 +26,9 @@ def app(parsers):
     else:
         filename = [renderer for renderer in renderers.values()][0].doc_path
         viz = PRCViz(doc_path=filename, renderers=[renderer for renderer in renderers.values()])
+        # viz = get_viz(renderers)
 
-        fig = viz.plot_ssims()
+        fig = viz.plot_sims()
         st.pyplot(fig)
         select_page = st.selectbox('Page', options=list(range(viz.get_observed_pages())))
         display_fig = viz.display(page=select_page)

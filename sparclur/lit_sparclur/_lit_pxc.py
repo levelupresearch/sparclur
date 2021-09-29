@@ -7,15 +7,22 @@ import pandas as pd
 module_path = os.path.abspath('../../../sparclur/')
 if module_path not in sys.path:
     sys.path.append(module_path)
-from sparclur.parsers.present_parsers import get_sparclur_texters
+from sparclur.parsers.present_parsers import get_sparclur_texters, get_sparclur_renderers
 
-TEXTERS = [texter.get_name() for texter in get_sparclur_texters()]
+TEXTERS = [texter.get_name() for texter in get_sparclur_texters(no_ocr=True)]
+RENDERERS = [renderer.get_name() for renderer in get_sparclur_renderers()]
 
-#print(TEXTERS)
-def app(parsers):
+
+def app(parsers, **kwargs):
     st.subheader("Parser Text Comparator")
 
-    texters = {p_name: parser for (p_name, parser) in parsers.items() if p_name in TEXTERS}
+    # ocr = kwargs['ocr']
+
+    texters = dict()
+
+    for p_name, parser in parsers.items():
+        if p_name in TEXTERS:
+            texters[p_name] = parser
 
     if len(texters) == 1:
         texter = [txtr for txtr in texters.values()][0]

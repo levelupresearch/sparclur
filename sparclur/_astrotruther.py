@@ -1,3 +1,4 @@
+import multiprocessing
 from typing import Callable, List, Dict, Any
 from inspect import isclass
 import os
@@ -10,8 +11,14 @@ from sklearn.model_selection import cross_val_score
 import pandas as pd
 import numpy as np
 
+from sparclur._parser import Parser
 from sparclur._tracer import Tracer
-from sparclur.parsers.present_parsers import get_sparclur_tracers
+from sparclur._renderer import Renderer
+from sparclur._text_extractor import TextExtractor
+from sparclur._metadata_extractor import MetadataExtractor
+from sparclur._font_extractor import FontExtractor
+
+from sparclur.parsers.present_parsers import get_sparclur_parsers
 
 from tqdm import tqdm
 from pebble import ProcessPool
@@ -44,34 +51,67 @@ def _is_list_like(obj) -> bool:
     )
 
 
-def _parse_tracers(tracers):
+def _parse_parsers(parsers):
     """
     Parses the tracers to run for the astrotruth labels.
 
     Parameters
     ----------
-    tracers: List[str] or List[Tracer]
+    parsers: List[str] or List[Parser]
 
     """
-    renderer_dict = {tracer.get_name(): tracer for tracer in get_sparclur_tracers()}
+    parser_dict = {parser.get_name(): parser for parser in get_sparclur_parsers()}
     result = dict()
-    for tracer in tracers:
-        if isinstance(tracer, str):
-            if tracer in renderer_dict:
-                result[tracer] = renderer_dict[tracer]
-        elif isclass(tracer):
-            if issubclass(tracer, Tracer):
-                result[tracer.get_name()] = tracer
-        elif isinstance(tracer, Tracer):
-            result[tracer.get_name()] = tracer
+    for parser in parsers:
+        if isinstance(parser, str):
+            if parser in parser_dict:
+                result[parser] = parser_dict[parser]
+        elif isclass(parser):
+            if issubclass(parser, Parser):
+                result[parser.get_name()] = parser
+        elif isinstance(parser, Parser):
+            result[parser.get_name()] = parser
     return result
 
 
-def _parse_cleaned(tracer_name, doc, tracer_args):
-    tracer = [t for t in get_sparclur_tracers() if t.get_name() == tracer_name][0]
-    tracer = tracer(doc_path=doc, **tracer_args.get(tracer_name, dict()))
-    cleaned_messages = tracer.cleaned
-    return {'%s::%s' % (tracer.get_name(), key): value for key, value in cleaned_messages.items()}
+# def _parse_cleaned(tracer_name, doc, tracer_args):
+#     tracer = [t for t in get_sparclur_tracers() if t.get_name() == tracer_name][0]
+#     tracer = tracer(doc_path=doc, **tracer_args.get(tracer_name, dict()))
+#     cleaned_messages = tracer.cleaned
+#     return {'%s::%s' % (tracer.get_name(), key): value for key, value in cleaned_messages.items()}
+
+
+def _parse_document(parser_name, exclude, doc, timeout, parser_args):
+    parser = [p for p in get_sparclur_parsers() if p.get_name() == parser_name][0]
+    parser = parser(doc_path=doc, skip_check=True, timeout=timeout, **parser_args.get(parser_name, dict()))
+    if exclude is None:
+        exclude = []
+    elif isinstance(exclude, str):
+        exclude = [exclude]
+
+    exclude = [excluded.lower() for excluded in exclude]
+
+    vector = dict()
+    if isinstance(parser, Tracer) and 'tracer' not in exclude:
+        cleaned_messages = parser.cleaned
+        for key, value in cleaned_messages.items():
+            vector['%s::%s' % (parser.get_name(), key)] = value
+        if 'validity' not in exclude:
+            vector['%s::Tracer Valid' % parser.get_name()] = 1 if parser.validate_tracer()['valid'] else 0
+    if isinstance(parser, Renderer) and 'renderer' not in exclude:
+        if 'validity' not in exclude:
+            vector['%s::Renderer Valid' % parser.get_name()] = 1 if parser.validate_renderer()['valid'] else 0
+    if isinstance(parser, TextExtractor) and 'text' not in exclude:
+        if 'validity' not in exclude:
+            vector['%s::Text Extraction Valid' % parser.get_name()] = 1 if parser.validate_text()['valid'] else 0
+    if isinstance(parser, MetadataExtractor) and 'metadata' not in exclude:
+        if 'validity' not in exclude:
+            vector['%s::Metadata Extraction Valid' % parser.get_name()] = 1 if parser.validate_metadata()['valid'] else 0
+    if isinstance(parser, FontExtractor) and 'font' not in exclude:
+        vector['%s::Non-embedded Font' % parser.get_name()] = 1 if parser.non_embedded_fonts else 0
+        if 'validity' not in exclude:
+            vector['%s::Font Extraction Valid' % parser.get_name()] = 1 if parser.validate_fonts()['valid'] else 0
+    return vector
 
 
 def _worker(entry):
@@ -79,46 +119,41 @@ def _worker(entry):
     label_col = entry['label_col']
     file = entry[file_col]
     label = entry.get(label_col, "Prediction not run")
-    tracers = entry['tracers']
-    tracer_args = entry.get('tracer_args', dict())
+    parsers = entry['parsers']
+    parser_args = entry.get('parser_args', dict())
+    exclude = entry.get('exclude', [])
     timeout = entry['timeout']
     result = dict()
     result[file_col] = file
     result[label_col] = label
-    for tracer in tracers:
+    for parser in parsers:
         try:
-            tracer_result = func_timeout(
-                timeout,
-                _parse_cleaned,
-                kwargs={
-                    'tracer_name': tracer,
-                    'doc': file,
-                    'tracer_args': tracer_args
-                }
-            )
+            parser_result = _parse_document(parser, exclude, file, timeout, parser_args)
         except Exception as error:
             e = str(error)
-            tracer_result = {'%s::%s' % (tracer, e): 1}
-        result[tracer] = tracer_result
+            parser_result = {'%s::%s' % (parser, e): 1}
+        result[parser] = parser_result
     return result
 
 
-def _error_result(file_col, label_col, path, label, error, tracer_names):
+def _error_result(file_col, label_col, path, label, error, parser_names):
     d = {file_col: path, label_col: label}
-    for tracer in tracer_names:
-        d[tracer] = {'%s::%s' % (tracer, error): 1}
+    for parser in parser_names:
+        d[parser] = {'%s::%s' % (parser, error): 1}
     return d
 
 
-def _parallel_messages(files, progress_bar, num_workers, timeout, tracers, file_col, label_col):
+def _parallel_messages(files, overall_timeout, progress_bar, num_workers, parsers, file_col, label_col):
     if progress_bar:
         pbar = tqdm(total=len(files))
     results = []
     index = 0
 
-    overall_timeout = None if timeout is None else int((len(tracers) + 0.5) * timeout)
-    with ProcessPool(max_workers=num_workers) as pool:
-        future = pool.map(_worker, files, timeout=overall_timeout)
+    # context = multiprocessing.get_context('spawn') if 'PDFBox' in parsers else multiprocessing.get_context('fork')
+
+    # overall_timeout = None if timeout is None else int((len(tracers) + 0.5) * timeout)
+    with ProcessPool(max_workers=num_workers, context=multiprocessing.get_context('spawn')) as pool:
+        future = pool.map(_worker, files, timeout=overall_timeout or 600)
 
         iterator = future.result()
 
@@ -134,13 +169,13 @@ def _parallel_messages(files, progress_bar, num_workers, timeout, tracers, file_
                 file = entry[file_col]
                 label = entry[label_col]
                 e = 'File Timed Out'
-                result = _error_result(file_col, label_col, file, label, e, tracers)
+                result = _error_result(file_col, label_col, file, label, e, parsers)
             except Exception as error:
                 entry = files[index]
                 file = entry[file_col]
                 label = entry[label_col]
                 e = str(error)
-                result = _error_result(file_col, label_col, file, label, e, tracers)
+                result = _error_result(file_col, label_col, file, label, e, parsers)
             finally:
                 if progress_bar:
                     pbar.update(1)
@@ -161,8 +196,10 @@ class Astrotruther:
                  label_col: str or int = 1,
                  base_path: str = None,
                  label_transform: Callable[[str], str] = None,
-                 parsers: List[Tracer] or List[str] = get_sparclur_tracers(),
+                 parsers: List[Parser] or List[str] = get_sparclur_parsers(),
                  parser_args: Dict[str, Dict[str, Any]] = dict(),
+                 exclude: str or List[str] = None,
+                 overall_timeout: int = None,
                  classifier: str = 'decTree',
                  classifier_args: Dict[str, Any] = dict(),
                  k_folds: int = 3,
@@ -209,18 +246,32 @@ class Astrotruther:
         self._label_col = label_col
         self._base_path = base_path
         self._label_transform = label_transform
-        self._tracers = _parse_tracers(parsers)
+        self._parsers = _parse_parsers(parsers)
         self._parser_args = parser_args
+        self._exclude = exclude
         self._classifier = classifier
         self._classifier_args = classifier_args
         self._k_folds = k_folds
         self._num_workers = num_workers
         self._timeout = timeout
+        self._overall_timeout = overall_timeout
         self._progress_bar = progress_bar
         self._model = None
         self._metrics: float = None
         self._warnings_map: Dict[str, int] = None
         self._k: int = None
+
+    @property
+    def overall_timeout(self):
+        return self._overall_timeout
+
+    @overall_timeout.setter
+    def overall_timeout(self, ot):
+        self._overall_timeout = ot
+
+    @overall_timeout.deleter
+    def overall_timeout(self):
+        self._overall_timeout = None
 
     @property
     def file_col(self):
@@ -260,11 +311,11 @@ class Astrotruther:
 
     @property
     def parsers(self):
-        return [parser.get_name() for parser in self._tracers]
+        return [parser.get_name() for parser in self._parsers]
 
     @parsers.setter
-    def parsers(self, parsers: List[str] or List[Tracer]):
-        self._tracers = _parse_tracers(parsers)
+    def parsers(self, parsers: List[str] or List[Parser]):
+        self._parsers = _parse_parsers(parsers)
 
     @property
     def parser_args(self):
@@ -277,6 +328,18 @@ class Astrotruther:
     @parser_args.deleter
     def parser_args(self):
         self._parser_args = dict()
+
+    @property
+    def exclude(self):
+        return self._exclude
+
+    @exclude.setter
+    def exclude(self, e: str or List[str]):
+        self._exclude = e
+
+    @exclude.deleter
+    def exclude(self):
+        self._exclude = None
 
     @property
     def classifier(self):
@@ -358,8 +421,8 @@ class Astrotruther:
             astro = pickle.load(f)
         return astro
 
-    def fit(self, docs, doc_loading_args=dict()):
-        X, Y = self._transform_training_data(docs, doc_loading_args)
+    def fit(self, docs, doc_loading_args=dict(), save_training_data=None):
+        X, Y = self._transform_training_data(docs, doc_loading_args, save_training_data=save_training_data)
         clf = _MODEL_SWITCHER[self._classifier](**self._classifier_args)
         self._model = clf.fit(X, Y)
         self._metrics = cross_val_score(clf, X, Y, cv=self._k_folds)
@@ -371,15 +434,16 @@ class Astrotruther:
                 doc_loading_args=dict(),
                 unseen_ignore=None,
                 unseen_message_default='Not enough info',
-                prediction_column='astrotruth'):
+                prediction_column='astrotruth',
+                save_eval_data=None):
         assert self._model is not None, "Model has not been generated"
         file_col = self._file_col if file_col is None else file_col
-        df = self._load_prediction_data(docs, file_col, doc_loading_args)
-        X = self._get_prediction_messages(df, file_col)
-        predictions = {key: self._predict(vector, unseen, unseen_ignore, unseen_message_default)
-                       for (key, (vector, unseen)) in X.items()}
-        df[prediction_column] = df[file_col].apply(lambda x: predictions.get(x, ("Not found", "Not found"))[0])
-        df['untrained_messages'] = df[file_col].apply(lambda x: predictions.get(x, ("Not found", "Not found"))[1])
+        X = self._load_prediction_data(docs, file_col, doc_loading_args, save_eval_data)
+        predictions = [{file_col: key,
+                        prediction_column: self._predict(vector, unseen, unseen_ignore, unseen_message_default)[0],
+                        'untrained_features': unseen}
+                       for (key, (vector, unseen)) in X.items()]
+        df = pd.DataFrame(predictions)
         return df
 
     def _predict(self, vector, unseen_messages, unseen_ignore, unseen_message_default):
@@ -394,86 +458,114 @@ class Astrotruther:
         else:
             return unseen_message_default, unseen_messages
 
-    def _load_prediction_data(self, docs, file_col, data_args):
-        if not isinstance(docs, pd.DataFrame):
-            if isinstance(docs, str):
-                if os.path.isfile(docs):
-                    data = pd.read_csv(docs, **data_args)
-                else:
-                    data = pd.DataFrame([docs], columns=[file_col])
+    def _load_prediction_data(self, docs, file_col, data_args, save_eval_data):
+        if isinstance(docs, str):
+            assert os.path.isfile(docs), "Data not found"
+            is_file = True
+        else:
+            is_file = False
+        try:
+            if is_file:
+                with open(docs, 'rb') as f:
+                    messages = pickle.load(f)
             else:
-                assert _is_list_like(docs), \
-                    "Data in unrecognizable format. " \
-                    "Please use a DataFrame, a list of filepaths, a single filepath, or the path to a csv"
-                data = pd.DataFrame(docs, columns=[file_col])
-        else:
-            data = docs
-        return data
-
-    def _get_prediction_messages(self, df, file_col):
-        data = list(df[file_col].values)
-        if self._num_workers == 1 or len(data) / self._num_workers < 20:
-            messages = [self._get_messages(entry) for entry in data]
-        else:
-            parallel_data = [{'file_col': self._file_col,
-                              self._file_col: file,
-                              'label_col': self._label_col,
-                              self._label_col: "Not predicted yet",
-                              'tracers': list(self._tracers.keys()),
-                              'tracer_args': self._parser_args,
-                              'timeout': self._timeout}
-                             for file in data]
-            messages = _parallel_messages(parallel_data,
-                                          self._progress_bar,
-                                          self._num_workers,
-                                          self._timeout,
-                                          list(self._tracers.keys()),
-                                          self._file_col,
-                                          self._label_col)
+                raise Exception("Not a pickle")
+        except:
+            if not isinstance(docs, pd.DataFrame):
+                if isinstance(docs, str):
+                    if os.path.isfile(docs):
+                        df = pd.read_csv(docs, **data_args)
+                    else:
+                        df = pd.DataFrame([docs], columns=[file_col])
+                else:
+                    assert _is_list_like(docs), \
+                        "Data in unrecognizable format. " \
+                        "Please use a DataFrame, a list of filepaths, a single filepath, or the path to a csv"
+                    df = pd.DataFrame(docs, columns=[file_col])
+            else:
+                df = docs
+            data = list(df[file_col].values)
+            if self._num_workers == 1 or len(data) / self._num_workers < 20:
+                messages = [self._get_messages(entry) for entry in data]
+            else:
+                parallel_data = [{'file_col': self._file_col,
+                                  self._file_col: file,
+                                  'label_col': self._label_col,
+                                  self._label_col: "Not predicted yet",
+                                  'parsers': list(self._parsers.keys()),
+                                  'parser_args': self._parser_args,
+                                  'exclude': self._exclude,
+                                  'timeout': self._timeout}
+                                 for file in data]
+                messages = _parallel_messages(parallel_data,
+                                              self._overall_timeout,
+                                              self._progress_bar,
+                                              self._num_workers,
+                                              list(self._parsers.keys()),
+                                              self._file_col,
+                                              self._label_col)
+            if save_eval_data is not None:
+                with open(save_eval_data, 'wb') as f:
+                    pickle.dump(messages, f)
         X = {entry[file_col]: self._vectorfy(entry) for entry in messages}
         return X
 
-    def _transform_training_data(self, data, data_args):
-        if not isinstance(data, pd.DataFrame):
-            if isinstance(data, str):
-                assert os.path.isfile(data), "Data not found"
-                data = pd.read_csv(data, **data_args)
-            else:
-                assert _is_list_like(data), \
-                    "Data in unrecognizable format. Please use a DataFrame, a list of tuples, or the path to a csv"
-                data = pd.DataFrame(data, columns=[self._file_col, self._label_col])
-        if self._num_workers == 1:
-            messages = []
-            if self._progress_bar:
-                pbar = tqdm(total=len(data))
-            for entry in data[[self._file_col, self._label_col]].values.tolist():
-                messages.append(self._get_messages(entry))
-                if self._progress_bar:
-                    pbar.update(1)
-            if self._progress_bar:
-                pbar.close()
-            # messages = [self._get_messages(entry) for entry in
-            #             data[[self._file_col, self._label_col]].values.tolist()]
+    def _transform_training_data(self, data, data_args, save_training_data):
+        if isinstance(data, str):
+            assert os.path.isfile(data), "Data not found"
+            is_file = True
         else:
-            parallel_data = [{'file_col': self._file_col,
-                              self._file_col: file,
-                              'label_col': self._label_col,
-                              self._label_col: label,
-                              'tracers': list(self._tracers.keys()),
-                              'tracer_args': self._parser_args,
-                              'timeout': self._timeout}
-                             for file, label in data[[self._file_col, self._label_col]].values.tolist()]
-            messages = _parallel_messages(parallel_data,
-                                          self._progress_bar,
-                                          self._num_workers,
-                                          self._timeout,
-                                          list(self._tracers.keys()),
-                                          self._file_col,
-                                          self._label_col)
+            is_file = False
+        try:
+            if is_file:
+                with open(data, 'rb') as f:
+                    messages = pickle.load(f)
+            else:
+                raise Exception("Not a pickle")
+        except:
+            if not isinstance(data, pd.DataFrame):
+                if is_file:
+                    data = pd.read_csv(data, **data_args)
+                else:
+                    assert _is_list_like(data), \
+                        "Data in unrecognizable format. Please use a DataFrame, a list of tuples, or the path to a csv"
+                    data = pd.DataFrame(data, columns=[self._file_col, self._label_col])
+            if self._num_workers == 1:
+                messages = []
+                if self._progress_bar:
+                    pbar = tqdm(total=len(data))
+                for entry in data[[self._file_col, self._label_col]].values.tolist():
+                    messages.append(self._get_messages(entry))
+                    if self._progress_bar:
+                        pbar.update(1)
+                if self._progress_bar:
+                    pbar.close()
+                # messages = [self._get_messages(entry) for entry in
+                #             data[[self._file_col, self._label_col]].values.tolist()]
+            else:
+                parallel_data = [{'file_col': self._file_col,
+                                  self._file_col: file,
+                                  'label_col': self._label_col,
+                                  self._label_col: label,
+                                  'parsers': list(self._parsers.keys()),
+                                  'parser_args': self._parser_args,
+                                  'exclude': self._exclude,
+                                  'timeout': self._timeout}
+                                 for file, label in data[[self._file_col, self._label_col]].values.tolist()]
+                messages = _parallel_messages(parallel_data,
+                                              self._overall_timeout,
+                                              self._progress_bar,
+                                              self._num_workers,
+                                              list(self._parsers.keys()),
+                                              self._file_col,
+                                              self._label_col)
+            if save_training_data is not None:
+                with open(save_training_data, 'wb') as f:
+                    pickle.dump(messages, f)
         distinct_warnings = set()
         for dic in messages:
-            for tracer in self._tracers.keys():
-                distinct_warnings.update(set(dic[tracer]))
+            for parser in self._parsers.keys():
+                distinct_warnings.update(set(dic[parser]))
         distinct_warnings = list(distinct_warnings)
         distinct_warnings.sort()
         self._warnings_map = {warning: index for (index, warning) in enumerate(distinct_warnings)}
@@ -487,8 +579,8 @@ class Astrotruther:
     def _vectorfy(self, entry):
         vector = np.zeros(self._k)
         unseen_messages = False
-        for tracer_name in self._tracers.keys():
-            error_dict = entry[tracer_name]
+        for parser_name in self._parsers.keys():
+            error_dict = entry[parser_name]
             for (warning, count) in error_dict.items():
                 if warning in self._warnings_map:
                     vector[self._warnings_map[warning]] = count
@@ -505,18 +597,21 @@ class Astrotruther:
         result = dict()
         result[self._file_col] = file
         result[self._label_col] = label
-        for tracer_name in self._tracers.keys():
+        for parser_name in self._parsers.keys():
             try:
-                tracer_result = func_timeout(
-                    self._timeout,
-                    self._parse_cleaned,
+                parser_result = func_timeout(
+                    600,
+                    _parse_document,
                     kwargs={
-                        'tracer_name': tracer_name,
-                        'doc': file
+                        'parser_name': parser_name,
+                        'exclude': self._exclude,
+                        'doc': file,
+                        'timeout': self._timeout,
+                        'parser_args': self._parser_args
                     }
                 )
             except Exception as error:
                 e = str(error)
-                tracer_result = {'%s::%s' % (tracer_name, e): 1}
-            result[tracer_name] = tracer_result
+                parser_result = {'%s::%s' % (parser_name, e): 1}
+            result[parser_name] = parser_result
         return result

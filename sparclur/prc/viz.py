@@ -1,4 +1,3 @@
-#TODO: Add MPG support
 from PIL.PngImagePlugin import PngImageFile
 
 from sparclur.parsers.present_parsers import get_sparclur_renderers
@@ -10,7 +9,7 @@ from matplotlib.colors import to_rgb
 import warnings
 import numpy as np
 import os
-from sparclur.prc._prc import _parse_renderers
+from sparclur.prc._prc import _parse_viz_renderers
 
 AVAILABLE_RENDERERS = {r.get_name(): r for r in get_sparclur_renderers()}
 
@@ -22,7 +21,6 @@ class PRCViz:
     """
 
     def __init__(self, doc_path,
-                 mpg_path=None,
                  renderers=get_sparclur_renderers(),
                  parser_args=dict(),
                  dpi=200,
@@ -33,8 +31,6 @@ class PRCViz:
         ----------
         doc_path : str
             Full path to the document to run through the PRC
-        mpg_path : str
-            *NOT IMPLEMENTED* Optional path to a modified version of the doc_path document
         renderers : List[Renderer] or List[str]
             The list of renderers to use for the PRC comparison
         parser_args : Dict[str, Dict[str, Any]]
@@ -43,41 +39,43 @@ class PRCViz:
         """
         self._doc_path = doc_path
         self._doc = doc_path.split('/')[-1]
-        self._mpg_path = mpg_path
-        self._renderers = _parse_renderers(renderers)
+        self._renderers = _parse_viz_renderers(renderers)
         self._renders = dict()
-        # self._mpg_renders = dict()
-        self._ssims = dict()
+        self._sims = dict()
+        self._ssims_fig = None
         if verbose:
             print('Rendering:')
-        for name in self._renderers:
+        for name, renderer in self._renderers.items():
             if verbose:
                 print('\t%s:' % name)
-            args = parser_args.get(name, dict())
-            args['cache_renders'] = True
-            args['dpi'] = dpi
-            self._renders[name] = AVAILABLE_RENDERERS[name](doc_path=doc_path, **args)
-            # if isinstance(renderer, Renderer):
-            #     self._renders[name] = renderer
-            #     self._renders[name].caching = True
-            # else:
-            #     self._renders[name] = renderer(doc_path=doc_path, **args)
+            # args = parser_args.get(name, dict())
+            # args['cache_renders'] = True
+            # args['dpi'] = dpi
+            # self._renders[name] = AVAILABLE_RENDERERS[name](doc_path=doc_path, **args)
+            if isinstance(renderer, Renderer):
+                self._renders[name] = renderer
+                self._renders[name].caching = True
+            else:
+                args = parser_args.get(name, dict())
+                args['cache_renders'] = True
+                args['dpi'] = dpi
+                self._renders[name] = renderer(doc_path=doc_path, **args)
             # if mpg_path is not None:
             #     self._mpg_renders[name] = renderer(doc_path=doc_path, **args)
         assert len(set([renderer.doc_path for renderer in self._renders.values()])) == 1, \
             "Document paths do not match for all renderers"
-        self._ssim_keys = list(itertools.combinations(self._renders.keys(), 2))
-        for combo in self._ssim_keys:
+        self._sim_keys = list(itertools.combinations(self._renders.keys(), 2))
+        for combo in self._sim_keys:
             if verbose:
-                print('SSIMing %s/%s' % (combo[0], combo[1]))
-            self._ssims[combo] = self._renders[combo[0]].compare(self._renders[combo[1]], full=True)
-        self._observed_pages = max(len(entry) for entry in self._ssims.values())
+                print('SIMing %s/%s' % (combo[0], combo[1]))
+            self._sims[combo] = self._renders[combo[0]].compare(self._renders[combo[1]], full=True)
+        self._observed_pages = max(len(entry) for entry in self._sims.values())
 
     def get_observed_pages(self):
         """Return the number of observed pages from the renderers"""
         return self._observed_pages
 
-    def plot_ssims(self, cmap='tab10', height=10, width=10, save_path=None):
+    def plot_sims(self, cmap='tab10', height=10, width=10, save_path=None):
         """
         Plot the structural similarity score for each page and each combination of renderers.
 
@@ -93,34 +91,36 @@ class PRCViz:
             If None returns the figure for display, otherwise saves the figure to the specified file path.
 
         """
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
+        if self._ssims_fig is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
 
-        if isinstance(cmap, list) and len(cmap) >= len(self._ssim_keys):
-            colors = [to_rgb(color) for color in cmap]
-        else:
-            if len(cmap) < len(self._ssim_keys):
-                warnings.warn("Not enough colors specified. Defaulting to tab10 cmap")
-                cmap = 'tab10'
-            scalar_mappable = ScalarMappable(cmap=cmap)
-            colors = scalar_mappable.to_rgba(range(len(self._ssim_keys)), alpha=1.0).tolist()
+            if isinstance(cmap, list) and len(cmap) >= len(self._sim_keys):
+                colors = [to_rgb(color) for color in cmap]
+            else:
+                if len(cmap) < len(self._sim_keys):
+                    warnings.warn("Not enough colors specified. Defaulting to tab10 cmap")
+                    cmap = 'tab10'
+                scalar_mappable = ScalarMappable(cmap=cmap)
+                colors = scalar_mappable.to_rgba(range(len(self._sim_keys)), alpha=1.0).tolist()
 
-        for (clr_idx, combo) in enumerate(self._ssim_keys):
-            color = colors[clr_idx]
-            label = '%s/%s' % (combo[0], combo[1])
-            x = list(self._ssims[combo].keys())
-            y = [ssim.ssim for (page, ssim) in self._ssims[combo].items()]
-            ax.scatter(x, y, color=color, label=label)
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        plt.title("SSIM by page for %s" % self._doc)
-        plt.legend(loc=0, prop={'size': 15})
+            for (clr_idx, combo) in enumerate(self._sim_keys):
+                color = colors[clr_idx]
+                label = '%s/%s' % (combo[0], combo[1])
+                x = list(self._sims[combo].keys())
+                y = [prc_sim.sim for (page, prc_sim) in self._sims[combo].items()]
+                ax.scatter(x, y, color=color, label=label)
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            plt.title("SIM by page for %s" % self._doc)
+            plt.legend(loc=0, prop={'size': 15})
 
-        if save_path is not None:
-            fig.savefig(save_path)
+            if save_path is not None:
+                fig.savefig(save_path)
+                plt.close(fig)
             plt.close(fig)
-        plt.close(fig)
-        return fig
+            self._ssims_fig = fig
+        return self._ssims_fig
 
     def display(self, page, renderers=None, width=10, height=10, save_path=None):
         """
@@ -142,7 +142,7 @@ class PRCViz:
 
         """
         if renderers is None:
-            renderers = self._ssim_keys
+            renderers = self._sim_keys
         if isinstance(renderers, tuple):
             renderers = [renderers]
         nrows = len(renderers)
@@ -152,8 +152,8 @@ class PRCViz:
         fig.suptitle('Comparisons for %s\nPage: %s' % (self._doc, page))
 
         for (row, combo) in enumerate(renderers):
-            images = [self._renders[combo[0]].get_renders(page), self._renders[combo[1]].get_renders(page), self._ssims[combo][page].diff]
-            labels = ['', '', self._ssims[combo][page].ssim]
+            images = [self._renders[combo[0]].get_renders(page), self._renders[combo[1]].get_renders(page), self._sims[combo][page].diff]
+            labels = ['', '', self._sims[combo][page].sim]
             titles = [combo[0], combo[1], 'diff']
             if nrows > 1:
                 for col in range(3):

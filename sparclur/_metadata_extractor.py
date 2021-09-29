@@ -11,10 +11,11 @@ class MetadataExtractor(Parser, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, *args, **kwargs):
-        super().__init__(doc_path=doc_path, *args, **kwargs)
+    def __init__(self, doc_path, skip_check, *args, **kwargs):
+        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
         self._metadata: Dict[str, Any] = None
         self._metadata_result: str = None
+        self._can_meta_extract: bool = None
 
     @abc.abstractmethod
     def _check_for_metadata(self) -> bool:
@@ -24,6 +25,17 @@ class MetadataExtractor(Parser, metaclass=abc.ABCMeta):
         Returns
         -------
         bool
+        """
+        pass
+
+    @abc.abstractmethod
+    def validate_metadata(self) -> Dict[str, Any]:
+        """
+        Performs a validity check for this metadata extractor.
+
+        Returns
+        -------
+        Dict[str, Any]
         """
         pass
 
@@ -49,6 +61,8 @@ class MetadataExtractor(Parser, metaclass=abc.ABCMeta):
 
     @property
     def metadata_result(self):
+        if self._metadata is None:
+            _ = self.metadata
         return self._metadata_result
 
     @abc.abstractmethod
