@@ -68,7 +68,7 @@ def _worker(entry):
                         diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
                         retval, thresh = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
                         contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        contours = contours[0] if len(contours) == 0 else contours[1]
+                        contours = contours[0] if len(contours) == 2 else contours[1]
                         filtered_contours = [contour for contour in contours if cv2.contourArea(contour) >= min_region]
                         for c in filtered_contours:
                             x, y, w, h = cv2.boundingRect(c)
