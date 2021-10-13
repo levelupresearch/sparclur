@@ -94,6 +94,12 @@ class Ghostscript(Renderer):
         self.clear_renders()
         self._size = s
 
+    def _get_num_pages(self):
+        try:
+            self._num_pages = len(self.get_renders())
+        except Exception as _:
+            self._num_pages = 0
+
     def _timedout_render(self, arg_list):
         gs = external_gs.Ghostscript(*arg_list)
         gs.exit()

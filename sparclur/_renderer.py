@@ -395,7 +395,7 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
 
         Returns
         -------
-        Dict[int, SSIM] or SSIM
+        Dict[int, PRCSim] or PRCSim
         """
         if page is not None:
             left = {page: self.get_renders(page=page)}

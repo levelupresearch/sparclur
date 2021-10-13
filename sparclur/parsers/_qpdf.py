@@ -106,6 +106,15 @@ class QPDF(Tracer, MetadataExtractor):
     def get_name():
         return 'QPDF'
 
+    def _get_num_pages(self):
+        try:
+            sp = subprocess.Popen(shlex.split('%s --show-npages %s' % (self._cmd_path, self._doc_path)),
+                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+            (stdout, _) = sp.communicate(timeout=self._timeout or 600)
+            self._num_pages = int(stdout.decode(self._decoder).strip())
+        except:
+            self._num_pages = 0
+
     def _run_json(self):
         # with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
         # out_path = os.path.join(temp_path, 'out.pdf')

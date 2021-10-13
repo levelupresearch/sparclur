@@ -102,6 +102,18 @@ class MuPDF(Tracer, Hybrid):
     # def get_name():
     #     return 'MuDraw'
 
+    def _get_num_pages(self):
+        try:
+            doc = fitz.open(self._doc_path)
+            self._num_pages = doc.page_count
+        except Exception as e:
+            self._num_pages = 0
+        finally:
+            try:
+                doc.close()
+            except:
+                pass
+
     def _mudraw(self, page, mat):
         pix = page.getPixmap(matrix=mat)
         width = pix.width

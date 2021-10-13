@@ -27,6 +27,7 @@ class Parser(metaclass=abc.ABCMeta):
         self._skip_check = skip_check
         self._timeout = timeout
         self._validity: Dict[str, Dict[str, Any]] = dict()
+        self._num_pages = None
         # self._status = None
         # self._root_cause = None
 
@@ -49,6 +50,10 @@ class Parser(metaclass=abc.ABCMeta):
         """
         return self._doc_path
 
+    @abc.abstractmethod
+    def _get_num_pages(self):
+        pass
+
     @staticmethod
     @abc.abstractmethod
     def get_name():
@@ -61,6 +66,7 @@ class Parser(metaclass=abc.ABCMeta):
             Parser name
         """
         pass
+
 
     @property
     def validity(self):
@@ -77,6 +83,12 @@ class Parser(metaclass=abc.ABCMeta):
     @timeout.deleter
     def timeout(self):
         self._timeout = None
+
+    @property
+    def num_pages(self):
+        if self._num_pages is None:
+            self._get_num_pages()
+        return self._num_pages
 
     # @property
     # def valid(self):

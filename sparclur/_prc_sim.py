@@ -6,11 +6,11 @@ class PRCSim:
         self._phash_sim = similarity_scores.get('phash_sim', 0.0)
         self._sum_square_sim = similarity_scores.get('sum_square_sim', 0.0)
         self._ccorr_sim = similarity_scores.get('ccorr_sim', 0.0)
-        # self._ccoeff_sim = similarity_scores.get('ccoeff_sim', 0.0)
+        self._ccoeff_sim = similarity_scores.get('ccoeff_sim', 0.0)
         self._size_sim = similarity_scores.get('size_sim', 1.0)
-        # sim_sum = self._entropy_sim + self._whash_sim + self._phash_sim + self._sum_square_sim + self._ccorr_sim + self._ccoeff_sim
-        sim_sum = self._entropy_sim + self._whash_sim + self._phash_sim + self._sum_square_sim + self._ccorr_sim
-        self._sim = (sim_sum / 5.0) * self._size_sim * self._size_sim
+        sim_sum = self._entropy_sim + self._whash_sim + self._phash_sim + self._sum_square_sim + self._ccorr_sim + self._ccoeff_sim
+        # sim_sum = self._entropy_sim + self._whash_sim + self._phash_sim + self._sum_square_sim + self._ccorr_sim
+        self._sim = (sim_sum / 6.0) * self._size_sim * self._size_sim
         self._ssim = similarity_scores.get('ssim', 0.0)
         self._result = result
         self._diff = diff
@@ -28,7 +28,7 @@ class PRCSim:
                    'phash_sim': self._phash_sim,
                    'sum_square_sim': self._sum_square_sim,
                    'ccorr_sim': self._ccorr_sim,
-                   # 'ccoeff_sim': self._ccoeff_sim,
+                   'ccoeff_sim': self._ccoeff_sim,
                    'size_sim': self._size_sim}
         return metrics
 

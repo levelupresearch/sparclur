@@ -6,8 +6,8 @@ from sparclur._text_compare import TextCompare
 class TextExtractor(TextCompare, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def __init__(self, doc_path, skip_check, *args, **kwargs):
-        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
+    def __init__(self, doc_path, skip_check, timeout, *args, **kwargs):
+        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout, *args, **kwargs)
 
     @abc.abstractmethod
     def validate_text(self) -> Dict[str, Any]:

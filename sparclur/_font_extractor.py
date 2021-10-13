@@ -23,9 +23,10 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
         Abstract class for wrapping up parsers that extract font information from PDFs.
     """
 
-    def __init__(self, doc_path, skip_check, *args, **kwargs):
+    def __init__(self, doc_path, skip_check, timeout, *args, **kwargs):
         super().__init__(doc_path=doc_path,
                          skip_check=skip_check,
+                         timeout=timeout,
                          *args,
                          **kwargs)
         self._non_embedded_fonts: bool = None

@@ -102,6 +102,12 @@ class PDFBox(Hybrid):
     def page_delimiter(self, p):
         self._page_delimiter = p
 
+    def _get_num_pages(self):
+        try:
+            self._num_pages = len(self.get_renders())
+        except:
+            self._num_pages = 0
+
     def _check_for_renderer(self) -> bool:
         return self._can_render
 

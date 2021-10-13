@@ -13,6 +13,7 @@ from pdfminer.layout import LAParams
 from pdfminer.pdfdocument import PDFDocument, PDFXRef, PDFXRefFallback
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdftypes import PDFObjectNotFound
+from pdfminer.pdfinterp import resolve1
 from pdfminer.pdftypes import PDFStream, PDFObjRef
 from pdfminer.psparser import PSKeyword, PSLiteral
 from pdfminer.utils import isnumber
@@ -157,6 +158,20 @@ class PDFMiner(TextExtractor, MetadataExtractor):
             self._can_extract = pdfminer_present
             self._can_meta_extract = pdfminer_present
         return self._can_extract
+
+    def _get_num_pages(self):
+        try:
+            file = open(self._doc_path, 'rb')
+            parser = PDFParser(file)
+            document = PDFDocument(parser)
+            self._num_pages = int(resolve1(document.catalog['Pages'])['Count'])
+        except:
+            self._num_pages = 0
+        finally:
+            try:
+                file.close()
+            except:
+                pass
 
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:

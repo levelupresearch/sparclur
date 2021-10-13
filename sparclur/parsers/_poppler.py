@@ -86,6 +86,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
         self._pdftotext_path = 'pdftotext' if binary_path is None else os.path.join(binary_path, 'pdftotext')
         self._pdffonts_path = 'pdffonts' if binary_path is None else os.path.join(binary_path, 'pdffonts')
         self._pdfimages_path = 'pdfimages' if binary_path is None else os.path.join(binary_path, 'pdfimages')
+        self._pdfinfo_path = 'pdfinfo' if binary_path is None else os.path.join(binary_path, 'pdfinfo')
         self._trace_cmd = self._pdftoppm_path if trace == 'pdftoppm' else self._pdftocairo_path
         self._trace_exit_code = None
         self._render_exit_code = None
@@ -128,6 +129,16 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
     def maintain_layout(self, layout: bool):
         self.clear_cache()
         self._maintain_layout = layout
+
+    def _get_num_pages(self):
+        try:
+            sp = subprocess.Popen(shlex.split(self._pdfinfo_path + self._doc_path), stderr=DEVNULL,
+                                  stdout=subprocess.PIPE, shell=False)
+            (stdout, _) = sp.communicate()
+            stdout = stdout.decode(self._decoder)
+            self._num_pages = [line.split(':')[1].strip() for line in stdout.split('\n') if line.startswith('Pages:')][0]
+        except:
+            self._num_pages = 0
 
     def _check_for_renderer(self) -> bool:
         if self._can_render is None:
