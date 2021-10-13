@@ -261,7 +261,7 @@ class Highlight:
         if isinstance(matching_criteria, dict):
             matched_files = [(mod_file, matching_criteria[mod_file]) for mod_file in mod_files]
         else:
-            matched_files = [(mod_file, matching_criteria(mod_file) for mod_file in mod_files)]
+            matched_files = [(mod_file, matching_criteria(mod_file)) for mod_file in mod_files]
 
         data = [{'orig': orig,
                  'mod_file': mod_file,
