@@ -192,7 +192,7 @@ def image_highlight(p1: PngImageFile or np.array_like,
                     p2: PngImageFile or np.array_like,
                     min_region: int = 40,
                     prc: PRCSim = None,
-                    info_loss: bool = False,
+                    info_loss: float = 1.0,
                     display: bool = False,
                     renderer: str = '',
                     left_file: str = '',
@@ -212,13 +212,15 @@ def image_highlight(p1: PngImageFile or np.array_like,
         prc = image_compare(p1, p2, True)
     try:
         contours = _get_contours(min_region, prc.diff)
-        if info_loss:
+        if info_loss < 1.0:
             for c in contours:
                 x, y, w, h = cv2.boundingRect(c)
                 contour1 = array1[y:y + h, x:x + w]
                 contour2 = array2[y:y + h, x:x + w]
                 es = entropy_sim(contour1, contour2)
                 if es == 1.0 and not np.array_equal(contour1, contour2):
+                    es = 0.0
+                if es <= info_loss:
                     cv2.rectangle(array1, (x, y), (x + w, y + h), (36, 255, 12), 2)
                     cv2.rectangle(array2, (x, y), (x + w, y + h), (36, 255, 12), 2)
         else:

@@ -224,6 +224,7 @@ class Highlight:
                             prc_threshold: float = 1.0,
                             ent_threshold: float = 0.2,
                             recurse: bool = False,
+                            extension: str = None,
                             base_path: str = None,
                             save_path: str = None):
         """
@@ -249,13 +250,15 @@ class Highlight:
         recurse : bool
             Whether or not the directory passed into the file_set parameter should be recursively searched for
             PDF's
+        extension: str
+            Filters out files that don't have the matching extension.
         base_path : str
             A base directory that should be appended to the list of files passed into file_set
         save_path: str
             If specified, will save a csv of the run results to save_path
         """
 
-        mod_files = create_file_list(file_set, recurse=recurse, base_path=base_path)
+        mod_files = create_file_list(file_set, recurse=recurse, base_path=base_path, extension=extension)
 
         if isinstance(matching_criteria, dict):
             matched_files = [(mod_file, matching_criteria[mod_file]) for mod_file in mod_files]
