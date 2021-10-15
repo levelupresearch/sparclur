@@ -14,6 +14,8 @@ from PIL.Image import Image as ImageType
 from func_timeout import FunctionTimedOut
 from math import log, e, sqrt
 import cv2
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import imshow
 
 from sparclur._prc_sim import PRCSim
 
@@ -190,6 +192,14 @@ def image_highlight(p1: PngImageFile or np.array_like,
                     p2: PngImageFile or np.array_like,
                     min_region: int = 40,
                     prc: PRCSim = None,
+                    info_loss: bool = False,
+                    display: bool = False,
+                    renderer: str = '',
+                    left_file: str = '',
+                    left_label: str = '',
+                    right_file: str = '',
+                    right_label: str = '',
+                    save_display: str = None,
                     verbose: bool = True) -> (PngImageFile, PngImageFile) or PngImageFile:
 
     _, array1 = _pil_and_array(p1)
@@ -202,11 +212,76 @@ def image_highlight(p1: PngImageFile or np.array_like,
         prc = image_compare(p1, p2, True)
     try:
         contours = _get_contours(min_region, prc.diff)
-        for c in contours:
-            x, y, w, h = cv2.boundingRect(c)
-            cv2.rectangle(array1, (x, y), (x+w, y+h), (36, 255, 12), 2)
-            cv2.rectangle(array2, (x, y), (x+w, y+h), (36, 255, 12), 2)
-        return (Image.fromarray(array1), Image.fromarray(array2))
+        if info_loss:
+            for c in contours:
+                x, y, w, h = cv2.boundingRect(c)
+                contour1 = array1[y:y + h, x:x + w]
+                contour2 = array2[y:y + h, x:x + w]
+                es = entropy_sim(contour1, contour2)
+                if es == 1.0 and not np.array_equal(contour1, contour2):
+                    cv2.rectangle(array1, (x, y), (x + w, y + h), (36, 255, 12), 2)
+                    cv2.rectangle(array2, (x, y), (x + w, y + h), (36, 255, 12), 2)
+        else:
+            for c in contours:
+                x, y, w, h = cv2.boundingRect(c)
+                cv2.rectangle(array1, (x, y), (x+w, y+h), (36, 255, 12), 2)
+                cv2.rectangle(array2, (x, y), (x+w, y+h), (36, 255, 12), 2)
+        pil1 = Image.fromarray(array1)
+        pil2 = Image.fromarray(array2)
+
+        if display:
+
+            if left_label == '' and left_file != '':
+                left_label = 'Left'
+                if right_label == '':
+                    right_label = 'Right'
+            if right_label == '' and right_file != '':
+                right_label = 'Right'
+                if left_label == '':
+                    left_label = 'Left'
+
+            fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+            pad = 5
+
+            axes[0].annotate(renderer.get_name(), xy=(0, 0.5), xytext=(-axes[0].yaxis.labelpad - pad, 0),
+                             xycoords=axes[0].yaxis.label, textcoords='offset points',
+                             size='large', ha='right', va='center')
+
+            im_dict = {0: pil1, 1: pil2}
+            label_dict = {0: left_label, 1: right_label}
+
+            for j in range(2):
+                axes[j].set_xticklabels([])
+                axes[j].set_yticklabels([])
+                axes[j].set_xticks([])
+                axes[j].set_yticks([])
+                axes[j].imshow(np.asarray(im_dict[j]))
+                axes[j].set_xlabel(label_dict[j])
+
+            if left_file != '':
+                left_title = '%s: %s' % (left_label, left_file)
+            else:
+                left_title = ''
+            if right_file != '':
+                right_title = '%s: %s' % (right_label, right_file)
+            else:
+                right_title = ''
+
+            if left_title != '':
+                if right_title == '':
+                    plt.suptitle(left_title)
+                else:
+                    plt.suptitle('%s\n%s' % (left_title, right_title))
+            else:
+                if right_title != '':
+                    plt.suptitle(right_title)
+
+            if save_display is not None:
+                fig.savefig(os.path.join(save_display))
+                plt.close(fig)
+            else:
+                plt.close(fig)
+                return fig
 
     except Exception as e:
         if verbose:
@@ -214,15 +289,12 @@ def image_highlight(p1: PngImageFile or np.array_like,
         return (None, None)
 
 
-
-
-
 def pil_to_hex_array(pil):
     array = np.array(pil, dtype='uint32')
     return (array[:, :, 0] << 16) + (array[:, :, 1] << 8) + array[:, :, 2]
 
 
-def create_file_list(files, recurse=False, base_path=None):
+def create_file_list(files, recurse=False, base_path=None, extension=None):
     fitz.TOOLS.mupdf_display_errors(False);
     try:
         if os.path.isfile(files):
@@ -236,11 +308,15 @@ def create_file_list(files, recurse=False, base_path=None):
             files = [os.path.join(*base_path.split(os.path.sep), *file.split(os.path.sep)) for file in files]
         else:
             files = files
+        if extension is not None:
+            files = [file for file in files if file.endswith(extension)]
     elif os.path.isdir(files):
         if recurse:
-            files = scrape_pdfs(files)
+            files = scrape_pdfs(files, extension)
         else:
             files = [os.path.join(files, file) for file in os.listdir(files)]
+            if extension is not None:
+                files = [file for file in files if file.endswith(extension)]
     else:
         raise InputError("""files must be a list of files with a base_path, a txt file of paths, or a directory 
             containing pdfs.""")
@@ -314,17 +390,21 @@ def if_dir_not_exists(directory):
         os.makedirs(directory)
 
 
-def scrape_pdfs(base_dir):
+def scrape_pdfs(base_dir, extension=None):
     pdfs = []
     for f in os.listdir(base_dir):
         sub_path = os.path.join(base_dir, f)
         if os.path.isfile(sub_path):
-            try:
-                pdf = fitz.open(sub_path)
-                pdf.close()
-                pdfs.append(sub_path)
-            except:
-                pass
+            if extension is not None:
+                if sub_path.endswith(extension):
+                    pdfs.append(sub_path)
+            else:
+                try:
+                    pdf = fitz.open(sub_path)
+                    pdf.close()
+                    pdfs.append(sub_path)
+                except:
+                    pass
         elif os.path.isdir(sub_path):
             sub_files = scrape_pdfs(sub_path)
             pdfs = pdfs + sub_files
