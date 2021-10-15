@@ -47,11 +47,11 @@ def _template_ssim(pil1, pil2, top_left):
     return ssim, diff
 
 
-def _pil_and_array(p1: PngImageFile or np.array_like):
-    if isinstance(p1, PngImageFile):
-        return p1, np.array(p1)
+def _pil_and_array(p: PngImageFile or np.array_like):
+    if isinstance(p, PngImageFile) or isinstance(p, ImageType):
+        return p, np.array(p)
     else:
-        return Image.fromarray(p1), p1
+        return Image.fromarray(p), p
 
 
 def image_compare(p1: PngImageFile or np.array_like,
