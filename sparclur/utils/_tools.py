@@ -1,14 +1,21 @@
 import hashlib
 import os
+from typing import Iterable
+
 import fitz
 import re
 import numpy as np
+from skimage.metrics import structural_similarity
 from inspect import signature
 from imagehash import average_hash, phash, dhash, whash
 from PIL.PngImagePlugin import PngImageFile
+from PIL import Image
 from PIL.Image import Image as ImageType
+from func_timeout import FunctionTimedOut
 from math import log, e, sqrt
 import cv2
+
+from sparclur._prc_sim import PRCSim
 
 
 class InputError(Exception):
@@ -20,6 +27,194 @@ class InputError(Exception):
 
     def __init__(self, message):
         self.message = message
+
+
+_COMPARISON_SUCCESSFUL_MESSAGE = 'Successfully Compared'
+
+
+def _template_ssim(pil1, pil2, top_left):
+
+    h1, w1 = pil1.shape[0:2]
+    h2, w2 = pil2.shape[0:2]
+    same_size = h1 == h2 and w1 == w2
+
+    if not same_size:
+        height_padding = (top_left[1], h1 - (h2 + top_left[1]))
+        width_padding = (top_left[0], w1 - (w2 + top_left[0]))
+        padding = (height_padding, width_padding)
+        pil2 = np.pad(pil2, padding, 'constant', constant_values=255)
+    ssim, diff = structural_similarity(pil1, pil2, full=True)
+    return ssim, diff
+
+
+def _pil_and_array(p1: PngImageFile or np.array_like):
+    if isinstance(p1, PngImageFile):
+        return p1, np.array(p1)
+    else:
+        return Image.fromarray(p1), p1
+
+
+def image_compare(p1: PngImageFile or np.array_like,
+                  p2: PngImageFile or np.array_like,
+                  full: bool=False) -> PRCSim:
+    """
+        Function to compute the structural similarity of two pngs.
+
+        Parameters
+        ----------
+        p1 : PngImageFile or array_like
+        p2 : PngImageFile or array_like
+        full : bool
+            Flag that indicates the difference of the comparison should be returned
+
+        Returns
+        -------
+        PRCSim
+        """
+    if p1 is None or p2 is None:
+        return PRCSim(dict(), 'Rendering failed', diff=None)
+
+    pil1, array1 = _pil_and_array(p1)
+    pil2, array2 = _pil_and_array(p2)
+
+    w1, h1 = array1.shape[0:2]
+    w2, h2 = array2.shape[0:2]
+
+    similarities = dict()
+    results = dict()
+    try:
+        similarities['entropy_sim'] = entropy_sim(pil1, pil2)
+        # results['entropy_sim'] = _COMPARISON_SUCCESSFUL_MESSAGE
+    except Exception as e:
+        results['entropy_sim'] = str(e)
+    try:
+        similarities['whash_sim'] = whash_sim(pil1, pil2)
+        # results['whash_sim'] = _COMPARISON_SUCCESSFUL_MESSAGE
+    except Exception as e:
+        results['whash_sim'] = str(e)
+    try:
+        similarities['phash_sim'] = phash_sim(pil1, pil2)
+        # results['phash_sim'] = _COMPARISON_SUCCESSFUL_MESSAGE
+    except Exception as e:
+        results['phash_sim'] = str(e)
+    try:
+        sss, sss_loc = sum_square_sim(array1, array2)
+        similarities['sum_square_sim'] = sss
+        # results['sum_square_sim'] = _COMPARISON_SUCCESSFUL_MESSAGE
+    except Exception as e:
+        sss_loc = None
+        results['sum_square_sim'] = str(e)
+    try:
+        ccorr, ccorr_loc = ccorr_sim(array1, array2)
+        similarities['ccorr_sim'] = ccorr
+        # results['ccorr_sim'] = _COMPARISON_SUCCESSFUL_MESSAGE
+    except Exception as e:
+        ccorr_loc = None
+        results['ccorr_sim'] = str(e)
+    try:
+        ccoeff, ccoeff_loc = ccoeff_sim(array1, array2)
+        similarities['ccoeff_sim'] = ccoeff
+    except Exception as e:
+        ccoeff_loc = None
+        results['ccoeff_sim'] = str(e)
+    try:
+        similarities['size_sim'] = size_sim(array1, array2)
+    except Exception as e:
+        results['size_sim'] = str(e)
+
+    if full:
+        try:
+            if w1 == w2 and h1 == h2:
+                array1_gray = cv2.cvtColor(array1, cv2.COLOR_RGB2GRAY)
+                array2_gray = cv2.cvtColor(array2, cv2.COLOR_RGB2GRAY)
+                ssim, diff = structural_similarity(array1_gray, array2_gray, full=True)
+                diff = Image.fromarray(np.uint8(diff * 255), 'L').convert('RGB')
+                similarities['ssim'] = ssim
+            elif sss_loc is not None or ccorr_loc is not None or ccoeff_loc is not None:
+                diffs = []
+                # print("before pad_images")
+                padded_pil1, padded_pil2 = pad_images(array1, array2)
+                # print("after pad_images")
+                array1_gray = cv2.cvtColor(padded_pil1, cv2.COLOR_RGB2GRAY)
+                array2_gray = cv2.cvtColor(padded_pil2, cv2.COLOR_RGB2GRAY)
+                if sss_loc is not None:
+                    # print("sss ssim")
+                    sss_ssim, sss_diff = _template_ssim(array1_gray, array2_gray, sss_loc)
+                    # print("sss ssim complete: %f" % sss_ssim)
+                    diffs.append((sss_ssim, sss_diff))
+                if ccorr_loc is not None:
+                    # print("ccorr ssim")
+                    ccorr_ssim, ccorr_diff = _template_ssim(array1_gray, array2_gray, ccorr_loc)
+                    # print("ccorr ssim complete: %f" % ccorr_ssim)
+                    diffs.append((ccorr_ssim, ccorr_diff))
+                if ccoeff_loc is not None:
+                    # print("ccoeff ssim")
+                    ccoeff_ssim, ccoeff_diff = _template_ssim(array1_gray, array2_gray, ccoeff_loc)
+                    # print("ccoeff ssim complete: %f" % ccoeff_ssim)
+                    diffs.append((ccoeff_ssim, ccoeff_diff))
+                # print(len(diffs))
+                diffs.sort(reverse=True, key=lambda x: x[0])
+                ssim, diff = diffs[0]
+                diff = Image.fromarray(np.uint8(diff * 255), 'L').convert('RGB')
+                similarities['ssim'] = ssim
+            else:
+                diff = None
+        except FunctionTimedOut:
+            diff = None
+            results['diff'] = "Diff timed out"
+        except Exception as e:
+            diff = None
+            results['diff'] = str(e)
+    else:
+        diff = None
+
+    if len(results) == 0:
+        result = _COMPARISON_SUCCESSFUL_MESSAGE
+    else:
+        result = ', '.join(['%s: %s' % (key, val) for (key, val) in results.items()])
+
+    return PRCSim(similarity_scores=similarities, result=result, diff=diff)
+
+
+def _get_contours(min_region, diff: PngImageFile):
+    diff = np.array(diff)
+    diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+    retval, thresh = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+    contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = contours[0] if len(contours) == 2 else contours[1]
+    filtered_contours = [contour for contour in contours if cv2.contourArea(contour) >= min_region]
+    return filtered_contours
+
+
+def image_highlight(p1: PngImageFile or np.array_like,
+                    p2: PngImageFile or np.array_like,
+                    min_region: int = 40,
+                    prc: PRCSim = None,
+                    verbose: bool = True) -> (PngImageFile, PngImageFile) or PngImageFile:
+
+    _, array1 = _pil_and_array(p1)
+    _, array2 = _pil_and_array(p2)
+
+
+    if prc is None:
+        prc = image_compare(p1, p2, True)
+    elif prc.diff is None:
+        prc = image_compare(p1, p2, True)
+    try:
+        contours = _get_contours(min_region, prc.diff)
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
+            cv2.rectangle(array1, (x, y), (x+w, y+h), (36, 255, 12), 2)
+            cv2.rectangle(array2, (x, y), (x+w, y+h), (36, 255, 12), 2)
+        return (Image.fromarray(array1), Image.fromarray(array2))
+
+    except Exception as e:
+        if verbose:
+            print(str(e))
+        return (None, None)
+
+
+
 
 
 def pil_to_hex_array(pil):

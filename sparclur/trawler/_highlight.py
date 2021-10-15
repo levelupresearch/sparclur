@@ -16,6 +16,8 @@ import cv2
 from tqdm import tqdm
 from pebble import ProcessPool
 
+from sparclur.utils._tools import _get_contours
+
 
 def _parse_renderers(parsers):
     """
@@ -64,12 +66,7 @@ def _worker(entry):
                     try:
                         orig_page = pil_to_hex_array(orig.get_renders(page))
                         mod_page = pil_to_hex_array(mod.get_renders(page))
-                        diff = np.array(sim.diff)
-                        diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-                        retval, thresh = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-                        contours = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        contours = contours[0] if len(contours) == 2 else contours[1]
-                        filtered_contours = [contour for contour in contours if cv2.contourArea(contour) >= min_region]
+                        filtered_contours = _get_contours(min_region, sim.diff)
                         for c in filtered_contours:
                             x, y, w, h = cv2.boundingRect(c)
                             w = int(w)
@@ -79,6 +76,8 @@ def _worker(entry):
                             orig_contour = orig_page[y:y+h, x:x+w]
                             mod_contour = mod_page[y:y + h, x:x + w]
                             es = entropy_sim(orig_contour, mod_contour)
+                            if es == 1.0 and not np.array_equal(orig_contour, mod_contour):
+                                es = 0.0
                             if es <= ent_threshold:
                                 results.append({'orig_file': orig_file,
                                                 'mod_file': mod_file,
