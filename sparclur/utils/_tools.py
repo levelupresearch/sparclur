@@ -245,7 +245,7 @@ def image_highlight(p1: PngImageFile or np.array_like,
             fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
             pad = 5
 
-            axes[0].annotate(renderer.get_name(), xy=(0, 0.5), xytext=(-axes[0].yaxis.labelpad - pad, 0),
+            axes[0].annotate(renderer, xy=(0, 0.5), xytext=(-axes[0].yaxis.labelpad - pad, 0),
                              xycoords=axes[0].yaxis.label, textcoords='offset points',
                              size='large', ha='right', va='center')
 
@@ -284,11 +284,13 @@ def image_highlight(p1: PngImageFile or np.array_like,
             else:
                 plt.close(fig)
                 return fig
+        else:
+            return (pil1, pil2)
 
     except Exception as e:
         if verbose:
             print(str(e))
-        return (None, None)
+        return (None, None) if not display else None
 
 
 def pil_to_hex_array(pil):
