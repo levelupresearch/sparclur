@@ -333,7 +333,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             try:
-                out_path = os.path.join(temp_path, '%s_reforged_%s' % (self._get_name(), self._doc_path))
+                out_path = os.path.join(temp_path, '%s_reforged_%s' % (self.get_name(), self._doc_path))
                 sp = subprocess.Popen(shlex.split('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path)),
                                       stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
@@ -352,6 +352,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
             except Exception as e:
                 sp.kill()
+                sp
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = str(e).split('\n')
