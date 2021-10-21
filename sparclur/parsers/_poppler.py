@@ -7,6 +7,7 @@ import warnings
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, IMAGE
 from sparclur._hybrid import Hybrid
+from sparclur._reforge import Reforger
 from sparclur._tracer import Tracer
 from sparclur._renderer import Renderer, _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 from sparclur._font_extractor import FontExtractor
@@ -26,7 +27,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
 
-class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
+class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
     """Poppler wrapper for pdftoppm, pdftocairo, and pdftotext"""
 
     def __init__(self, doc_path: str,
@@ -161,6 +162,34 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor):
             if self._trace == 'pdftoppm':
                 self._can_render = trace_present
         return self._can_trace
+
+    def _check_for_reforger(self) -> bool:
+        if self._can_reforge is None:
+            if self._trace == 'pdftocairo':
+                self._can_reforge = self._check_for_tracer()
+            else:
+                cmd = '%s -v' % self._pdftocairo_path
+                try:
+                    subprocess.check_output(shlex.split(cmd), shell=False)
+                    cairo_present = True
+                except subprocess.CalledProcessError as e:
+                    cairo_present = False
+                self._can_reforge = cairo_present
+        return self._can_reforge
+
+    def _reforge(self):
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            try:
+                out_path = os.path.join(temp_path, '%s_reforged_%s' % (self.get_name(), self._doc_path))
+                cmd = '%s -pdf %s %s' % (self._pdftocairo_path, self._doc_path, out_path)
+                sp = subprocess.Popen(shlex.split(cmd), stderr=DEVNULL, stdout=DEVNULL, shell=False)
+                (_, _) = sp.communicate(timeout=self._timeout or 600)
+                with open(out_path, 'rb') as file_in:
+                    self._reforge = file_in.read()
+            except TimeoutExpired:
+                sp.kill()
+            except Exception as e:
+                sp.kill()
 
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:

@@ -2,6 +2,9 @@ import locale
 import os
 import re
 import sys
+import subprocess
+from subprocess import TimeoutExpired, DEVNULL
+import shlex
 import tempfile
 import time
 import warnings
@@ -12,12 +15,13 @@ from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from func_timeout import func_timeout, FunctionTimedOut
 
+from sparclur._reforge import Reforger
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._parser import VALID, REJECTED, REJECTED_AMBIG, RENDER
 
 
-class Ghostscript(Renderer):
+class Ghostscript(Renderer, Reforger):
     """SPARCLUR renderer wrapper for Ghostscript"""
     def __init__(self, doc_path: str,
                  skip_check: bool = False,
@@ -47,6 +51,32 @@ class Ghostscript(Renderer):
         # assert self._ghostscript_present, "Ghostscript not found"
         self._temp_folders_dir = temp_folders_dir
         self._size = size
+
+    def _reforge(self):
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            try:
+                out_path = os.path.join(temp_path, '%s_reforged_%s' % (self.get_name(), self._doc_path))
+                cmd = 'gs -o %s -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress %s' % (self._doc_path, out_path)
+                sp = subprocess.Popen(shlex.split(cmd), stderr=DEVNULL, stdout=DEVNULL, shell=False)
+                (_, _) = sp.communicate(timeout=self._timedout or 600)
+                with open(out_path, 'rb') as file_in:
+                    self._reforge = file_in.read()
+            except TimeoutExpired:
+                sp.kill()
+            except Exception as e:
+                sp.kill()
+
+    def _check_for_reforger(self) -> bool:
+        if self._skip_check:
+            self._can_reforge = True
+        if self._can_reforge is None:
+            try:
+                subprocess.check_output(shlex.split("gs -v"), shell=False)
+                gs_present = True
+            except subprocess.CalledProcessError as e:
+                gs_present = False
+            self._can_reforge = gs_present
+        return self._can_reforge
 
     def _check_for_renderer(self) -> bool:
         if self._skip_check:

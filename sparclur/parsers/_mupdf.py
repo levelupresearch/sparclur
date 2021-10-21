@@ -6,6 +6,7 @@ from func_timeout import func_timeout, FunctionTimedOut
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT
 from sparclur._hybrid import Hybrid
+from sparclur._reforge import Reforger
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 from sparclur._tracer import Tracer
 from sparclur.utils import fix_splits
@@ -26,7 +27,7 @@ from PIL.PngImagePlugin import PngImageFile
 SUCCESS_WITH_WARNINGS = "Successful with warnings"
 
 
-class MuPDF(Tracer, Hybrid):
+class MuPDF(Tracer, Hybrid, Reforger):
     """MuPDF parser"""
     def __init__(self, doc_path: str,
                  skip_check: bool = False,
@@ -280,6 +281,14 @@ class MuPDF(Tracer, Hybrid):
             self._can_trace = mutool_present
         return self._can_trace
 
+    def _check_for_reforger(self) -> bool:
+        if self._can_reforge is None:
+            self._can_reforge = self._check_for_tracer()
+        return self._can_reforge
+
+    def _reforge(self):
+        self._parse_document(reforge=True)
+
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
@@ -318,16 +327,19 @@ class MuPDF(Tracer, Hybrid):
     def streams_parsed(self):
         return self._parse_streams
 
-    def _parse_document(self):
+    def _parse_document(self, reforge=False):
 
         stream_flag = ' -s' if self._parse_streams else ''
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             try:
-                out_path = os.path.join(temp_path, 'out.pdf')
+                out_path = os.path.join(temp_path, '%s_reforged_%s' % (self._get_name(), self._doc_path))
                 sp = subprocess.Popen(shlex.split('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path)),
                                       stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
+                if reforge:
+                    with open(out_path, 'rb') as file_in:
+                        self._reforge = file_in.read()
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
