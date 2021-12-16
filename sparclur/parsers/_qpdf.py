@@ -1,11 +1,13 @@
 import locale
+import os
 import shlex
-from typing import Dict, Any
+import tempfile
+from typing import Dict, Any, List
 
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER
 from sparclur._tracer import Tracer
-from sparclur.utils._tools import fix_splits
+from sparclur.utils._tools import fix_splits, hash_file
 
 import re
 import subprocess
@@ -15,8 +17,10 @@ import json
 
 class QPDF(Tracer, MetadataExtractor):
     """QPDF tracer"""
-    def __init__(self, doc_path: str,
+    def __init__(self, doc: str or bytes,
+                 temp_folders_dir: str = None,
                  skip_check: bool = False,
+                 hash_exclude: str or List[str] = None,
                  binary_path: str = None,
                  timeout: int = None
                  ):
@@ -31,9 +35,11 @@ class QPDF(Tracer, MetadataExtractor):
         temp_folders_dir : str
             Path to create the temporary directories used for temporary files.
         """
-        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout)
-        self._doc_path = doc_path
-        #self._temp_folders_dir = temp_folders_dir
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
+                         skip_check=skip_check,
+                         hash_exclude=hash_exclude,
+                         timeout=timeout)
         self._decoder = locale.getpreferredencoding()
         self._cmd_path = 'qpdf' if binary_path is None else binary_path
         self._exit_code = None
@@ -107,50 +113,66 @@ class QPDF(Tracer, MetadataExtractor):
         return 'QPDF'
 
     def _get_num_pages(self):
-        try:
-            sp = subprocess.Popen(shlex.split('%s --show-npages %s' % (self._cmd_path, self._doc_path)),
-                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            (stdout, _) = sp.communicate(timeout=self._timeout or 600)
-            self._num_pages = int(stdout.decode(self._decoder).strip())
-        except:
-            self._num_pages = 0
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            try:
+                sp = subprocess.Popen(shlex.split('%s --show-npages %s' % (self._cmd_path, doc_path)),
+                                      stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+                (stdout, _) = sp.communicate(timeout=self._timeout or 600)
+                self._num_pages = int(stdout.decode(self._decoder).strip())
+            except:
+                self._num_pages = 0
 
     def _run_json(self):
         # with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
         # out_path = os.path.join(temp_path, 'out.pdf')
-        try:
-            sp = subprocess.Popen(shlex.split('%s --json %s' % (self._cmd_path, self._doc_path)),
-                                  stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
-            (stdout, err) = sp.communicate(timeout=self._timeout or 600)
-            self._exit_code = sp.returncode
-            err = fix_splits(err.decode(self._decoder, errors='ignore'))
-            stdout = stdout.decode(self._decoder, errors='ignore')
-            error_arr = [message for message in err.split('\n') if len(message) > 0]
-        except TimeoutExpired:
-            sp.kill()
-            (stdout, err) = sp.communicate()
-            err = fix_splits(err.decode(self._decoder, errors='ignore'))
-            stdout = stdout.decode(self._decoder, errors='ignore')
-            error_arr = [message for message in err.split('\n') if len(message) > 0]
-            self._exit_code = 0
-            stdout = stdout
-            error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
-        except Exception as e:
-            self._exit_code = 0
-            sp.kill()
-            (stdout, err) = sp.communicate()
-            err = fix_splits(err.decode(self._decoder, errors='ignore'))
-            stdout = stdout.decode(self._decoder, errors='ignore')
-            error_arr = str(e).split('\n')
-            error_arr.extend([message for message in err.split('\n') if len(message) > 0])
-        self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
-        try:
-            file = json.loads(stdout)
-            objects = file['objects'].items()
-            self._metadata = dict(objects)
-            self._metadata_result = METADATA_SUCCESS
-        except Exception as e:
-            self._metadata_result = str(e)
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            try:
+                sp = subprocess.Popen(shlex.split('%s --json %s' % (self._cmd_path, doc_path)),
+                                      stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
+                (stdout, err) = sp.communicate(timeout=self._timeout or 600)
+                self._exit_code = sp.returncode
+                err = fix_splits(err.decode(self._decoder, errors='ignore'))
+                stdout = stdout.decode(self._decoder, errors='ignore')
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+            except TimeoutExpired:
+                sp.kill()
+                (stdout, err) = sp.communicate()
+                err = fix_splits(err.decode(self._decoder, errors='ignore'))
+                stdout = stdout.decode(self._decoder, errors='ignore')
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+                self._exit_code = 0
+                stdout = stdout
+                error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
+            except Exception as e:
+                self._exit_code = 0
+                sp.kill()
+                (stdout, err) = sp.communicate()
+                err = fix_splits(err.decode(self._decoder, errors='ignore'))
+                stdout = stdout.decode(self._decoder, errors='ignore')
+                error_arr = str(e).split('\n')
+                error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+            self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
+            try:
+                file = json.loads(stdout)
+                objects = file['objects'].items()
+                self._metadata = dict(objects)
+                self._metadata_result = METADATA_SUCCESS
+            except Exception as e:
+                self._metadata_result = str(e)
 
     def _parse_document(self):
         self._run_json()

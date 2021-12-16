@@ -5,11 +5,13 @@ from typing import Dict, Any
 from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
 from func_timeout import func_timeout, FunctionTimedOut
+from imagehash import dhash
 from skimage.metrics import structural_similarity
 import numpy as np
 
 from sparclur._prc_sim import PRCSim
 from sparclur._text_compare import TextCompare
+from sparclur._parser import RENDER, RENDER_HASH_SIZE
 import re
 from pytesseract import image_to_string
 import cv2
@@ -207,8 +209,8 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, skip_check, timeout, dpi, cache_renders, *args, **kwargs):
-        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout, *args, **kwargs)
+    def __init__(self, doc, skip_check, timeout, dpi, cache_renders, *args, **kwargs):
+        super().__init__(doc=doc, skip_check=skip_check, timeout=timeout, *args, **kwargs)
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
         self._dpi = dpi
@@ -226,6 +228,25 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
         Dict[str, Any]
         """
         pass
+
+    @property
+    def sparclur_hash(self):
+        if RENDER not in self._sparclur_hash and RENDER not in self._sparclur_hash.excluded:
+            try:
+                renders = self.get_renders()
+                hashes = dict()
+                for page, pil in renders.items():
+                    hashes[page] = dhash(pil, hash_size=RENDER_HASH_SIZE)
+            except:
+                hashes = dict()
+            self._sparclur_hash._add_hash(RENDER, hashes)
+        return super().sparclur_hash
+
+    @property
+    def validity(self):
+        if RENDER not in self._validity:
+            _ = self.validate_renderer()
+        return super().validity
 
     @abc.abstractmethod
     def _check_for_renderer(self) -> bool:

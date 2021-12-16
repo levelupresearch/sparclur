@@ -10,7 +10,7 @@ def parse_init(cls):
     skip_params = ['self',
                    'args',
                    'kwargs',
-                   'doc_path',
+                   'doc',
                    'parse_streams',
                    'verbose',
                    'stream_output'

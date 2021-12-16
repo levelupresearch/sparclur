@@ -12,14 +12,17 @@ from sparclur._parser import VALID, REJECTED, RENDER, TEXT
 from sparclur._hybrid import Hybrid
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 import tempfile
+
+from sparclur.utils import hash_file
 
 
 class PDFBox(Hybrid):
     """PDFBox wrapper"""
-    def __init__(self, doc_path: str,
+    def __init__(self, doc: str or bytes,
                  skip_check: bool = False,
+                 hash_exclude: str or List[str] = None,
                  jar_path: str = '../../jars/*',
                  temp_folders_dir: str = None,
                  page_delimiter: str = '\x0c',
@@ -50,13 +53,14 @@ class PDFBox(Hybrid):
         ocr: bool
             Specify whether or not to OCR for text extraction
         """
-        super().__init__(doc_path=doc_path,
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
+                         hash_exclude=hash_exclude,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          timeout=timeout,
                          ocr=ocr)
-        self._temp_folders_dir = temp_folders_dir
         self._page_delimiter = page_delimiter
         self._jar_path = jar_path
         if not jpype.isJVMStarted():
@@ -81,18 +85,6 @@ class PDFBox(Hybrid):
     @staticmethod
     def get_name():
         return "PDFBox"
-
-    @property
-    def temp_folders_dir(self):
-        return self._temp_folders_dir
-
-    @temp_folders_dir.setter
-    def temp_folders_dir(self, t):
-        self._temp_folders_dir = t
-
-    @temp_folders_dir.deleter
-    def temp_folders_dir(self):
-        self._temp_folders_dir = None
 
     @property
     def page_delimiter(self):
@@ -172,8 +164,15 @@ class PDFBox(Hybrid):
             return_single_page = True
             options.extend(['-page', str(page)])
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
             options.extend(['-outputPrefix', temp_path + '/out-'])
-            options.append(self._doc_path)
+            options.append(doc_path)
             self._pdfbox_tools.PDFToImage.main(options)
             result: Dict[int, PngImageFile] = dict()
             for render in [file for file in os.listdir(temp_path) if file.endswith('.png')]:
@@ -244,8 +243,15 @@ class PDFBox(Hybrid):
         if page is not None:
             page = str(page + 1)
             options.extend(['-startPage', page, '-endPage', page])
-        options.append(self._doc_path)
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            options.append(doc_path)
             output_file = os.path.join(temp_path, 'out.txt')
             options.append(output_file)
             try:

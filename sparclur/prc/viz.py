@@ -59,7 +59,7 @@ class PRCViz:
                 args = parser_args.get(name, dict())
                 args['cache_renders'] = True
                 args['dpi'] = dpi
-                self._renders[name] = renderer(doc_path=doc_path, **args)
+                self._renders[name] = renderer(doc=doc_path, **args)
             # if mpg_path is not None:
             #     self._mpg_renders[name] = renderer(doc_path=doc_path, **args)
         assert len(set([renderer.doc_path for renderer in self._renders.values()])) == 1, \

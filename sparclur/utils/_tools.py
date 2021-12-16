@@ -34,6 +34,20 @@ class InputError(Exception):
 _COMPARISON_SUCCESSFUL_MESSAGE = 'Successfully Compared'
 
 
+def stringify_dict(d):
+    if not isinstance(d, dict):
+        if isinstance(d, list):
+            return '[' + ', '.join([stringify_dict(el) for el in d]) + ']'
+        else:
+            return str(d)
+    else:
+        result = []
+        for (key, val) in d.items():
+            result.append('%s::%s' % (str(key), stringify_dict(val)))
+        result.sort()
+        return '[' + ', '.join(result) + ']'
+
+
 def _template_ssim(pil1, pil2, top_left):
 
     h1, w1 = pil1.shape[0:2]
@@ -194,6 +208,8 @@ def image_highlight(p1: PngImageFile or np.array_like,
                     prc: PRCSim = None,
                     info_loss: float = 1.0,
                     display: bool = False,
+                    display_height: int = 10,
+                    display_width: int = 10,
                     renderer: str = '',
                     left_file: str = '',
                     left_label: str = '',
@@ -242,7 +258,7 @@ def image_highlight(p1: PngImageFile or np.array_like,
                 if left_label == '':
                     left_label = 'Left'
 
-            fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+            fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(display_width, display_height))
             pad = 5
 
             axes[0].annotate(renderer, xy=(0, 0.5), xytext=(-axes[0].yaxis.labelpad - pad, 0),
@@ -285,7 +301,7 @@ def image_highlight(p1: PngImageFile or np.array_like,
                 plt.close(fig)
                 return fig
         else:
-            return (pil1, pil2)
+            return pil1, pil2
 
     except Exception as e:
         if verbose:
@@ -351,6 +367,10 @@ def jac_dist(set1, set2):
     union = size1 + size2 - intersect
     d = 1 - intersect / union if union > 0 else 0
     return d
+
+
+def jac_sim(set1, set2):
+    return 1.0 - jac_dist(set1, set2)
 
 
 def lev_dist(s1, s2):

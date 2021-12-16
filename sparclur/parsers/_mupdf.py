@@ -9,7 +9,7 @@ from sparclur._hybrid import Hybrid
 from sparclur._reforge import Reforger
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 from sparclur._tracer import Tracer
-from sparclur.utils import fix_splits
+from sparclur.utils import fix_splits, hash_file
 
 import os
 import sys
@@ -29,8 +29,9 @@ SUCCESS_WITH_WARNINGS = "Successful with warnings"
 
 class MuPDF(Tracer, Hybrid, Reforger):
     """MuPDF parser"""
-    def __init__(self, doc_path: str,
+    def __init__(self, doc: str or bytes,
                  skip_check: bool = False,
+                 hash_exclude: str or List[str] = None,
                  parse_streams: bool = True,
                  binary_path: str = None,
                  temp_folders_dir: str = None,
@@ -61,9 +62,15 @@ class MuPDF(Tracer, Hybrid, Reforger):
         timeout : int
             Specify a timeout for rendering
         """
-        super().__init__(doc_path=doc_path, skip_check=skip_check, dpi=dpi, cache_renders=cache_renders, timeout=timeout, ocr=ocr)
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
+                         skip_check=skip_check,
+                         hash_exclude=hash_exclude,
+                         dpi=dpi,
+                         cache_renders=cache_renders,
+                         timeout=timeout,
+                         ocr=ocr)
         self._parse_streams = parse_streams
-        self._temp_folders_dir = temp_folders_dir
         self._cmd_path = 'mutool clean' if binary_path is None else binary_path
         self._trace_exit_code = None
 
@@ -79,41 +86,49 @@ class MuPDF(Tracer, Hybrid, Reforger):
             validity_results = dict()
             if len(self._logs) == 0:
                 _ = self.get_renders()
-        results = [(page, value['result']) for (page, value) in self._logs.items()]
-        not_successful = [result for (_, result) in results if result != SUCCESS]
-        if len(results) == 0:
-            validity_results['valid'] = False
-            validity_results['status'] = REJECTED
-            validity_results['info'] = 'No info returned'
-        elif len(not_successful) == 0:
-            validity_results['valid'] = True
-            validity_results['status'] = VALID
-        elif len([result for result in not_successful if result != SUCCESS_WITH_WARNINGS]) == 0:
-            validity_results['valid'] = True
-            validity_results['status'] = VALID_WARNINGS
-        else:
-            validity_results['valid'] = False
-            validity_results['status'] = REJECTED
-            validity_results['info'] = ';'.join(
-                ['%i: %s' % (page, result) for (page, result) in results if result != SUCCESS and result != SUCCESS_WITH_WARNINGS])
-        self._validity[RENDER] = validity_results
-        return validity_results
+            results = [(page, value['result']) for (page, value) in self._logs.items()]
+            not_successful = [result for (_, result) in results if result != SUCCESS]
+            if len(results) == 0:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = 'No info returned'
+            elif len(not_successful) == 0:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID
+            elif len([result for result in not_successful if result != SUCCESS_WITH_WARNINGS]) == 0:
+                validity_results['valid'] = True
+                validity_results['status'] = VALID_WARNINGS
+            else:
+                validity_results['valid'] = False
+                validity_results['status'] = REJECTED
+                validity_results['info'] = ';'.join(
+                    ['%i: %s' % (page, result) for (page, result) in results if result != SUCCESS and result != SUCCESS_WITH_WARNINGS])
+            self._validity[RENDER] = validity_results
+            return validity_results
 
     # @staticmethod
     # def get_name():
     #     return 'MuDraw'
 
     def _get_num_pages(self):
-        try:
-            doc = fitz.open(self._doc_path)
-            self._num_pages = doc.page_count
-        except Exception as e:
-            self._num_pages = 0
-        finally:
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
             try:
-                doc.close()
-            except:
-                pass
+                doc = fitz.open(doc_path)
+                self._num_pages = doc.page_count
+            except Exception as e:
+                self._num_pages = 0
+            finally:
+                try:
+                    doc.close()
+                except:
+                    pass
 
     def _mudraw(self, page, mat):
         pix = page.getPixmap(matrix=mat)
@@ -122,84 +137,100 @@ class MuPDF(Tracer, Hybrid, Reforger):
         return Image.frombytes("RGB", [width, height], pix.samples)
 
     def _render_page(self, page):
-        start_time = time.perf_counter()
-        try:
-            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
-            fitz.TOOLS.reset_mupdf_warnings()
-            doc = fitz.open(self._doc_path)
-            page = doc[page]
-            if self._timeout is None:
-                mu_pil: PngImageFile = self._mudraw(page, mat)
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
             else:
-                mu_pil: PngImageFile = func_timeout(
-                    self._timeout,
-                    self._mudraw,
-                    kwargs={
-                        'page': doc[page],
-                        'mat': mat
-                    }
-                )
-            doc.close()
-            if self._caching:
-                self._renders[page] = mu_pil
-            timing = time.perf_counter() - start_time
-            warnings = fitz.TOOLS.mupdf_warnings()
-            result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
-            self._logs[page] = {'result': result, 'timing': timing}
-        except FunctionTimedOut:
-            mu_pil: PngImageFile = None
-            self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
-        except Exception as e:
-            mu_pil: PngImageFile = None
-            timing = time.perf_counter() - start_time
-            self._logs[page] = {'result': str(e), 'timing': timing}
-        return mu_pil
+                doc_path = self._doc
+            start_time = time.perf_counter()
+            try:
+                mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
+                fitz.TOOLS.reset_mupdf_warnings()
+                doc = fitz.open(doc_path)
+                page = doc[page]
+                if self._timeout is None:
+                    mu_pil: PngImageFile = self._mudraw(page, mat)
+                else:
+                    mu_pil: PngImageFile = func_timeout(
+                        self._timeout,
+                        self._mudraw,
+                        kwargs={
+                            'page': doc[page],
+                            'mat': mat
+                        }
+                    )
+                doc.close()
+                if self._caching:
+                    self._renders[page] = mu_pil
+                timing = time.perf_counter() - start_time
+                warnings = fitz.TOOLS.mupdf_warnings()
+                result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
+                self._logs[page] = {'result': result, 'timing': timing}
+            except FunctionTimedOut:
+                mu_pil: PngImageFile = None
+                self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
+            except Exception as e:
+                mu_pil: PngImageFile = None
+                timing = time.perf_counter() - start_time
+                self._logs[page] = {'result': str(e), 'timing': timing}
+            return mu_pil
 
     def _render_doc(self):
-        start_time = time.perf_counter()
-        try:
-            mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
-            doc = fitz.open(self._doc_path)
-            if len(doc) == 0:
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            start_time = time.perf_counter()
+            try:
+                mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
+                doc = fitz.open(doc_path)
+                if len(doc) == 0:
+                    doc.close()
+                    raise Exception('Document failed to load')
+                pils: Dict[int, PngImageFile] = dict()
+                for page in doc:
+                    fitz.TOOLS.reset_mupdf_warnings()
+                    page_start = time.perf_counter()
+                    try:
+                        if self._timeout is None:
+                            pils[page.number] = self._mudraw(page, mat)
+                        else:
+                            pils[page.number] = func_timeout(
+                                self._timeout,
+                                self._mudraw,
+                                kwargs={
+                                    'page': page,
+                                    'mat': mat
+                                }
+                            )
+                        timing = time.perf_counter() - page_start
+                        warnings = fitz.TOOLS.mupdf_warnings()
+                        result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
+                        self._logs[page.number] = {'result': result, 'timing': timing}
+                    except FunctionTimedOut:
+                        self._logs[page.number] = {'result': 'Timed out', 'timing': self._timeout}
+                    except Exception as e:
+                        self._logs[page.number] = {'result': str(e), 'timing': time.perf_counter() - page_start}
                 doc.close()
-                raise Exception('Document failed to load')
-            pils: Dict[int, PngImageFile] = dict()
-            for page in doc:
-                fitz.TOOLS.reset_mupdf_warnings()
-                page_start = time.perf_counter()
-                try:
-                    if self._timeout is None:
-                        pils[page.number] = self._mudraw(page, mat)
-                    else:
-                        pils[page.number] = func_timeout(
-                            self._timeout,
-                            self._mudraw,
-                            kwargs={
-                                'page': page,
-                                'mat': mat
-                            }
-                        )
-                    timing = time.perf_counter() - page_start
-                    warnings = fitz.TOOLS.mupdf_warnings()
-                    result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
-                    self._logs[page.number] = {'result': result, 'timing': timing}
-                except FunctionTimedOut:
-                    self._logs[page.number] = {'result': 'Timed out', 'timing': self._timeout}
-                except Exception as e:
-                    self._logs[page.number] = {'result': str(e), 'timing': time.perf_counter() - page_start}
-            doc.close()
-            if self._caching:
-                self._full_doc_rendered = True
-                self._renders = pils
-            # timing = time.perf_counter() - start_time
-            # num_pages = len(pils)
-            # for page in pils.keys():
-            #     self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
-        except Exception as e:
-            pils: Dict[int, PngImageFile] = dict()
-            timing = time.perf_counter() - start_time
-            self._logs[0] = {'result': str(e), 'timing': timing}
-        return pils
+                if self._caching:
+                    self._full_doc_rendered = True
+                    self._renders = pils
+                # timing = time.perf_counter() - start_time
+                # num_pages = len(pils)
+                # for page in pils.keys():
+                #     self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+            except Exception as e:
+                pils: Dict[int, PngImageFile] = dict()
+                timing = time.perf_counter() - start_time
+                self._logs[0] = {'result': str(e), 'timing': timing}
+            return pils
 
 # class MuPDF(Tracer, TextCompare):
 #     """MuPDF tracer and renderer """
@@ -240,35 +271,44 @@ class MuPDF(Tracer, Hybrid, Reforger):
         if TEXT not in self._validity:
             fitz.TOOLS.reset_mupdf_warnings()
             validity_results = dict()
-            try:
-                doc = fitz.open(self._doc_path)
-                for page in doc:
-                    text = page.getText()
-                    if not self._ocr and page.number not in self._text:
-                        self._text[page.number] = text
-                if not self._ocr:
-                    self._full_text_extracted = True
-                warnings = fitz.TOOLS.mupdf_warnings()
-                error = None
-            except Exception as e:
-                error = str(e)
-                warnings = None
-            finally:
-                try:
-                    doc.close()
-                except:
-                    pass
-            if error is not None:
-                validity_results['valid'] = False
-                validity_results['status'] = REJECTED
-                validity_results['info'] = error
-            else:
-                validity_results['valid'] = True
-                if warnings == '':
-                    validity_results['status'] = VALID
+            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+                if isinstance(self._doc, bytes):
+                    file_hash = hash_file(self._doc)
+                    doc_path = os.path.join(temp_path, file_hash)
+                    with open(doc_path, 'wb') as doc_out:
+                        doc_out.write(self._doc)
                 else:
-                    validity_results['status'] = VALID_WARNINGS
-            self._validity[TEXT] = validity_results
+                    doc_path = self._doc
+                try:
+                    doc = fitz.open(doc_path)
+                    for page in doc:
+                        text = page.getText()
+                        if not self._ocr and page.number not in self._text:
+                            self._text[page.number] = text
+                    if not self._ocr:
+                        self._full_text_extracted = True
+                    warnings = fitz.TOOLS.mupdf_warnings()
+                    error = None
+                except Exception as e:
+                    error = str(e)
+                    warnings = None
+                finally:
+                    try:
+                        doc.close()
+                    except:
+                        pass
+                if error is not None:
+                    validity_results['valid'] = False
+                    validity_results['status'] = REJECTED
+                    validity_results['info'] = error
+                else:
+                    validity_results['valid'] = True
+                    if warnings == '':
+                        validity_results['status'] = VALID
+                    else:
+                        validity_results['status'] = VALID_WARNINGS
+                        validity_results['info'] = warnings
+                self._validity[TEXT] = validity_results
         return self._validity[TEXT]
 
     def _check_for_tracer(self) -> bool:
@@ -287,7 +327,48 @@ class MuPDF(Tracer, Hybrid, Reforger):
         return self._can_reforge
 
     def _reforge(self):
-        self._parse_document(reforge=True)
+        stream_flag = ' -s' if self._parse_streams else ''
+
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            try:
+                out_path = os.path.join(temp_path, 'out.pdf')
+                sp = subprocess.Popen(shlex.split('mutool clean%s %s %s' % (stream_flag, doc_path, out_path)),
+                                      stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
+                (_, err) = sp.communicate(timeout=self._timeout or 600)
+                with open(out_path, 'rb') as file_in:
+                    raw = file_in.read()
+                self._reforged = raw
+                self._successfully_reforged = True
+                self._reforge_result = 'Successfully reforged'
+                decoder = locale.getpreferredencoding()
+                err = fix_splits(err.decode(decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+            except TimeoutExpired:
+                sp.kill()
+                (_, err) = sp.communicate()
+                decoder = locale.getpreferredencoding()
+                err = fix_splits(err.decode(decoder))
+                error_arr = [message for message in err.split('\n') if len(message) > 0]
+                error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
+                self._successfully_reforged = False
+                self._reforge_result = '[' + ', '.join(error_arr) + ']'
+            except Exception as e:
+                sp.kill()
+                decoder = locale.getpreferredencoding()
+                err = fix_splits(err.decode(decoder))
+                error_arr = str(e).split('\n')
+                error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+                self._successfully_reforged = False
+                self._reforge_result = '[' + ', '.join(error_arr) + ']'
+        self._trace_exit_code = sp.returncode
+        self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
@@ -327,19 +408,23 @@ class MuPDF(Tracer, Hybrid, Reforger):
     def streams_parsed(self):
         return self._parse_streams
 
-    def _parse_document(self, reforge=False):
+    def _parse_document(self):
 
         stream_flag = ' -s' if self._parse_streams else ''
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
             try:
-                out_path = os.path.join(temp_path, '%s_reforged_%s' % (self.get_name(), self._doc_path))
-                sp = subprocess.Popen(shlex.split('mutool clean%s %s %s' % (stream_flag, self._doc_path, out_path)),
+                out_path = os.path.join(temp_path, 'out.pdf')
+                sp = subprocess.Popen(shlex.split('mutool clean%s %s %s' % (stream_flag, doc_path, out_path)),
                                       stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
-                if reforge:
-                    with open(out_path, 'rb') as file_in:
-                        self._reforge = file_in.read()
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
@@ -352,7 +437,6 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
             except Exception as e:
                 sp.kill()
-                sp
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = str(e).split('\n')
@@ -443,18 +527,34 @@ class MuPDF(Tracer, Hybrid, Reforger):
         if self._ocr:
             self._text[page] = _ocr_text(self.get_renders(page=page))
         else:
-            doc = fitz.open(self._doc_path)
-            text = doc[page].getText()
-            doc.close()
-            self._text[page] = text
+            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+                if isinstance(self._doc, bytes):
+                    file_hash = hash_file(self._doc)
+                    doc_path = os.path.join(temp_path, file_hash)
+                    with open(doc_path, 'wb') as doc_out:
+                        doc_out.write(self._doc)
+                else:
+                    doc_path = self._doc
+                doc = fitz.open(doc_path)
+                text = doc[page].getText()
+                doc.close()
+                self._text[page] = text
 
     def _extract_doc(self):
         if self._ocr:
             for (page, pil) in self.get_renders().items():
                 self._text[page] = _ocr_text(pil)
         else:
-            doc = fitz.open(self._doc_path)
-            for page in doc:
-                self._text[page.number] = page.getText()
-            doc.close()
-        self._full_text_extracted = True
+            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+                if isinstance(self._doc, bytes):
+                    file_hash = hash_file(self._doc)
+                    doc_path = os.path.join(temp_path, file_hash)
+                    with open(doc_path, 'wb') as doc_out:
+                        doc_out.write(self._doc)
+                else:
+                    doc_path = self._doc
+                doc = fitz.open(doc_path)
+                for page in doc:
+                    self._text[page.number] = page.getText()
+                doc.close()
+            self._full_text_extracted = True

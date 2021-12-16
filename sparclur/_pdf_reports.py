@@ -45,7 +45,7 @@ tracers = {parser.get_name(): parser for parser in get_sparclur_tracers()}
 col_names = list(tracers.keys())
 col_names.sort()
 cleaned_messages = []
-kwargs ={'doc_path': '%s'}
+kwargs ={'doc': '%s'}
 for parser_name in col_names:
   if parser_name == 'MuPDF':
     kwargs['parse_streams'] = True
@@ -83,7 +83,7 @@ def _pxc_block(file_path, idx, num_files):
     block = """
 ```python; echo=False, name='PXC %i/%i'
 RENDERERS = [parser.get_name() for parser in get_sparclur_renderers()]
-kwargs = {'doc_path': '%s'}
+kwargs = {'doc': '%s'}
 texters = dict()
 for parser in get_sparclur_texters():
     if parser.get_name() in RENDERERS:

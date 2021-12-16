@@ -11,7 +11,7 @@ from sparclur._tracer import Tracer
 from sparclur._font_extractor import FontExtractor
 from sparclur._renderer import Renderer
 from sparclur.parsers._poppler_helpers import _pdftoppm_clean_message
-from sparclur.utils import fix_splits
+from sparclur.utils import fix_splits, hash_file
 
 from typing import List, Dict, Any
 import tempfile
@@ -29,8 +29,9 @@ from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 class XPDF(Tracer, Hybrid, FontExtractor):
     """XPDF wrapper for pdftoppm, and pdftotext"""
 
-    def __init__(self, doc_path: str,
+    def __init__(self, doc: str or bytes,
                  skip_check: bool = False,
+                 hash_exclude: str or List[str] = None,
                  binary_path: str = None,
                  temp_folders_dir: str = None,
                  page_delimiter: str = '\x0c',
@@ -66,13 +67,14 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         ocr: bool
             Specify whether or not to OCR for text extraction
         """
-        super().__init__(doc_path=doc_path,
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
+                         hash_exclude=hash_exclude,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          timeout=timeout,
                          ocr=ocr)
-        self._temp_folders_dir = temp_folders_dir
         self._page_delimiter = page_delimiter
         self._maintain_layout = maintain_layout
         self._size = size
@@ -246,21 +248,36 @@ class XPDF(Tracer, Hybrid, FontExtractor):
     def _get_num_pages(self):
         if not self._skip_check:
             assert self._check_for_tracer(), "%s not found" % self.get_name()
-        try:
-            sp = subprocess.Popen(shlex.split(self._pdfinfo_path + self._doc_path), stderr=DEVNULL,
-                                  stdout=subprocess.PIPE, shell=False)
-            (stdout, _) = sp.communicate()
-            stdout = stdout.decode(self._decoder)
-            self._num_pages = [line.split(':')[1].strip() for line in stdout.split('\n') if line.startswith('Pages:')][0]
-        except:
-            self._num_pages = 0
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            try:
+                sp = subprocess.Popen(shlex.split(self._pdfinfo_path + doc_path), stderr=DEVNULL,
+                                      stdout=subprocess.PIPE, shell=False)
+                (stdout, _) = sp.communicate()
+                stdout = stdout.decode(self._decoder)
+                self._num_pages = [line.split(':')[1].strip() for line in stdout.split('\n') if line.startswith('Pages:')][0]
+            except:
+                self._num_pages = 0
 
     def _parse_document(self):
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
             try:
                 sp = subprocess.Popen(
-                    shlex.split('%s %s %s' % (self._pdftoppm_path, self._doc_path, os.path.join(temp_path, 'out'))),
+                    shlex.split('%s %s %s' % (self._pdftoppm_path, doc_path, os.path.join(temp_path, 'out'))),
                     stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
                 err = fix_splits(err.decode(self._decoder))
@@ -377,8 +394,15 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             # return_single_page = True
             cmd.extend(['-f', page, '-l', page])
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
             try:
-                cmd.extend([self._doc_path, os.path.join(temp_path, 'out')])
+                cmd.extend([doc_path, os.path.join(temp_path, 'out')])
                 cmd = ' '.join([entry for entry in cmd])
                 sp = subprocess.Popen(shlex.split(cmd), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
                 self._render_exit_code = sp.returncode
@@ -431,21 +455,37 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             for (page, pil) in self.get_renders().items():
                 self._text[page] = _ocr_text(pil)
         else:
-            layout = '' if self._maintain_layout else '-layout '
-            command = '%s %s%s -' % (self._pdftotext_path, layout, self._doc_path)
-            overall_text = self._pdftotext_subprocess(command)
-            for (page, text) in enumerate(overall_text.split(self._page_delimiter)[0:-1]):
-                self._text[page] = text
+            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+                if isinstance(self._doc, bytes):
+                    file_hash = hash_file(self._doc)
+                    doc_path = os.path.join(temp_path, file_hash)
+                    with open(doc_path, 'wb') as doc_out:
+                        doc_out.write(self._doc)
+                else:
+                    doc_path = self._doc
+                layout = '' if self._maintain_layout else '-layout '
+                command = '%s %s%s -' % (self._pdftotext_path, layout, doc_path)
+                overall_text = self._pdftotext_subprocess(command)
+                for (page, text) in enumerate(overall_text.split(self._page_delimiter)[0:-1]):
+                    self._text[page] = text
         self._full_text_extracted = True
 
     def _extract_page(self, page):
         if self._ocr:
             self._text[page] = _ocr_text(self.get_renders(page=page))
         else:
-            layout = '' if self._maintain_layout else '-layout '
-            command = '%s -f %i -l %i %s%s -' % (self._pdftotext_path, page, page, layout, self._doc_path)
-            text = self._pdftotext_subprocess(command)
-            self._text[page] = text
+            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+                if isinstance(self._doc, bytes):
+                    file_hash = hash_file(self._doc)
+                    doc_path = os.path.join(temp_path, file_hash)
+                    with open(doc_path, 'wb') as doc_out:
+                        doc_out.write(self._doc)
+                else:
+                    doc_path = self._doc
+                layout = '' if self._maintain_layout else '-layout '
+                command = '%s -f %i -l %i %s%s -' % (self._pdftotext_path, page, page, layout, doc_path)
+                text = self._pdftotext_subprocess(command)
+                self._text[page] = text
 
     def _pdftotext_subprocess(self, command):
         # sp = subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
@@ -488,50 +528,58 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         return result
 
     def _get_fonts(self):
-        try:
-            sp = subprocess.Popen(shlex.split('%s -loc %s' % (self._pdffonts_path, self._doc_path)), stderr=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, shell=False)
-            (stdout, err) = sp.communicate(timeout=self._timeout or 600)
-            stdout = stdout.decode(self._decoder, errors='ignore')
-            err = err.decode(self._decoder, errors='ignore')
-            self._font_messages = [message for message in err.split('\n') if len(message) > 0]
-            self._fonts_exit_code = sp.returncode
-            lines = [line for line in stdout.split('\n') if line != '']
-            if len(lines) == 0 or len(lines) == 2:
-                self._fonts = []
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
             else:
-                field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
-                header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i + 1])].strip() for i in
-                          range(len(field_lengths))]
-                before_yes_nos_header = header[0:header.index('emb')]
-                yes_nos_header = header[header.index('emb'):header.index('uni') + 1]
-                after_yes_nos_header = header[header.index('uni') + 1:]
-                font_results = []
-                for line in lines[2:]:
-                    yes_nos = ''.join(re.findall(r'(yes\s|no\s\s)', line))
-                    before_yes_nos = line.split(yes_nos)[0]
-                    after_yes_nos = line.split(yes_nos)[-1]
-                    yes_nos_split = yes_nos.split()
-                    d = dict()
-                    d['name'] = before_yes_nos[0:len(before_yes_nos) - sum(field_lengths[header.index(
-                        before_yes_nos_header[1]):header.index(before_yes_nos_header[-1]) + 1])].strip()
-                    d['type'] = before_yes_nos[len(before_yes_nos) - field_lengths[header.index('type')]:].strip()
-                    for (idx, head) in enumerate(yes_nos_header):
-                        d[head] = True if yes_nos_split[idx] == 'yes' else False
-                    d['prob'] = True if after_yes_nos.startswith('X') else False
-                    d['object ID'] = after_yes_nos[
-                                     field_lengths[header.index('prob')]:field_lengths[header.index('prob')] +
-                                                                         field_lengths[
-                                                                             header.index('object ID')]].strip() + ' R'
-                    d['location'] = after_yes_nos[field_lengths[header.index('prob')] + field_lengths[
-                        header.index('object ID')]:].strip()
-                    font_results.append(d)
-                self._fonts = font_results
-        except TimeoutError:
-            self._fonts = []
-            self._font_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
-            self._fonts_exit_code = 0
-        except Exception as e:
-            self._fonts = []
-            self._fonts_exit_code = 0
-            self._font_messages = str(e).split('\n')
+                doc_path = self._doc
+            try:
+                sp = subprocess.Popen(shlex.split('%s -loc %s' % (self._pdffonts_path, doc_path)), stderr=subprocess.PIPE,
+                                      stdout=subprocess.PIPE, shell=False)
+                (stdout, err) = sp.communicate(timeout=self._timeout or 600)
+                stdout = stdout.decode(self._decoder, errors='ignore')
+                err = err.decode(self._decoder, errors='ignore')
+                self._font_messages = [message for message in err.split('\n') if len(message) > 0]
+                self._fonts_exit_code = sp.returncode
+                lines = [line for line in stdout.split('\n') if line != '']
+                if len(lines) == 0 or len(lines) == 2:
+                    self._fonts = []
+                else:
+                    field_lengths = [len(dashes) + 1 for dashes in lines[1].split(' ')]
+                    header = [lines[0][sum(field_lengths[:i]):sum(field_lengths[:i + 1])].strip() for i in
+                              range(len(field_lengths))]
+                    before_yes_nos_header = header[0:header.index('emb')]
+                    yes_nos_header = header[header.index('emb'):header.index('uni') + 1]
+                    after_yes_nos_header = header[header.index('uni') + 1:]
+                    font_results = []
+                    for line in lines[2:]:
+                        yes_nos = ''.join(re.findall(r'(yes\s|no\s\s)', line))
+                        before_yes_nos = line.split(yes_nos)[0]
+                        after_yes_nos = line.split(yes_nos)[-1]
+                        yes_nos_split = yes_nos.split()
+                        d = dict()
+                        d['name'] = before_yes_nos[0:len(before_yes_nos) - sum(field_lengths[header.index(
+                            before_yes_nos_header[1]):header.index(before_yes_nos_header[-1]) + 1])].strip()
+                        d['type'] = before_yes_nos[len(before_yes_nos) - field_lengths[header.index('type')]:].strip()
+                        for (idx, head) in enumerate(yes_nos_header):
+                            d[head] = True if yes_nos_split[idx] == 'yes' else False
+                        d['prob'] = True if after_yes_nos.startswith('X') else False
+                        d['object ID'] = after_yes_nos[
+                                         field_lengths[header.index('prob')]:field_lengths[header.index('prob')] +
+                                                                             field_lengths[
+                                                                                 header.index('object ID')]].strip() + ' R'
+                        d['location'] = after_yes_nos[field_lengths[header.index('prob')] + field_lengths[
+                            header.index('object ID')]:].strip()
+                        font_results.append(d)
+                    self._fonts = font_results
+            except TimeoutError:
+                self._fonts = []
+                self._font_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
+                self._fonts_exit_code = 0
+            except Exception as e:
+                self._fonts = []
+                self._fonts_exit_code = 0
+                self._font_messages = str(e).split('\n')

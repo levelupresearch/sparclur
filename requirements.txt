@@ -1,5 +1,5 @@
 setuptools~=49.6.0
-matplotlib~=3.3.2
+matplotlib~=3.4.3
 numpy~=1.19.2
 Pillow~=8.0.1
 tqdm~=4.52.0
@@ -22,3 +22,4 @@ opencv-python~=4.5.1.48
 imagehash~=4.2.0
 func-timeout~=4.3.5
 jpype1~=1.2.0
+mmh3~=3.0.0

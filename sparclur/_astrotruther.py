@@ -74,16 +74,9 @@ def _parse_parsers(parsers):
     return result
 
 
-# def _parse_cleaned(tracer_name, doc, tracer_args):
-#     tracer = [t for t in get_sparclur_tracers() if t.get_name() == tracer_name][0]
-#     tracer = tracer(doc_path=doc, **tracer_args.get(tracer_name, dict()))
-#     cleaned_messages = tracer.cleaned
-#     return {'%s::%s' % (tracer.get_name(), key): value for key, value in cleaned_messages.items()}
-
-
 def _parse_document(parser_name, exclude, doc, timeout, parser_args):
     parser = [p for p in get_sparclur_parsers() if p.get_name() == parser_name][0]
-    parser = parser(doc_path=doc, skip_check=True, timeout=timeout, **parser_args.get(parser_name, dict()))
+    parser = parser(doc=doc, skip_check=True, timeout=timeout, **parser_args.get(parser_name, dict()))
     if exclude is None:
         exclude = []
     elif isinstance(exclude, str):

@@ -10,8 +10,8 @@ class Hybrid(TextExtractor, Renderer, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, skip_check, dpi, cache_renders, timeout, ocr, *args, **kwargs):
-        super().__init__(doc_path=doc_path,
+    def __init__(self, doc, skip_check, dpi, cache_renders, timeout, ocr, *args, **kwargs):
+        super().__init__(doc=doc,
                          skip_check=skip_check,
                          dpi=dpi,
                          cache_renders=cache_renders,
@@ -32,9 +32,9 @@ class Hybrid(TextExtractor, Renderer, metaclass=abc.ABCMeta):
             self._ocr = o
 
     def compare_ocr(self, page=None, shingle_size=4):
-        other = self.__class__(doc_path=self._doc_path,
+        other = self.__class__(doc=self._doc,
                                dpi=self._dpi,
-                               cache_renders=self._cache_renders,
+                               cache_renders=self._caching,
                                timeout=self._timeout,
                                ocr=not self._ocr)
         metric = self.compare_text(other, page=page, shingle_size=shingle_size)
@@ -47,3 +47,11 @@ class Hybrid(TextExtractor, Renderer, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _extract_page(self, page: int):
         pass
+
+    @property
+    def validity(self):
+        return super().validity
+
+    @property
+    def sparclur_hash(self):
+        return super().sparclur_hash

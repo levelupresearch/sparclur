@@ -58,8 +58,8 @@ def _worker(entry):
     for (name, parser) in renderers.items():
         try:
             args = parser_args.get(name, dict())
-            orig: Renderer = parser(doc_path=orig_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
-            mod: Renderer = parser(doc_path=mod_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
+            orig: Renderer = parser(doc=orig_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
+            mod: Renderer = parser(doc=mod_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
             prc: Dict[int, PRCSim] = orig.compare(mod, full=True)
             for (page, sim) in prc.items():
                 if sim.sim <= prc_threshold:

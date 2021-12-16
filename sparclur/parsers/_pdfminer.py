@@ -1,9 +1,11 @@
 import locale
 import logging
+import os
 import re
 import sys
+import tempfile
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 import warnings
 
 from func_timeout import func_timeout, FunctionTimedOut
@@ -21,7 +23,7 @@ from pdfminer.utils import isnumber
 from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TEXT
-
+from sparclur.utils import hash_file
 
 ESC_PAT = re.compile(r'[\000-\037&<>()"\042\047\134\177-\377]')
 
@@ -125,15 +127,21 @@ def _parse_object(obj):
 class PDFMiner(TextExtractor, MetadataExtractor):
     """PDFMiner Text Extraction"""
 
-    def __init__(self, doc_path: str,
+    def __init__(self, doc: str or bytes,
+                 temp_folders_dir: str = None,
                  skip_check: bool = False,
+                 hash_exclude: str or List[str] = None,
                  timeout: int = None,
                  page_delimiter: str = '\x0c',
                  detect_vertical: bool = False,
                  all_texts: bool = False,
                  stream_output: str = None,
                  suppress_warnings: bool = True):
-        super().__init__(doc_path=doc_path, skip_check=skip_check, timeout=timeout)
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
+                         skip_check=skip_check,
+                         timeout=timeout,
+                         hash_exclude=hash_exclude)
         self._page_delimiter = page_delimiter
         self._detect_vertical = detect_vertical
         self._all_texts = all_texts
@@ -160,32 +168,48 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         return self._can_extract
 
     def _get_num_pages(self):
-        try:
-            file = open(self._doc_path, 'rb')
-            parser = PDFParser(file)
-            document = PDFDocument(parser)
-            self._num_pages = int(resolve1(document.catalog['Pages'])['Count'])
-        except:
-            self._num_pages = 0
-        finally:
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
             try:
-                file.close()
+                file = open(doc_path, 'rb')
+                parser = PDFParser(file)
+                document = PDFDocument(parser)
+                self._num_pages = int(resolve1(document.catalog['Pages'])['Count'])
             except:
-                pass
+                self._num_pages = 0
+            finally:
+                try:
+                    file.close()
+                except:
+                    pass
 
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
             decoder = locale.getpreferredencoding()
-            try:
-                _ = extract_text(self._doc_path, page_numbers=None, codec=decoder, laparams=self._laparams)
-                validity_results['valid'] = True
-                validity_results['status'] = VALID
-            except Exception as e:
-                validity_results['valid'] = False
-                validity_results['status'] = REJECTED
-                validity_results['info'] = str(e)
-            self._validity[TEXT] = validity_results
+            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+                if isinstance(self._doc, bytes):
+                    file_hash = hash_file(self._doc)
+                    doc_path = os.path.join(temp_path, file_hash)
+                    with open(doc_path, 'wb') as doc_out:
+                        doc_out.write(self._doc)
+                else:
+                    doc_path = self._doc
+                try:
+                    _ = extract_text(doc_path, page_numbers=None, codec=decoder, laparams=self._laparams)
+                    validity_results['valid'] = True
+                    validity_results['status'] = VALID
+                except Exception as e:
+                    validity_results['valid'] = False
+                    validity_results['status'] = REJECTED
+                    validity_results['info'] = str(e)
+                self._validity[TEXT] = validity_results
         return self._validity[TEXT]
 
     def _check_for_metadata(self) -> bool:
@@ -264,29 +288,37 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def _pdfminer_text(self, page=None):
         page_numbers = None if page is None else [page]
         decoder = locale.getpreferredencoding()
-        try:
-            if self._timeout is None:
-                text = extract_text(self._doc_path, page_numbers=page_numbers, codec=decoder, laparams=self._laparams)
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
             else:
-                text = func_timeout(
-                    self._timeout,
-                    extract_text,
-                    kwargs={
-                        'pdf_file': self._doc_path,
-                        'page_numbers': page_numbers,
-                        'codec': decoder,
-                        'laparams': self._laparams
-                    }
-                )
-        except FunctionTimedOut as e:
-            print(e)
-            self._text = dict()
-            text = self._text
-        except Exception as e:
-            print(e)
-            self._text = dict()
-            text = self._text
-        return text
+                doc_path = self._doc
+            try:
+                if self._timeout is None:
+                    text = extract_text(doc_path, page_numbers=page_numbers, codec=decoder, laparams=self._laparams)
+                else:
+                    text = func_timeout(
+                        self._timeout,
+                        extract_text,
+                        kwargs={
+                            'pdf_file': doc_path,
+                            'page_numbers': page_numbers,
+                            'codec': decoder,
+                            'laparams': self._laparams
+                        }
+                    )
+            except FunctionTimedOut as e:
+                print(e)
+                self._text = dict()
+                text = self._text
+            except Exception as e:
+                print(e)
+                self._text = dict()
+                text = self._text
+            return text
 
     def _extract_metadata(self):
         try:
@@ -306,11 +338,19 @@ class PDFMiner(TextExtractor, MetadataExtractor):
             self._metadata_result = str(e)
 
     def _dumppdf(self):
-        fp = open(self._doc_path, 'rb')
-        parser = PDFParser(fp)
-        doc = PDFDocument(parser, '')
-        metadata = self._dumpallobjs(doc)
-        fp.close()
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(temp_path, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            fp = open(doc_path, 'rb')
+            parser = PDFParser(fp)
+            doc = PDFDocument(parser, '')
+            metadata = self._dumpallobjs(doc)
+            fp.close()
         return metadata
 
     def _dumpallobjs(self, doc):

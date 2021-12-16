@@ -20,6 +20,10 @@ class PRCSim:
         yield self._result
         yield self._diff
 
+    def __repr__(self):
+        metrics = self.all_metrics
+        return '\n'.join('%s: %s' % (key, val) for key, val in metrics.items())
+
     @property
     def all_metrics(self):
         metrics = {'sim': self._sim,
