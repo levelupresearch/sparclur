@@ -387,9 +387,11 @@ class Spotlight:
 
     def __init__(self, num_workers: int = 1,
                  temp_folders_dir: str = None,
+                 dpi: int = 72,
                  parser_args: dict = dict(),
                  timeout: int = None,
                  progress_bar: bool = True):
+        self._dpi = dpi
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
         self._parser_args = parser_args
@@ -409,6 +411,8 @@ class Spotlight:
         for parser in present_parsers.get_sparclur_reforgers():
             sig = signature(parser.__init__)
             kwargs = {'doc': doc, 'timeout': 120, 'temp_folders_dir': self._temp_folders_dir}
+            if 'dpi' in sig.parameters:
+                kwargs['dpi'] = self._dpi
             p = parser(**kwargs)
             try:
                 for sub_folder in present_parsers.get_sparclur_parsers():
