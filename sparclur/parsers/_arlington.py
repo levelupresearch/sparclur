@@ -32,6 +32,7 @@ class Arlington(Tracer):
 
     def __init__(self, doc: str or bytes,
                  arlington_path: str = None,
+                 system_path: str = None,
                  version: float or str = 1.7,
                  skip_check: bool = False,
                  hash_exclude: str or List[str] = None,
@@ -52,7 +53,7 @@ class Arlington(Tracer):
         else:
             self._version = str(version)
         self._tsv_path = os.path.join(arlington_path, 'tsv', self._version)
-        sys_path = _binary_path()
+        sys_path = _binary_path() if system_path is None else system_path
         self._test_grammar_path = os.path.join(arlington_path, 'TestGrammar', 'bin', sys_path, 'TestGrammar')
         self._decoder = locale.getpreferredencoding()
         self._trace_exit_code = None
@@ -62,12 +63,12 @@ class Arlington(Tracer):
         return "Arlington"
 
     @property
-    def binary_path(self):
-        return self._binary_path
+    def arlington_path(self):
+        return self._arlington_path
 
-    @binary_path.setter
-    def binary_path(self, bp):
-        self._binary_path = bp
+    @arlington_path.setter
+    def arlington_path(self, bp):
+        self._arlington_path = bp
 
     @property
     def version(self):
