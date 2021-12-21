@@ -2,7 +2,7 @@ import abc
 from typing import Dict, Any
 
 import mmh3
-from utils import shingler
+from sparclur.utils import shingler
 
 from sparclur._text_compare import TextCompare
 from sparclur._parser import TEXT
@@ -12,7 +12,10 @@ class TextExtractor(TextCompare, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
-        super().__init__(doc=doc, temp_folders_dir=temp_folders_dir, skip_check=skip_check, timeout=timeout, *args, **kwargs)
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
+                         skip_check=skip_check,
+                         timeout=timeout, *args, **kwargs)
 
     @abc.abstractmethod
     def validate_text(self) -> Dict[str, Any]:
