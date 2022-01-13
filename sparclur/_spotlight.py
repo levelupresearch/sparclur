@@ -348,7 +348,7 @@ class SpotlightResult:
                 excluded_parsers = [excluded_parsers]
         else:
             excluded_parsers = []
-        if self.overall_validity('original') == VALID:
+        if self.overall_validity(version='original', excluded_parsers=excluded_parsers) == VALID:
             return "Document is Valid"
         else:
             versions = self._versions

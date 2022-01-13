@@ -6,8 +6,10 @@ import time
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT
 from sparclur._tracer import Tracer
 from sparclur.utils import hash_file
+from sparclur.utils._tools import _get_config_param
+import yaml
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import tempfile
 import subprocess
 from subprocess import DEVNULL, TimeoutExpired
@@ -30,21 +32,33 @@ def _binary_path():
 class Arlington(Tracer):
     """Wrapper for the Arlington DOM TestGrammar (https://github.com/pdf-association/arlington-pdf-model)"""
 
-    def __init__(self, doc: str or bytes,
+    def __init__(self, doc: Union[str, bytes],
                  arlington_path: str = None,
                  system_path: str = None,
-                 version: float or str = 1.7,
-                 skip_check: bool = False,
-                 hash_exclude: str or List[str] = None,
-                 temp_folders_dir: str = None,
-                 timeout: int = None
+                 version: Union[float, str] = None,
+                 skip_check: bool = None,
+                 hash_exclude: Union[str, List[str], None] = None,
+                 temp_folders_dir: Union[str, None] = None,
+                 timeout: Union[int, None] = None
                  ):
+
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        arlington_path = _get_config_param(Arlington, config, 'arlington_path', arlington_path, None)
+        system_path = _get_config_param(Arlington, config, 'system_path', system_path, None)
+        version = _get_config_param(Arlington, config, 'version', version, 1.7)
+        skip_check = _get_config_param(Arlington, config, 'skip_check', skip_check, False)
+        hash_exclude = _get_config_param(Arlington, config, 'hash_exclude', hash_exclude, None)
+        temp_folders_dir = _get_config_param(Arlington, config, 'temp_folders_dir', temp_folders_dir, None)
+        timeout = _get_config_param(Arlington, config, 'timeout', timeout, None)
 
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          hash_exclude=hash_exclude,
-                         timeout=timeout)
+                         timeout=timeout,
+                         foo='bar')
         self._arlington_path = arlington_path
         self._present_versions = os.listdir(os.path.join(arlington_path, 'tsv'))
         if str(version) not in self._present_versions:
@@ -134,7 +148,7 @@ class Arlington(Tracer):
                     shlex.split('%s --tsvdir %s --pdf %s' % (self._test_grammar_path, self._tsv_path, doc_path)),
                     stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
                 (stdout, err) = sp.communicate(timeout=self._timeout or 600)
-                stdout = stdout.decode(self._decoder)
+                stdout = stdout.decode(self._decoder, errors='ignore')
                 self._trace_exit_code = sp.returncode
                 messages = []
                 m = None

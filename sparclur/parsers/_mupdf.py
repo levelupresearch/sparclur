@@ -2,6 +2,7 @@ import locale
 import shlex
 from typing import List, Dict, Any
 
+import yaml
 from func_timeout import func_timeout, FunctionTimedOut
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT
@@ -24,6 +25,8 @@ import fitz
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
+from sparclur.utils._tools import _get_config_param
+
 SUCCESS_WITH_WARNINGS = "Successful with warnings"
 
 
@@ -32,13 +35,13 @@ class MuPDF(Tracer, Hybrid, Reforger):
     def __init__(self, doc: str or bytes,
                  skip_check: bool = False,
                  hash_exclude: str or List[str] = None,
-                 parse_streams: bool = True,
+                 parse_streams: bool = None,
                  binary_path: str = None,
                  temp_folders_dir: str = None,
-                 dpi: int = 200,
-                 cache_renders: bool = False,
+                 dpi: int = None,
+                 cache_renders: bool = None,
                  timeout: int = None,
-                 ocr: bool = False
+                 ocr: bool = None
                  ):
         """
         Parameters
@@ -62,6 +65,19 @@ class MuPDF(Tracer, Hybrid, Reforger):
         timeout : int
             Specify a timeout for rendering
         """
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        skip_check = _get_config_param(MuPDF, config, 'skip_check', skip_check, False)
+        hash_exclude = _get_config_param(MuPDF, config, 'hash_exclude', hash_exclude, None)
+        parse_streams = _get_config_param(MuPDF, config, 'parse_streams', parse_streams, True)
+        binary_path = _get_config_param(MuPDF, config, 'binary_path', binary_path, None)
+        temp_folders_dir = _get_config_param(MuPDF, config, 'temp_folders_dir', temp_folders_dir, None)
+        dpi = _get_config_param(MuPDF, config, 'dpi', dpi, 200)
+        cache_renders = _get_config_param(MuPDF, config, 'cache_renders', cache_renders, False)
+        timeout = _get_config_param(MuPDF, config, 'timeout', timeout, None)
+        ocr = _get_config_param(MuPDF, config, 'ocr', ocr, False)
+
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,

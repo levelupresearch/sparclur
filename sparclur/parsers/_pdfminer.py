@@ -8,6 +8,7 @@ import tempfile
 from typing import Dict, Any, List
 import warnings
 
+import yaml
 from func_timeout import func_timeout, FunctionTimedOut
 from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
@@ -24,6 +25,7 @@ from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TEXT
 from sparclur.utils import hash_file
+from sparclur.utils._tools import _get_config_param
 
 ESC_PAT = re.compile(r'[\000-\037&<>()"\042\047\134\177-\377]')
 
@@ -129,14 +131,28 @@ class PDFMiner(TextExtractor, MetadataExtractor):
 
     def __init__(self, doc: str or bytes,
                  temp_folders_dir: str = None,
-                 skip_check: bool = False,
+                 skip_check: bool = None,
                  hash_exclude: str or List[str] = None,
                  timeout: int = None,
-                 page_delimiter: str = '\x0c',
-                 detect_vertical: bool = False,
-                 all_texts: bool = False,
+                 page_delimiter: str = None,
+                 detect_vertical: bool = None,
+                 all_texts: bool = None,
                  stream_output: str = None,
-                 suppress_warnings: bool = True):
+                 suppress_warnings: bool = None):
+
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        temp_folders_dir = _get_config_param(PDFMiner, config, 'temp_folders_dir', temp_folders_dir, None)
+        skip_check = _get_config_param(PDFMiner, config, 'skip_check', skip_check, False)
+        hash_exclude = _get_config_param(PDFMiner, config, 'hash_exclude', hash_exclude, None)
+        timeout = _get_config_param(PDFMiner, config, 'timeout', timeout, None)
+        page_delimiter = _get_config_param(PDFMiner, config, 'page_delimiter', page_delimiter, '\x0c')
+        detect_vertical = _get_config_param(PDFMiner, config, 'detect_vertical', detect_vertical, False)
+        all_texts = _get_config_param(PDFMiner, config, 'all_texts', all_texts, False)
+        stream_output = _get_config_param(PDFMiner, config, 'stream_output', stream_output, None)
+        suppress_warnings = _get_config_param(PDFMiner, config, 'suppress_warnings', suppress_warnings, True)
+
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,

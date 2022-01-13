@@ -4,10 +4,12 @@ import shlex
 import tempfile
 from typing import Dict, Any, List
 
+import yaml
+
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER
 from sparclur._tracer import Tracer
-from sparclur.utils._tools import fix_splits, hash_file
+from sparclur.utils._tools import fix_splits, hash_file, _get_config_param
 
 import re
 import subprocess
@@ -19,7 +21,7 @@ class QPDF(Tracer, MetadataExtractor):
     """QPDF tracer"""
     def __init__(self, doc: str or bytes,
                  temp_folders_dir: str = None,
-                 skip_check: bool = False,
+                 skip_check: bool = None,
                  hash_exclude: str or List[str] = None,
                  binary_path: str = None,
                  timeout: int = None
@@ -35,6 +37,16 @@ class QPDF(Tracer, MetadataExtractor):
         temp_folders_dir : str
             Path to create the temporary directories used for temporary files.
         """
+
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        temp_folders_dir = _get_config_param(QPDF, config, 'temp_folders_dir', temp_folders_dir, None)
+        skip_check = _get_config_param(QPDF, config, 'skip_check', skip_check, False)
+        hash_exclude = _get_config_param(QPDF, config, 'hash_exclude', hash_exclude, None)
+        binary_path = _get_config_param(QPDF, config, 'binary_path', binary_path, None)
+        timeout = _get_config_param(QPDF, config, 'timeout', timeout, None)
+
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,

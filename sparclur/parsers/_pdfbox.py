@@ -4,6 +4,7 @@ import time
 
 import jpype
 import jpype.imports
+import yaml
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from func_timeout import func_timeout, FunctionTimedOut
@@ -16,20 +17,21 @@ from typing import Dict, Any, List
 import tempfile
 
 from sparclur.utils import hash_file
+from sparclur.utils._tools import _get_config_param
 
 
 class PDFBox(Hybrid):
     """PDFBox wrapper"""
     def __init__(self, doc: str or bytes,
-                 skip_check: bool = False,
+                 skip_check: bool = None,
                  hash_exclude: str or List[str] = None,
-                 jar_path: str = '../../jars/*',
+                 jar_path: str = None,
                  temp_folders_dir: str = None,
-                 page_delimiter: str = '\x0c',
-                 dpi: int = 200,
-                 cache_renders: bool = False,
+                 page_delimiter: str = None,
+                 dpi: int = None,
+                 cache_renders: bool = None,
                  timeout: int = None,
-                 ocr: bool = False):
+                 ocr: bool = None):
 
         """
         Parameters
@@ -53,6 +55,19 @@ class PDFBox(Hybrid):
         ocr: bool
             Specify whether or not to OCR for text extraction
         """
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        skip_check = _get_config_param(PDFBox, config, 'skip_check', skip_check, False)
+        hash_exclude = _get_config_param(PDFBox, config, 'hash_exclude', hash_exclude, None)
+        jar_path = _get_config_param(PDFBox, config, 'jar_path', jar_path, '.. /../ jars / *')
+        temp_folders_dir = _get_config_param(PDFBox, config, 'temp_folders_dir', temp_folders_dir, None)
+        page_delimiter = _get_config_param(PDFBox, config, 'page_delimiter', page_delimiter, '\x0c')
+        dpi = _get_config_param(PDFBox, config, 'dpi', dpi, 200)
+        cache_renders = _get_config_param(PDFBox, config, 'cache_renders', cache_renders, False)
+        timeout = _get_config_param(PDFBox, config, 'timeout', timeout, None)
+        ocr = _get_config_param(PDFBox, config, 'ocr', ocr, False)
+
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,

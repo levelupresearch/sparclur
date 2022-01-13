@@ -4,6 +4,7 @@ import time
 import warnings
 
 # from func_timeout import func_timeout, FunctionTimedOut
+import yaml
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT
 from sparclur._hybrid import Hybrid
@@ -13,7 +14,7 @@ from sparclur._renderer import Renderer
 from sparclur.parsers._poppler_helpers import _pdftoppm_clean_message
 from sparclur.utils import fix_splits, hash_file
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import tempfile
 import subprocess
 from subprocess import DEVNULL, TimeoutExpired
@@ -24,23 +25,24 @@ from typing import Tuple
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
+from sparclur.utils._tools import _get_config_param
 
 
 class XPDF(Tracer, Hybrid, FontExtractor):
     """XPDF wrapper for pdftoppm, and pdftotext"""
 
-    def __init__(self, doc: str or bytes,
-                 skip_check: bool = False,
-                 hash_exclude: str or List[str] = None,
-                 binary_path: str = None,
-                 temp_folders_dir: str = None,
-                 page_delimiter: str = '\x0c',
-                 maintain_layout: bool = False,
-                 dpi: int = 200,
-                 size: Tuple[int] or int = None,
-                 cache_renders: bool = False,
-                 timeout: int = None,
-                 ocr: bool = False
+    def __init__(self, doc: Union[str, bytes],
+                 skip_check: Union[bool, None] = None,
+                 hash_exclude: Union[str, List[str], None] = None,
+                 binary_path: Union[str, None] = None,
+                 temp_folders_dir: Union[str, None] = None,
+                 page_delimiter: Union[str, None] = None,
+                 maintain_layout: Union[bool, None] = None,
+                 dpi: Union[int, None] = None,
+                 size: Union[Tuple[int], int, None] = None,
+                 cache_renders: Union[bool, None] = None,
+                 timeout: Union[int, None] = None,
+                 ocr: Union[bool, None] = None
                  ):
         """
         Parameters
@@ -67,6 +69,22 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         ocr: bool
             Specify whether or not to OCR for text extraction
         """
+
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        skip_check = _get_config_param(XPDF, config, 'skip_check', skip_check, False)
+        hash_exclude = _get_config_param(XPDF, config, 'hash_exclude', hash_exclude, None)
+        binary_path = _get_config_param(XPDF, config, 'binary_path', binary_path, None)
+        temp_folders_dir = _get_config_param(XPDF, config, 'temp_folders_dir', temp_folders_dir, None)
+        page_delimiter = _get_config_param(XPDF, config, 'page_delimiter', page_delimiter, '\x0c')
+        maintain_layout = _get_config_param(XPDF, config, 'maintain_layout', maintain_layout, False)
+        dpi = _get_config_param(XPDF, config, 'dpi', dpi, 200)
+        size = _get_config_param(XPDF, config, 'size', size, None)
+        cache_renders = _get_config_param(XPDF, config, 'cache_renders', cache_renders, False)
+        timeout = _get_config_param(XPDF, config, 'timeout', timeout, None)
+        ocr = _get_config_param(XPDF, config, 'ocr', ocr, False)
+
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
@@ -119,10 +137,10 @@ class XPDF(Tracer, Hybrid, FontExtractor):
 
     def _check_for_tracer(self) -> bool:
         if self._can_trace is None:
-            sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+            sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=DEVNULL, stdout=subprocess.PIPE,
                                   shell=False)
-            (_, err) = sp.communicate()
-            trace_present = 'Poppler' not in err.decode(self._decoder)
+            (stdout, _) = sp.communicate()
+            trace_present = 'Poppler' not in stdout.decode(self._decoder)
             self._can_trace = trace_present
             self._can_render = trace_present
         return self._can_trace

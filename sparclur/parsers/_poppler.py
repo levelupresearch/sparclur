@@ -4,6 +4,7 @@ import time
 import warnings
 
 # from func_timeout import func_timeout, FunctionTimedOut
+import yaml
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, IMAGE
 from sparclur._hybrid import Hybrid
@@ -13,7 +14,7 @@ from sparclur._renderer import Renderer, _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, 
 from sparclur._font_extractor import FontExtractor
 from sparclur._image_data_extractor import ImageDataExtractor
 from sparclur.parsers._poppler_helpers import _parse_poppler_size, _pdftocairo_clean_message, _pdftoppm_clean_message
-from sparclur.utils._tools import fix_splits, hash_file
+from sparclur.utils._tools import fix_splits, hash_file, _get_config_param
 
 from typing import List, Dict, Any
 import tempfile
@@ -31,18 +32,18 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
     """Poppler wrapper for pdftoppm, pdftocairo, and pdftotext"""
 
     def __init__(self, doc: str or bytes,
-                 skip_check: bool = False,
+                 skip_check: bool = None,
                  hash_exclude: str or List[str] = None,
-                 trace: str = 'pdftoppm',
+                 trace: str = None,
                  binary_path: str = None,
                  temp_folders_dir: str = None,
-                 page_delimiter: str = '\x0c',
-                 maintain_layout: bool = False,
-                 dpi: int = 200,
+                 page_delimiter: str = None,
+                 maintain_layout: bool = None,
+                 dpi: int = None,
                  size: Tuple[int] or int = None,
-                 cache_renders: bool = False,
+                 cache_renders: bool = None,
                  timeout: int = None,
-                 ocr: bool = False
+                 ocr: bool = None
                  ):
         """
         Parameters
@@ -71,6 +72,23 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         ocr: bool
             Specify whether or not to OCR for text extraction
         """
+
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        skip_check = _get_config_param(Poppler, config, 'skip_check', skip_check, False)
+        hash_exclude = _get_config_param(Poppler, config, 'hash_exclude', hash_exclude, None)
+        trace = _get_config_param(Poppler, config, 'trace', trace, 'pdftoppm')
+        binary_path = _get_config_param(Poppler, config, 'binary_path', binary_path, None)
+        temp_folders_dir = _get_config_param(Poppler, config, 'temp_folders_dir', temp_folders_dir, None)
+        page_delimiter = _get_config_param(Poppler, config, 'page_delimiter', page_delimiter, '\x0c')
+        maintain_layout = _get_config_param(Poppler, config, 'maintain_layout', maintain_layout, False)
+        dpi = _get_config_param(Poppler, config, 'dpi', dpi, 200)
+        size = _get_config_param(Poppler, config, 'size', size, None)
+        cache_renders = _get_config_param(Poppler, config, 'cache_renders', cache_renders, False)
+        timeout = _get_config_param(Poppler, config, 'timeout', timeout, None)
+        ocr = _get_config_param(Poppler, config, 'ocr', ocr, False)
+
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
@@ -155,8 +173,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         if self._can_render is None:
             sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
                                   shell=False)
-            (_, err) = sp.communicate()
-            pdftoppm_present = 'Poppler' in err.decode(self._decoder)
+            (stdout, _) = sp.communicate()
+            pdftoppm_present = 'Poppler' in stdout.decode(self._decoder)
             self._can_render = pdftoppm_present
             if self._trace == 'pdftoppm':
                 self._can_trace = pdftoppm_present
@@ -164,10 +182,10 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
 
     def _check_for_tracer(self) -> bool:
         if self._can_trace is None:
-            sp = subprocess.Popen(shlex.split(self._trace_cmd + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+            sp = subprocess.Popen(shlex.split(self._trace_cmd + " -v"), stderr=DEVNULL, stdout=subprocess.PIPE,
                                   shell=False)
-            (_, err) = sp.communicate()
-            trace_present = 'Poppler' in err.decode(self._decoder)
+            (stdout, _) = sp.communicate()
+            trace_present = 'Poppler' in stdout.decode(self._decoder)
             self._can_trace = trace_present
             if self._trace == 'pdftoppm':
                 self._can_render = trace_present

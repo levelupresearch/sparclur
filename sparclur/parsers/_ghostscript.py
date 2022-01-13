@@ -14,22 +14,24 @@ from typing import Dict, Tuple, List
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from func_timeout import func_timeout, FunctionTimedOut
+import yaml
 
 from sparclur._reforge import Reforger
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._parser import VALID, REJECTED, REJECTED_AMBIG, RENDER
 from sparclur.utils import hash_file
+from sparclur.utils._tools import _get_config_param
 
 
 class Ghostscript(Renderer, Reforger):
     """SPARCLUR renderer wrapper for Ghostscript"""
     def __init__(self, doc: str or bytes,
-                 skip_check: bool = False,
+                 skip_check: bool = None,
                  temp_folders_dir: str = None,
-                 dpi: int = 200,
+                 dpi: int = None,
                  size: Tuple[int] or int = None,
-                 cache_renders: bool = False,
+                 cache_renders: bool = None,
                  timeout: int = None,
                  hash_exclude: str or List[str] = None):
         """
@@ -48,6 +50,18 @@ class Ghostscript(Renderer, Reforger):
         timeout : int
             Specify a timeout for rendering
         """
+
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open('../../sparclur.yaml', 'r') as yaml_in:
+            config = yaml.full_load(yaml_in)
+        skip_check = _get_config_param(Ghostscript, config, 'skip_check', skip_check, False)
+        temp_folders_dir = _get_config_param(Ghostscript, config, 'temp_folders_dir', temp_folders_dir, None)
+        dpi = _get_config_param(Ghostscript, config, 'dpi', dpi, 200)
+        size = _get_config_param(Ghostscript, config, 'size', size, None)
+        cache_renders = _get_config_param(Ghostscript, config, 'cache_renders', cache_renders, False)
+        timeout = _get_config_param(Ghostscript, config, 'timeout', timeout, None)
+        hash_exclude = _get_config_param(Ghostscript, config, 'hash_exclude', hash_exclude, None)
+
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
