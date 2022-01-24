@@ -200,15 +200,16 @@ class RollBack:
 
             for idx, ax in enumerate(axes.flat):
                 if idx >= len(X):
-                    break
-                X_i = X[idx]
-                x = list(render_diffs[X_i].keys())
-                x.sort()
-                y = [render_diffs[X_i][x_i] for x_i in x]
-                ax.plot(x, y, 'k.')
-                ax.set_title('%s Comparisons' % X_i)
-                ax.set(xlabel='Page', ylabel='Similarity')
-                ax.label_outer()
+                    ax.set_axis_off()
+                else:
+                    X_i = X[idx]
+                    x = list(render_diffs[X_i].keys())
+                    x.sort()
+                    y = [render_diffs[X_i][x_i] for x_i in x]
+                    ax.plot(x, y, 'k.')
+                    ax.set_title('%s Comparisons' % X_i)
+                    ax.set(xlabel='Page', ylabel='Similarity')
+                    ax.label_outer()
             plt.close(fig)
             return fig
 
