@@ -1,6 +1,6 @@
 import locale
 import shlex
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 import yaml
 from func_timeout import func_timeout, FunctionTimedOut
@@ -32,16 +32,16 @@ SUCCESS_WITH_WARNINGS = "Successful with warnings"
 
 class MuPDF(Tracer, Hybrid, Reforger):
     """MuPDF parser"""
-    def __init__(self, doc: str or bytes,
-                 skip_check: bool = False,
-                 hash_exclude: str or List[str] = None,
-                 parse_streams: bool = None,
-                 binary_path: str = None,
-                 temp_folders_dir: str = None,
-                 dpi: int = None,
-                 cache_renders: bool = None,
-                 timeout: int = None,
-                 ocr: bool = None
+    def __init__(self, doc: Union[str, bytes],
+                 skip_check: Union[bool, None] = None,
+                 hash_exclude: Union[str, List[str], None] = None,
+                 parse_streams: Union[bool, None] = None,
+                 binary_path: Union[str, None] = None,
+                 temp_folders_dir: Union[str, None] = None,
+                 dpi: Union[int, None] = None,
+                 cache_renders: Union[bool, None] = None,
+                 timeout: Union[int, None] = None,
+                 ocr: Union[bool, None] = None
                  ):
         """
         Parameters
@@ -166,9 +166,10 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
                 fitz.TOOLS.reset_mupdf_warnings()
                 doc = fitz.open(doc_path)
-                page = doc[page]
+                # page = doc[page]
+                pils = dict()
                 if self._timeout is None:
-                    mu_pil: PngImageFile = self._mudraw(page, mat)
+                    mu_pil: PngImageFile = self._mudraw(doc[page], mat)
                 else:
                     mu_pil: PngImageFile = func_timeout(
                         self._timeout,

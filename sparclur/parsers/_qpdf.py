@@ -85,7 +85,10 @@ class QPDF(Tracer, MetadataExtractor):
             if self._cleaned is None:
                 self._scrub_messages()
             observed_messages = list(self._cleaned.keys())
-            if self._exit_code > 0:
+            valid_with_warning_check = len([message for message in observed_messages if 'WARNING' in message]) == \
+                                       len(observed_messages) or \
+                                       'qpdf: operation succeeded with warnings' in self._messages
+            if self._exit_code != 0 and self._exit_code != 3:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._exit_code
@@ -96,7 +99,7 @@ class QPDF(Tracer, MetadataExtractor):
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Errors returned'
-            elif len([message for message in observed_messages if 'WARNING' in message]) == len(observed_messages):
+            elif valid_with_warning_check:
                 validity_results['valid'] = True
                 validity_results['status'] = VALID_WARNINGS
                 validity_results['info'] = 'Warnings only'

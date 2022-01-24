@@ -173,8 +173,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         if self._can_render is None:
             sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
                                   shell=False)
-            (stdout, _) = sp.communicate()
-            pdftoppm_present = 'Poppler' in stdout.decode(self._decoder)
+            (_, stderr) = sp.communicate()
+            pdftoppm_present = 'Poppler' in stderr.decode(self._decoder)
             self._can_render = pdftoppm_present
             if self._trace == 'pdftoppm':
                 self._can_trace = pdftoppm_present
@@ -182,10 +182,10 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
 
     def _check_for_tracer(self) -> bool:
         if self._can_trace is None:
-            sp = subprocess.Popen(shlex.split(self._trace_cmd + " -v"), stderr=DEVNULL, stdout=subprocess.PIPE,
+            sp = subprocess.Popen(shlex.split(self._trace_cmd + " -v"), stdout=DEVNULL, stderr=subprocess.PIPE,
                                   shell=False)
-            (stdout, _) = sp.communicate()
-            trace_present = 'Poppler' in stdout.decode(self._decoder)
+            (_, stderr) = sp.communicate()
+            trace_present = 'Poppler' in stderr.decode(self._decoder)
             self._can_trace = trace_present
             if self._trace == 'pdftoppm':
                 self._can_render = trace_present

@@ -47,7 +47,7 @@ class PDFCPU(Tracer):
 
         self._pdfcpu_path = 'pdfcpu' if binary_path is None else os.path.join(binary_path, 'pdfcpu')
         # self._mode = mode
-        self._config_path = os.path.abspath('./pdfcpu')
+        self._config_path = os.path.abspath('./')
         # self._verbose = verbose
         self._trace_exit_code = None
         self._decoder = locale.getpreferredencoding()
@@ -68,7 +68,7 @@ class PDFCPU(Tracer):
             if self._cleaned is None:
                 self._scrub_messages()
             observed_messages = list(self._cleaned.keys())
-            if self._trace_exit_code > 0:
+            if self._trace_exit_code > 1:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._trace_exit_code
@@ -103,9 +103,9 @@ class PDFCPU(Tracer):
                 doc_path = os.path.join(temp_path, file_hash)
                 with open(doc_path+'.pdf', 'wb') as doc_out:
                     doc_out.write(self._doc)
-            elif not self._doc.endswith('.pdf'):
-                doc_path = os.path.join(temp_path, 'infile.pdf')
-                shutil.copy2(self._doc, doc_path)
+            # elif not self._doc.endswith('.pdf'):
+            #     doc_path = os.path.join(temp_path, 'infile.pdf')
+            #     shutil.copy2(self._doc, doc_path)
             else:
                 doc_path = self._doc
             try:
@@ -122,7 +122,7 @@ class PDFCPU(Tracer):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             if isinstance(self._doc, bytes):
                 file_hash = hash_file(self._doc)
-                doc_path = os.path.join(temp_path, file_hash)
+                doc_path = os.path.join(temp_path, file_hash + '.pdf')
                 with open(doc_path, 'wb') as doc_out:
                     doc_out.write(self._doc)
             elif not self._doc.endswith('.pdf'):
@@ -180,7 +180,7 @@ class PDFCPU(Tracer):
             self._parse_document()
         scrubbed_messages = [self._clean_message(err) for err in self._messages]
         error_dict: Dict[str, int] = dict()
-        for error in enumerate(scrubbed_messages):
+        for error in scrubbed_messages:
             error_dict[error] = error_dict.get(error, 0) + 1
         self._cleaned = error_dict
 

@@ -428,6 +428,12 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
             right = other.get_renders()
 
         keyset = {*left}.union({*right})
+        if len(keyset) == 0:
+            empty_sim = PRCSim(dict(), 'No comparisons to make', diff=None)
+            if page is None:
+                return {0: empty_sim}
+            else:
+                return empty_sim
         result = dict()
         for k in keyset:
             try:
@@ -440,9 +446,9 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
                         args=(left.get(k, None), right.get(k, None), full)
                     )
             except FunctionTimedOut:
-                result[k] = PRCSim(-1.0, 'Comparison Timed Out')
+                result[k] = PRCSim(dict(), 'Comparison Timed Out', diff=None)
             except Exception as e:
-                result[k] = PRCSim(-1.0, e.message)
+                result[k] = PRCSim(dict(), e.message, diff=None)
         return result if page is None else result[page]
 
     def _extract_doc(self):

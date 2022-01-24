@@ -1,7 +1,7 @@
 from inspect import isclass
 
 from sparclur._reforge import Reforger
-from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, Poppler, XPDF, QPDF, Arlington
+from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, Poppler, XPDF, QPDF, Arlington, PDFCPU
 from sparclur._parser import Parser
 from sparclur._tracer import Tracer
 from sparclur._renderer import Renderer
@@ -21,7 +21,8 @@ _sparclur_parsers: Dict[str, Parser] = {
         Poppler.get_name(): Poppler,
         XPDF.get_name(): XPDF,
         QPDF.get_name(): QPDF,
-        Arlington.get_name(): Arlington
+        Arlington.get_name(): Arlington,
+        PDFCPU.get_name(): PDFCPU
         #PDFBox.get_name(): PDFBox
     }
 

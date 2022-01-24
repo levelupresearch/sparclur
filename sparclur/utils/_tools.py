@@ -55,10 +55,8 @@ def _get_config_param(cls, config, key, value, default):
             return default
 
 
-
 def _parse_config_param(key, value, config, default):
     config_value = value if value is not None else config.get(key, default)
-
 
 
 def get_config_params(sparclur_class, config_path='../../sparclur.ini') -> Dict[str, str]:
@@ -80,6 +78,7 @@ def get_config_params(sparclur_class, config_path='../../sparclur.ini') -> Dict[
         print(e)
         params = dict()
     return params
+
 
 def stringify_dict(d):
     if not isinstance(d, dict):
@@ -254,7 +253,7 @@ def image_highlight(p1: PngImageFile or np.array_like,
                     min_region: int = 40,
                     prc: PRCSim = None,
                     info_loss: float = 1.0,
-                    display: bool = False,
+                    display: bool = True,
                     display_height: int = 10,
                     display_width: int = 10,
                     renderer: str = '',

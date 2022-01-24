@@ -130,17 +130,19 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
                                   shell=False)
             (_, err) = sp.communicate()
-            pdftoppm_present = 'Poppler' not in err.decode(self._decoder)
+            err = err.decode(self._decoder)
+            pdftoppm_present = 'pdftoppm' in err
             self._can_render = pdftoppm_present
             self._can_trace = pdftoppm_present
         return self._can_render
 
     def _check_for_tracer(self) -> bool:
         if self._can_trace is None:
-            sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stderr=DEVNULL, stdout=subprocess.PIPE,
+            sp = subprocess.Popen(shlex.split(self._pdftoppm_path + " -v"), stdout=DEVNULL, stderr=subprocess.PIPE,
                                   shell=False)
-            (stdout, _) = sp.communicate()
-            trace_present = 'Poppler' not in stdout.decode(self._decoder)
+            (_, err) = sp.communicate()
+            err = err.decode(self._decoder)
+            trace_present = 'pdftoppm' in err
             self._can_trace = trace_present
             self._can_render = trace_present
         return self._can_trace
