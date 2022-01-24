@@ -199,6 +199,8 @@ class RollBack:
             fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(display_width, display_height))
 
             for idx, ax in enumerate(axes.flat):
+                if idx >= len(X):
+                    break
                 X_i = X[idx]
                 x = list(render_diffs[X_i].keys())
                 x.sort()
