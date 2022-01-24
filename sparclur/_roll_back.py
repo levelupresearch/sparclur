@@ -123,7 +123,8 @@ class RollBack:
             if isinstance(versions, int):
                 versions = [versions]
             if len(versions) > 11:
-                print('Warning: This will produce %i subplots if the document has multiple pages.' % len(versions) - 1)
+                subplot_count = len(versions) - 1
+                print('Warning: This will produce %i subplots if the document has multiple pages.' % subplot_count)
         versions.sort()
         versions = [version for version in versions if version in self._versions.keys()]
         comparisons = []
