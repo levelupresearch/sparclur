@@ -17,27 +17,13 @@ from sparclur._font_extractor import FontExtractor
 from sparclur._image_data_extractor import ImageDataExtractor
 
 from sparclur.parsers.present_parsers import get_sparclur_parsers, get_parser
-from sparclur.utils._tools import create_file_list, gen_flatten
+from sparclur.utils import create_file_list, gen_flatten, stringify_dict
 
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor as Executor
 import multiprocessing
 from func_timeout import func_timeout
 import mmh3
-
-
-def _stringify_dict(d):
-    if not isinstance(d, dict):
-        if isinstance(d, list):
-            return '[' + ', '.join([_stringify_dict(el) for el in d]) + ']'
-        else:
-            return str(d)
-    else:
-        result = []
-        for (key, val) in d.items():
-            result.append('%s::%s' % (str(key), _stringify_dict(val)))
-        result.sort()
-        return '[' + ', '.join(result) + ']'
 
 
 def _parse_parsers(parsers):
@@ -74,7 +60,7 @@ def _mapper(entry):
     if issubclass(parser_class, Renderer):
         parser_args['dpi'] = 72
         parser_args['cache_renders'] = False
-    parser = parser_class(doc_path=path, skip_check=True, timeout=timeout, **parser_args)
+    parser = parser_class(doc=path, skip_check=True, timeout=timeout, **parser_args)
     if isinstance(parser, Renderer):
         try:
             renders = parser.get_renders()
@@ -98,19 +84,19 @@ def _mapper(entry):
             result['text'] = {0: str(e)}
     if isinstance(parser, MetadataExtractor):
         try:
-            meta = _stringify_dict(parser.metadata)
+            meta = stringify_dict(parser.metadata)
             result['meta'] = mmh3.hash128(meta, seed=23)
         except Exception as e:
             result['meta'] = str(e)
     if isinstance(parser, FontExtractor):
         try:
-            fonts = _stringify_dict(parser.fonts)
+            fonts = stringify_dict(parser.fonts)
             result['fonts'] = mmh3.hash128(fonts, seed=23)
         except Exception as e:
             result['fonts'] = str(e)
     if isinstance(parser, ImageDataExtractor):
         try:
-            images = _stringify_dict(parser.images)
+            images = stringify_dict(parser.images)
             result['images'] = mmh3.hash128(images, seed=23)
         except Exception as e:
             result['images'] = str(e)

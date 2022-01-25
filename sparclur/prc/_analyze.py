@@ -38,7 +38,7 @@ def _prc_worker(entry):
         args = parser_args.get(name, dict())
         args['cache_renders'] = True
         args['timeout'] = timeout
-        renders[name] = renderer(doc_path=path, skip_check=True, **args)
+        renders[name] = renderer(doc=path, skip_check=True, **args)
     observed_pages = []
     for renderer in renders.values():
         r = renderer.get_renders()

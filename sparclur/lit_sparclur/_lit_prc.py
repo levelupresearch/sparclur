@@ -13,8 +13,8 @@ RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
 # @st.cache
 # def get_viz(renderers):
-#     filename = [renderer for renderer in renderers.values()][0].doc_path
-#     return PRCViz(doc_path=filename, renderers=[renderer for renderer in renderers.values()])
+#     filename = [renderer for renderer in renderers.values()][0].doc
+#     return PRCViz(doc=filename, renderers=[renderer for renderer in renderers.values()])
 
 def app(parsers, **kwargs):
     st.subheader("PDF Render Comparator")
@@ -24,8 +24,8 @@ def app(parsers, **kwargs):
     if len(renderers) < 2:
         st.write("Please select at least 2 of [%s]" % ', '.join(RENDERERS))
     else:
-        filename = [renderer for renderer in renderers.values()][0].doc_path
-        viz = PRCViz(doc_path=filename, renderers=[renderer for renderer in renderers.values()])
+        filename = [renderer for renderer in renderers.values()][0].doc
+        viz = PRCViz(doc=filename, renderers=[renderer for renderer in renderers.values()])
         # viz = get_viz(renderers)
 
         fig = viz.plot_sims()

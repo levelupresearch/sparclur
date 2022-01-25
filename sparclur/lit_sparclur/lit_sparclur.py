@@ -109,7 +109,7 @@ else:
         filepath = file_dict[filepath]
 
 parser_kwargs = dict()
-parser_kwargs[NonParser.get_name()] = {'doc_path': filepath}
+parser_kwargs[NonParser.get_name()] = {'doc': filepath}
 st.sidebar.markdown('___')
 ocr = st.sidebar.checkbox('OCR', value=False, key='ocr')
 #render_cache = st.sidebar.checkbox('Cache Renders', value=False, key='render_cache')
@@ -157,7 +157,7 @@ for p_name, parser in PARSERS.items():
                 if val == "\\x0c":
                     val = "\x0c"
             kwargs[key] = val
-            kwargs['doc_path'] = filepath
+            kwargs['doc'] = filepath
         print(p_name, kwargs)
         if p_name == MuPDF.get_name():
             ps_kwargs = {key: value for (key, value) in kwargs.items()}

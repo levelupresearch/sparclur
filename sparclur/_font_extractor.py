@@ -1,6 +1,12 @@
 import abc
-from sparclur._parser import Parser
+import copy
+
+import mmh3
+
+from sparclur._parser import Parser, FONT
 from typing import Dict, Any, List
+
+from sparclur.utils import stringify_dict
 
 SYSTEM_FONTS = ["Courier",
                             "Courier-Bold",
@@ -23,9 +29,11 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
         Abstract class for wrapping up parsers that extract font information from PDFs.
     """
 
-    def __init__(self, doc_path, skip_check, *args, **kwargs):
-        super().__init__(doc_path=doc_path,
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
+                         timeout=timeout,
                          *args,
                          **kwargs)
         self._non_embedded_fonts: bool = None
@@ -77,3 +85,24 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def validate_fonts(self):
         pass
+
+    @property
+    def validity(self):
+        if FONT not in self._validity:
+            _ = self.validate_fonts()
+        return super().validity
+
+    @property
+    def sparclur_hash(self):
+        if FONT not in self._sparclur_hash and FONT not in self._sparclur_hash.excluded:
+            try:
+                fonts = copy.deepcopy(self.fonts)
+                hashes = dict()
+                for font in fonts:
+                    _ = font.pop('object ID', None)
+                    hashes[font['name']] = mmh3.hash128(stringify_dict(font))
+            except:
+                hashes = dict()
+            self._sparclur_hash._add_hash(FONT, hashes)
+        return super().sparclur_hash
+

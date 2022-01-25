@@ -1,5 +1,5 @@
 import abc
-from sparclur._parser import Parser
+from sparclur._parser import Parser, IMAGE
 from typing import Dict, Any, List
 
 
@@ -8,9 +8,11 @@ class ImageDataExtractor(Parser, metaclass=abc.ABCMeta):
         Abstract class for wrapping up parsers that extract image information from PDFs. Image content is not extracted.
     """
 
-    def __init__(self, doc_path, skip_check, *args, **kwargs):
-        super().__init__(doc_path=doc_path,
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
+                         timeout=timeout,
                          *args,
                          **kwargs)
         self._contains_jpeg: bool = None
@@ -64,3 +66,13 @@ class ImageDataExtractor(Parser, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def validate_image_data(self):
         pass
+
+    @property
+    def validity(self):
+        if IMAGE not in self._validity:
+            self._validity[IMAGE] = self.validate_image_data()
+        return super().validity
+
+    @property
+    def sparclur_hash(self):
+        return super().sparclur_hash

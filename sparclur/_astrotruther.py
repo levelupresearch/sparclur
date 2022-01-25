@@ -74,16 +74,9 @@ def _parse_parsers(parsers):
     return result
 
 
-# def _parse_cleaned(tracer_name, doc, tracer_args):
-#     tracer = [t for t in get_sparclur_tracers() if t.get_name() == tracer_name][0]
-#     tracer = tracer(doc_path=doc, **tracer_args.get(tracer_name, dict()))
-#     cleaned_messages = tracer.cleaned
-#     return {'%s::%s' % (tracer.get_name(), key): value for key, value in cleaned_messages.items()}
-
-
 def _parse_document(parser_name, exclude, doc, timeout, parser_args):
     parser = [p for p in get_sparclur_parsers() if p.get_name() == parser_name][0]
-    parser = parser(doc_path=doc, skip_check=True, timeout=timeout, **parser_args.get(parser_name, dict()))
+    parser = parser(doc=doc, skip_check=True, timeout=timeout, **parser_args.get(parser_name, dict()))
     if exclude is None:
         exclude = []
     elif isinstance(exclude, str):
@@ -203,7 +196,7 @@ class Astrotruther:
                  classifier: str = 'decTree',
                  classifier_args: Dict[str, Any] = dict(),
                  k_folds: int = 3,
-                 num_workers: int = 1,
+                 max_workers: int = 1,
                  timeout: int = None,
                  progress_bar: bool = True
                  ):
@@ -232,7 +225,7 @@ class Astrotruther:
             Kwargs to use with the classifier. See scikit-learn API for parameters.
         k_folds: int
             The number of k-folds in the cross-validation for measuring model performance.
-        num_workers: int
+        max_workers: int
             The number of workers to allocate in the mutliprocessing pool for collecting the tracer messages.
         timeout: int
             The number of seconds each tracer gets per file before timeing out.
@@ -252,7 +245,7 @@ class Astrotruther:
         self._classifier = classifier
         self._classifier_args = classifier_args
         self._k_folds = k_folds
-        self._num_workers = num_workers
+        self._num_workers = max_workers
         self._timeout = timeout
         self._overall_timeout = overall_timeout
         self._progress_bar = progress_bar
@@ -386,12 +379,12 @@ class Astrotruther:
     def timeout(self):
         self._timeout = None
 
-    def get_progress_bar(self):
-        """Return the progress bar setting"""
+    @property
+    def progress_bar(self):
         return self._progress_bar
 
+    @progress_bar.setter
     def set_progress_bar(self, p: bool):
-        """Set whether or not to show progress bar"""
         self._progress_bar = p
 
     def save(self, path):

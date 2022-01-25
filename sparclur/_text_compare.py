@@ -10,8 +10,8 @@ from spacy.lang.en import English
 class TextCompare(Parser, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def __init__(self, doc_path, skip_check, *args, **kwargs):
-        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
+        super().__init__(doc=doc, temp_folders_dir=temp_folders_dir, skip_check=skip_check, timeout=timeout, *args, **kwargs)
         self._full_text_extracted = False
         self._document_tokenized = False
         self._text = dict()
@@ -27,6 +27,14 @@ class TextCompare(Parser, metaclass=abc.ABCMeta):
         bool
         """
         pass
+
+    @property
+    def validity(self):
+        return super().validity
+
+    @property
+    def sparclur_hash(self):
+        return super().sparclur_hash
 
     @abc.abstractmethod
     def _extract_page(self, page: int):

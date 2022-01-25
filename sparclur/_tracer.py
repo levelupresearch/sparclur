@@ -1,6 +1,8 @@
 import abc
 
-from sparclur._parser import Parser
+import mmh3
+
+from sparclur._parser import Parser, TRACER
 from typing import List, Dict, Any
 
 
@@ -13,8 +15,8 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc_path, skip_check, *args, **kwargs):
-        super().__init__(doc_path=doc_path, skip_check=skip_check, *args, **kwargs)
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
+        super().__init__(doc=doc, temp_folders_dir=temp_folders_dir, skip_check=skip_check, timeout=timeout, *args, **kwargs)
         self._messages: List[str] = None
         self._cleaned: Dict[str, int] = None
         self._can_trace: bool = None
@@ -29,6 +31,20 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
         bool
         """
         pass
+
+    @property
+    def validity(self):
+        if TRACER not in self._validity:
+            _ = self.validate_tracer()
+        return super().validity
+
+    @property
+    def sparclur_hash(self):
+        if TRACER not in self._sparclur_hash and TRACER not in self._sparclur_hash.excluded:
+            cleaned_messages = self.cleaned
+            hashes = set(mmh3.hash128(message) for message in cleaned_messages.keys())
+            self._sparclur_hash._add_hash(TRACER, hashes)
+        return super().sparclur_hash
 
     @abc.abstractmethod
     def _check_for_tracer(self) -> bool:

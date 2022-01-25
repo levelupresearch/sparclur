@@ -1,6 +1,7 @@
 from inspect import isclass
 
-from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, Poppler, XPDF, QPDF, PDFBox
+from sparclur._reforge import Reforger
+from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, Poppler, XPDF, QPDF, Arlington, PDFCPU
 from sparclur._parser import Parser
 from sparclur._tracer import Tracer
 from sparclur._renderer import Renderer
@@ -20,7 +21,9 @@ _sparclur_parsers: Dict[str, Parser] = {
         Poppler.get_name(): Poppler,
         XPDF.get_name(): XPDF,
         QPDF.get_name(): QPDF,
-        PDFBox.get_name(): PDFBox
+        Arlington.get_name(): Arlington,
+        PDFCPU.get_name(): PDFCPU
+        #PDFBox.get_name(): PDFBox
     }
 
 
@@ -85,3 +88,9 @@ def get_sparclur_fonts():
     present_fonts: List[FontExtractor] = \
         [font for font in _sparclur_parsers.values() if issubclass(font, FontExtractor)]
     return present_fonts
+
+
+def get_sparclur_reforgers():
+    present_reforgers: List[Reforger] = \
+        [reforger for reforger in _sparclur_parsers.values() if issubclass(reforger, Reforger)]
+    return present_reforgers
