@@ -1,7 +1,5 @@
 import locale
-import logging
 import os
-import re
 import sys
 import tempfile
 
@@ -23,107 +21,9 @@ from pdfminer.utils import isnumber
 
 from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TEXT
+from sparclur._parser import VALID, REJECTED, META, TEXT
 from sparclur.utils import hash_file
 from sparclur.utils._tools import _get_config_param
-
-# ESC_PAT = re.compile(r'[\000-\037&<>()"\042\047\134\177-\377]')
-
-
-# def e(s):
-#     if isinstance(s, bytes):
-#         s = str(s, 'latin-1')
-#     return ESC_PAT.sub(lambda m: '&#%d;' % ord(m.group(0)), s)
-#
-#
-# def _clean_xml_line(line):
-#     return ''.join(
-#         c for c in line if ord(c) > 0x1f and ord(c) != 0x7f and not (0x80 <= ord(c) <= 0x9f) and not ord(c) == 0xa0)
-#
-#
-# def _extract_atomic(o):
-#     if isinstance(o, dict):
-#         keys = list(o.keys())
-#         if keys.count('@size') > 0:
-#             if o['@size'] == '0':
-#                 return []
-#         if keys.count('literal') > 0:
-#             return o['literal']
-#         elif keys.count('number') > 0:
-#             return o['number']
-#         elif keys.count('string') > 0:
-#             return _extract_atomic(o['string'])
-#         elif keys.count('@id') > 0:
-#             i = o['@id'] + ' 0 R'
-#             return i
-#         elif keys.count('ref') > 0:
-#             i = _extract_atomic(o['ref'])
-#             return i
-#         elif keys.count('value') > 0:
-#             og_values = o['value']
-#             new_values = _extract_atomic(og_values)
-#             og_keys = o['key']
-#             new_keys = _extract_atomic(og_keys)
-#             if o['@size'] == '1':
-#                 new_o = [(new_keys, new_values)]
-#             else:
-#                 new_o = [(k, v) for (k, v) in zip(new_keys, new_values)]
-#             return dict(new_o)
-#         elif keys.count('dict') > 0:
-#             return _extract_atomic(o['dict'])
-#         elif keys.count('list') > 0:
-#             list_contents = o['list']
-#             if isinstance(list_contents, dict):
-#                 list_keys = [k for k in list(o['list'].keys()) if k != '@size']
-#                 result = []
-#                 for k in list_keys:
-#                     val = dict()
-#                     val.update({k: o['list'][k]})
-#                     ex_k = _extract_atomic(val)
-#                     if isinstance(ex_k, list):
-#                         result += ex_k
-#                     else:
-#                         result.append(ex_k)
-#                 return result
-#             else:
-#                 return _extract_atomic(o['list'])
-#         elif keys.count('#text') > 0:
-#             return o['#text']
-#         return o
-#     elif isinstance(o, list):
-#         atomics = [_extract_atomic(obj) for obj in o]
-#         return atomics
-#     elif o == None:
-#         return 'None'
-#     else:
-#         return o
-#
-# def _parse_object(obj):
-#     keys = list(obj.keys())
-#     if keys.count('@id') > 0:
-#         raw_ref = obj['@id']
-#         object_name = raw_ref + ' 0 R'
-#         if keys.count('dict') > 0:
-#             contents = obj['dict']
-#         elif keys.count('list') > 0:
-#             contents = dict()
-#             contents.update({'list': obj['list']})
-#         elif keys.count('stream') > 0:
-#             contents = obj['stream']['props']
-#         else:
-#             present_keys = [key for key in keys if key != '@id']
-#             contents = dict()
-#             for key in present_keys:
-#                 contents.update({key: obj[key]})
-#         parsed_contents = _extract_atomic(contents)
-#         if not (isinstance(parsed_contents, list) or isinstance(parsed_contents, dict)):
-#             parsed_contents = [parsed_contents]
-#         return (object_name, parsed_contents)
-#     elif keys.count('trailer') > 0:
-#         object_name = 'trailer'
-#         contents = obj['trailer']
-#         parsed_contents = _extract_atomic(contents)
-#         return (object_name, parsed_contents)
 
 
 class PDFMiner(TextExtractor, MetadataExtractor):

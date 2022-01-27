@@ -1,6 +1,7 @@
 import multiprocessing
 from math import ceil
-from typing import Union
+from typing import Union, List
+from io import BytesIO
 
 from func_timeout import func_timeout
 
@@ -9,6 +10,10 @@ from sparclur.utils import gen_flatten
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from pebble import ProcessPool
+
+EOF = b'%%EOF'
+XREF = b'startxref'
+LINEAR = b'/Linearized'
 
 
 def _render_compare_worker(entry):
@@ -20,6 +25,30 @@ def _render_compare_worker(entry):
     right = get_parser(parser)(right_raw, **parser_args)
     page_sims = left.compare(right)
     return '%i->%i' % (left_version, right_version), {page: prc.sim for (page, prc) in page_sims.items()}
+
+
+def _find_updates(doc: Union[str, bytes]) -> List[int]:
+    if isinstance(doc, str):
+        with open(doc, 'rb') as file_in:
+            raw = file_in.read()
+    else:
+        raw = doc
+    potential_updates = list(_find_all(raw, EOF))
+    previous_offset = 0
+    updates = []
+    is_linear = False
+    has_startxref = False
+    for offset in potential_updates:
+        if raw[previous_offset:offset].find(LINEAR) > 0:
+            is_linear = True
+        if raw[previous_offset:offset].find(XREF) > 0:
+            has_startxref = True
+        if not is_linear and has_startxref:
+            updates.append(offset)
+        previous_offset = offset
+        is_linear = False
+        has_startxref = False
+    return updates
 
 
 def _num_updates(doc: Union[str, bytes]) -> bool:
@@ -52,12 +81,11 @@ class RollBack:
                  doc: Union[str, bytes]
                  ):
 
-        if isinstance(doc, str):
-            with open(doc, 'rb') as file_in:
-                raw = file_in.read()
-        self._raw = raw
-        self._num_updates = _num_updates(raw)
-        self._versions = {version: raw[slice(0, idx+7)] for (version, idx) in enumerate(_find_all(raw, b'%%EOF'))}
+        self._doc = doc
+        updates = _find_updates(doc)
+        self._num_updates = len(updates)
+        # self._versions = {version: raw[slice(0, idx+7)] for (version, idx) in enumerate(_find_all(raw, b'%%EOF'))}
+        self._versions = {version: offset for (version, offset) in enumerate(updates)}
 
     @property
     def contains_updates(self):
@@ -69,18 +97,24 @@ class RollBack:
 
     def get_version(self, version: int):
         assert self._num_updates > version >= 0, "Version must be between 0 and %i" % self._num_updates - 1
-        return self._versions.get(version, b'')
+        if isinstance(self._doc, str):
+            with open(self._doc, 'rb') as file_in:
+                raw = file_in.read()
+        else:
+            raw = self._doc
+        return raw[slice(0, self._versions.get(version) + 7)]
 
     def save_version(self, version: int, save_path: str):
-        assert self._num_updates > version >= 0, "Version must be between 0 and %i" % self._num_updates - 1
+        raw = self._get_version(version)
         with open(save_path, 'wb') as file_out:
-            file_out.write(self._versions.get(version, self._versions[0]))
+            file_out.write(raw)
 
     def compare_text(self, parser='Poppler', parser_args=dict(), display_width=10, display_height=10):
         assert self.contains_updates, "No incremental updates detected."
         assert parser in [p.get_name() for p in get_sparclur_texters()], '%s does not support text extraction' % parser
         tokens = dict()
-        for (version, raw) in self._versions.items():
+        for version in self._versions.keys():
+            raw = self.get_version(version)
             p = get_parser(parser)(raw, **parser_args)
             tokens[version] = set(gen_flatten(p.get_tokens().values()))
         text_diffs = dict()
@@ -129,8 +163,8 @@ class RollBack:
         versions = [version for version in versions if version in self._versions.keys()]
         comparisons = []
         for (idx, version) in enumerate(versions[:-1]):
-            entry = {'left': (version, self._versions[version]),
-                     'right': (versions[idx+1], self._versions[versions[idx+1]]),
+            entry = {'left': (version, self.get_version(version)),
+                     'right': (versions[idx+1], self.get_version(versions[idx+1])),
                      'parser': parser,
                      'parser_args': parser_args}
             comparisons.append(entry)
