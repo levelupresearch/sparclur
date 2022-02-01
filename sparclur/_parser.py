@@ -1,9 +1,11 @@
 from __future__ import annotations
 import abc
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
+from docstring_inheritance import NumpyDocstringInheritanceMeta
 
 from imagehash import ImageHash
 
+from sparclur._metaclass import Meta
 from sparclur.utils import jac_sim, hash_file
 
 VALID = 'Valid'
@@ -69,9 +71,26 @@ def _compare_font_hash(left, right):
 
 
 class SparclurHash:
-
+    """
+    The SPARCLUR hash attempts to distill the information from the different parser tools: image hashes for the
+    renders and sets of shingled murmur hashes for the text extraction, metadata, trace messages, and fonts. These
+    are collected and then can be used to compare two documents and a distance measure is calculated. This is most
+    relevant in 2 specific cases: the first is trying to find evidence of non-determinism in a parser and the
+    second is to quickly compare differences between parser translations of a document (See the Reforge class of
+    tools).
+    """
     def __init__(self, doc: str,
                  exclude: str or List[str] = None):
+        """
+        Parameters
+        ----------
+        doc : str or bytes
+            Either the path to the PDF or the raw bytes of the PDF
+        exclude : str or List[str]
+            Specifies any subclass SPARCLUR hashes that should be excluded from this parser instantiation. Can be one or
+            more of the following: 'Renderer', 'Tracer', 'Text Extractor', 'Metadata Extractor', and/or 'Font Extractor'
+        """
+
         if exclude is None or (not isinstance(exclude, str) and not isinstance(exclude, list)):
             self._exclude = []
         elif isinstance(exclude, str):
@@ -112,10 +131,24 @@ class SparclurHash:
         self._hash[key] = value
 
     def equals(this, that: SparclurHash or Parser):
+        """
+        Checks for parsed document information equality.
+
+        Returns
+        -------
+        bool
+        """
         comparison = this.compare(that)
         return comparison['sim'] == 1.0
 
     def compare(this, that: SparclurHash or Parser):
+        """
+        Compares all of the present information hashes and collects all of the results.
+
+        Returns
+        -------
+        Dict[str, Any]
+        """
         if isinstance(that, Parser):
             that = that.sparclur_hash
         results = dict()
@@ -162,7 +195,7 @@ class SparclurHash:
         return results
 
 
-class Parser(metaclass=abc.ABCMeta):
+class Parser(metaclass=Meta):
     """
     Base abstract class for SPARCLUR parser wrappers.
 
@@ -170,44 +203,54 @@ class Parser(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc: str or bytes,
-                 temp_folders_dir: str,
-                 skip_check: bool,
-                 timeout: int,
-                 hash_exclude: bool,
+    def __init__(self, doc: Union[str, bytes],
+                 temp_folders_dir: Union[str, None],
+                 skip_check: Union[bool, None],
+                 timeout: Union[int, None],
+                 hash_exclude: Union[str, List[str], None],
                  *args,
                  **kwargs):
+        """
+        Parameters
+        ----------
+        doc : str or bytes
+            Either the path to the PDF or the raw bytes of the PDF
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        timeout : int
+            Specify a timeout for parsing commands
+        skip_check : bool
+            Flag for skipping the parser check.
+        hash_exclude : str or List[str]
+            Specifies any subclass SPARCLUR hashes that should be excluded from this parser instantiation. Can be one or
+            more of the following: 'Renderer', 'Tracer', 'Text Extractor', 'Metadata Extractor', and/or 'Font Extractor'
+        """
         self._doc = doc
         self._temp_folders_dir = temp_folders_dir
         self._skip_check = skip_check
         self._timeout = timeout
         self._hash_exclude = hash_exclude
         self._validity: Dict[str, Dict[str, Any]] = dict()
+        self._api: Dict[str, str] = {'num_pages': '(Property) Returns number of pages in the document'}
         self._num_pages = None
         self._sparclur_hash = SparclurHash(doc, hash_exclude)
-        # self._status = None
-        # self._root_cause = None
 
-    # @abc.abstractmethod
-    # def _check_for_validity(self):
-    #     """
-    #     Performs the validity check.
-    #     """
-    #     pass
+    def __repr__(self):
+        return '\n'.join('%s:\t%s' % (method, desc) for (method, desc) in self._api.items())
 
-    @property
-    def sparclur_hash(self):
-        return self._sparclur_hash
+    def __str__(self):
+        return self.get_name()
 
     @property
     def doc(self):
         """
-        Return the path to the document that is being run through the parser instance.
+        Return the path to the document that is being run through the parser instance or the first 15 bytes if a binary
+        was passed to the parser.
 
         Returns
         -------
-        str
-            String of the document path
+        str or bytes
+            String of the document path or first 15 bytes of the binary
         """
         return self._doc if isinstance(self._doc, str) else self._doc[0:15]
 
@@ -242,6 +285,16 @@ class Parser(metaclass=abc.ABCMeta):
 
     @property
     def validity(self):
+        """
+        Returns the validity statuses from each of the relevant tools of the parser and an overall validity for the
+        document. If any of the tools have a warning or error the overall will show that otherwise all of the tools need
+        to mark the document as valid for the overall status to be valid.
+
+        Returns
+        -------
+        Dict[str, Dict[str, Any]]
+            A dictionary of dictionaries laying out the validity and statuses for the parser tools.
+        """
         results = [(entry['valid'], entry['status']) for (key, entry) in self._validity.items()]
         statuses = [entry[1] for entry in results]
         validity = min([entry[0] for entry in results])
@@ -257,7 +310,30 @@ class Parser(metaclass=abc.ABCMeta):
         return self._validity
 
     @property
+    def help(self):
+        """
+        Returns all of the API calls available to the parser.
+
+        Returns
+        -------
+        str
+
+        """
+    @property
     def sparclur_hash(self):
+        """
+        The SPARCLUR hash attempts to distill the information from the different parser tools: image hashes for the
+        renders and sets of shingled murmur hashes for the text extraction, metadata, trace messages, and fonts. These
+        are collected and then can be used to compare two documents and a distance measure is calculated. This is most
+        relevant in 2 specific cases: the first is trying to find evidence of non-determinism in a parser and the
+        second is to quickly compare differences between parser translations of a document (See the Reforge class of
+        tools).
+
+        Returns
+        -------
+        SparclurHash
+            The class that holds the SPARCLUR hashes for each tool and provides an API for comparing two hashes.
+        """
         return self._sparclur_hash
 
     @property
@@ -266,56 +342,26 @@ class Parser(metaclass=abc.ABCMeta):
 
     @timeout.setter
     def timeout(self, to: int):
-        self._sparclur_hash = SparclurHash()
+        self._sparclur_hash = SparclurHash(self._doc, self._hash_exclude)
         self._timeout = to
 
     @timeout.deleter
     def timeout(self):
-        self._sparclur_hash = SparclurHash()
+        self._sparclur_hash = SparclurHash(self._doc, self._hash_exclude)
         self._timeout = None
 
     @property
     def num_pages(self):
+        """
+        Determine the number of pages in the PDF according to the parser. If the parser does not support page number
+        extraction (e.g. Arlington DOM Checker) this returns None. If the parser fails to load and determine the
+        number of pages, 0 is returned.
+
+        Returns
+        -------
+        int
+            The number of pages in the document
+        """
         if self._num_pages is None:
             self._get_num_pages()
         return self._num_pages
-
-    # @property
-    # def valid(self):
-    #     """
-    #     Return whether or not the given document is valid under the given parser.
-    #
-    #     Returns
-    #     -------
-    #     bool
-    #         Whether or not the document is valid
-    #     """
-    #     if self._valid is None:
-    #         self._check_for_validity()
-    #     return self._valid
-    #
-    # @property
-    # def status(self):
-    #     """
-    #     Return a more detailed validity status.
-    #
-    #     Returns
-    #     -------
-    #     str
-    #     """
-    #     if self._status is None:
-    #         self._check_for_validity()
-    #     return self._status
-    #
-    # @property
-    # def root_cause(self):
-    #     """
-    #     Return a possible root cause for pdf rejection.
-    #
-    #     Returns
-    #     -------
-    #     str
-    #     """
-    #     if self._root_cause is None:
-    #         self._check_for_validity()
-    #     return self._root_cause

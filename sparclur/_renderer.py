@@ -209,8 +209,39 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc, skip_check, timeout, dpi, cache_renders, *args, **kwargs):
-        super().__init__(doc=doc, skip_check=skip_check, timeout=timeout, *args, **kwargs)
+    def __init__(self, doc,
+                 skip_check,
+                 timeout,
+                 temp_folders_dir,
+                 hash_exclude,
+                 dpi,
+                 cache_renders,
+                 *args,
+                 **kwargs):
+        """
+        Parameters
+        ----------
+        dpi : int
+            Set the dots-per-inch for the rendering
+        cache_renders : bool
+            Whether or not the renders should be cached in the object.
+        """
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
+                         skip_check=skip_check,
+                         timeout=timeout,
+                         hash_exclude=hash_exclude,
+                         *args,
+                         **kwargs)
+        render_apis = {'can_render': 'Boolean for whether or not rendering capability is present',
+                       'validate_renderer': '(Property) Determines the PDF validity for rendering process',
+                       'logs': '(Property) Any logs collected during the rendering process',
+                       'caching': '(Property) Whether renders are cached or not',
+                       'clear_renders': 'Clears any renders that have been cached inside this object',
+                       'dpi': '(Property) The DPI setting for this object',
+                       'get_renders': 'Retrieve the render for the specified page or all pages if not specified',
+                       'compare': 'Compare the renders for this object with the renders of another Renderer'}
+        self._api.update(render_apis)
         self._full_doc_rendered = False
         self._renders: Dict[int, PngImageFile] = dict()
         self._dpi = dpi
@@ -218,6 +249,7 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
         self._logs = dict()
         self._can_render: bool = None
 
+    @property
     @abc.abstractmethod
     def validate_renderer(self) -> Dict[str, Any]:
         """
@@ -245,8 +277,18 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
     @property
     def validity(self):
         if RENDER not in self._validity:
-            _ = self.validate_renderer()
+            _ = self.validate_renderer
         return super().validity
+
+    @property
+    def can_render(self):
+        if self._can_render is None:
+            self._can_render = self._check_for_renderer()
+        return self._can_render
+
+    @can_render.deleter
+    def can_render(self):
+        self._can_render = None
 
     @abc.abstractmethod
     def _check_for_renderer(self) -> bool:
@@ -410,11 +452,15 @@ class Renderer(TextCompare, metaclass=abc.ABCMeta):
     def compare(self, other: 'Renderer', page=None, full=False):
         """
         Performs a structural similarity comparison between two renders
+
         Parameters
         ----------
-        other
-        page
-        full
+        other : Renderer
+            The other Parser and document to compare this Parser and document to.
+        page : int, default=None
+            Specifiy whether a single page should be compared. If 'None', all pages are comapred.
+        full : bool, default=False
+            Return an image of the comparison of the two document renders for each page or the specified page.
 
         Returns
         -------

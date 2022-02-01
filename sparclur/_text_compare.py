@@ -8,15 +8,47 @@ from spacy.lang.en import English
 
 
 class TextCompare(Parser, metaclass=abc.ABCMeta):
+    """
+    An abstract class that encapsulates parsers with Text Extraction capabilities and also Renderers when used in
+    conjunction with OCR.
+    """
 
     @abc.abstractmethod
-    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
-        super().__init__(doc=doc, temp_folders_dir=temp_folders_dir, skip_check=skip_check, timeout=timeout, *args, **kwargs)
+    def __init__(self, doc,
+                 temp_folders_dir,
+                 skip_check,
+                 timeout,
+                 hash_exclude,
+                 *args,
+                 **kwargs):
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
+                         skip_check=skip_check,
+                         timeout=timeout,
+                         hash_exclude=hash_exclude,
+                         *args,
+                         **kwargs)
+        text_apis = {'can_extract_text': '(Property) Boolean for whether or not text extraction is present',
+                     'get_text': 'Return a dictionary of pages and their extracted texts',
+                     'clear_text': 'Clear the cache of text extraction',
+                     'get_tokens': 'Return a dictionary of the parsed text tokens',
+                     'compare_text': 'Return the Jaccard similarity of the shingled tokens between two text extractors'}
+        self._api.update(text_apis)
         self._full_text_extracted = False
         self._document_tokenized = False
         self._text = dict()
         self._tokens = dict()
         self._can_extract: bool = None
+
+    @property
+    def can_extract_text(self):
+        if self._can_extract is None:
+            self._can_extract = self._check_for_text_extraction()
+        return self._can_extract
+
+    @can_extract_text.deleter
+    def can_extract_text(self):
+        self._can_extract = None
 
     @abc.abstractmethod
     def _check_for_text_extraction(self) -> bool:
@@ -95,7 +127,18 @@ class TextCompare(Parser, metaclass=abc.ABCMeta):
         return result
 
     def get_tokens(self, page: int=None):
+        """
+        Return the parsed text tokens from the document. If page is None, return all token sets from the document.
+        Otherwise returns the text for the specified text only.
 
+        Parameters
+        ----------
+        page: int or None
+            zero-indexed page to extract text from. Returns the whole document if None
+        Returns
+        -------
+        str or Dict[int, str]
+        """
         assert self._skip_check or 'spacy' in sys.modules.keys(), "spaCy not found for tokenization"
         nlp = English()
         tokenizer = nlp.Defaults.create_tokenizer(nlp)
@@ -122,6 +165,24 @@ class TextCompare(Parser, metaclass=abc.ABCMeta):
         return tokens
 
     def compare_text(self, other: 'TextCompare', page=None, shingle_size=4):
+        """
+        Shingles the parsed tokens into the specified n-grams and then compares the two token sets and calculates the
+        Jaccard similarity.
+
+        Parameters
+        ----------
+        other : TextCompare
+            The Text Extraction, Renderer, or Hybrid parser to comapre to this parser
+        page : int
+            The 0-indexed page to compare. If `None`, Use the tokens from the entire document
+        shingle_size : int, default=4
+            The size of the shingled n-grams
+
+        Returns
+        -------
+        float
+            The Jaccard Similarity score
+        """
         s1 = self.get_tokens(page=page)
         s2 = other.get_tokens(page=page)
         if page is not None:

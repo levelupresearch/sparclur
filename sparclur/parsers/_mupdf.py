@@ -46,24 +46,12 @@ class MuPDF(Tracer, Hybrid, Reforger):
         """
         Parameters
         ----------
-        doc_path : str
-            Full path to the document to be traced.
         parse_streams : bool
             Indicates whether mutool clean should be called with -s or not. -s parses into the content streams of the
             PDF.
         binary_path : str
             If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
             specific versions of the binary.
-        temp_folders_dir : str
-            Path to create the temporary directories used for temporary files.
-        dpi : int
-            Dots per inch used in rendering the document
-        cache_renders : bool
-            Specify whether or not renders should be retained in the object
-        verbose : bool
-            Specify whether additional logging should be saved, such as successful renders and timing
-        timeout : int
-            Specify a timeout for rendering
         """
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
         with open('../../sparclur.yaml', 'r') as yaml_in:
@@ -95,6 +83,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
             self._can_render = 'fitz' in sys.modules.keys()
         return self._can_render
 
+    @property
     def validate_renderer(self):
         if RENDER in self._validity:
             return self._validity[RENDER]
@@ -278,12 +267,15 @@ class MuPDF(Tracer, Hybrid, Reforger):
     def _check_for_text_extraction(self) -> bool:
         if self._ocr:
             if self._can_extract is None:
-                self._can_extract = 'pytesseract' in sys.modules.keys()
+                if self._can_render is None:
+                    _ = self._check_for_renderer()
+                self._can_extract = 'pytesseract' in sys.modules.keys() and self._can_render
         else:
             if self._can_extract is None:
                 self._can_extract = 'fitz' in sys.modules.keys()
         return self._can_extract
 
+    @property
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             fitz.TOOLS.reset_mupdf_warnings()
@@ -387,6 +379,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
         self._trace_exit_code = sp.returncode
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
+    @property
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()

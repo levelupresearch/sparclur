@@ -19,15 +19,19 @@ class PDFCPU(Tracer):
     """Wrapper for PDFCPU (https://pdfcpu.io/)"""
 
     def __init__(self, doc: Union[str, bytes],
-                 # mode: Union[str, None] = None,
-                 # verbose: Union[bool, None] = None,
                  skip_check: Union[bool, None] = None,
                  hash_exclude: Union[str, List[str], None] = None,
                  binary_path: Union[str, None] = None,
                  temp_folders_dir: Union[str, None] = None,
                  timeout: Union[int, None] = None
                  ):
-
+        """
+        Parameters
+        ----------
+        binary_path : str
+            If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
+            specific versions of the binary.
+        """
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
         with open('../../sparclur.yaml', 'r') as yaml_in:
             config = yaml.full_load(yaml_in)
@@ -62,6 +66,7 @@ class PDFCPU(Tracer):
             self._can_trace = pc_present
         return self._can_trace
 
+    @property
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()

@@ -6,7 +6,7 @@ import shutil
 import sys
 import tempfile
 from collections import defaultdict
-from typing import List
+from typing import List, Union, Dict, Any
 
 import numpy as np
 from tqdm import tqdm
@@ -18,9 +18,11 @@ import pandas as pd
 from sparclur._parser import SparclurHash, TEXT, RENDER, META, REJECTED, REJECTED_AMBIG, VALID_WARNINGS, VALID, FONT, \
     TRACER
 from sparclur.parsers import present_parsers
+from sparclur._parser import Parser
 
+import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly
+import plotly.express as px
 
 
 def _merge_dict(d1, d2):
@@ -74,6 +76,15 @@ def _combiner_mapper(entry):
 
 class SpotlightResult:
 
+    """
+    Results from running Spotlight over a document. Provides the following methods:
+
+    validity_report: Provide a table of validity results for the parsers over the original document and the reforges
+    overall_validity: The overall validity classification for the document given the parsers
+    recoverable: Returns whether or not the document is unambiguously recoverable
+    sim_heatmap: A heatmap of the similarity scores for each parser over given pairs of documents
+    sim_sunburst: A sunburst of the similarity scores. Provides an interactive way to engage with the heatmap.
+    """
     def __init__(self, parser, version, validity, sparclur_hash):
         self._spotlight_result = {parser: {version: {'validity': validity, 'hash': sparclur_hash}}}
 
@@ -142,6 +153,21 @@ class SpotlightResult:
             self._spotlight_result[parser][right]['comparisons'][left] = comparison
 
     def validity_report(self, report='overall', excluded_parsers=None):
+        """
+        Return a table of the validity classifications for each parser over each document.
+
+        Parameters
+        ----------
+        report : {`overall`, `Renderer`, `Text Extraction`, `Font Extraction`, `Metadata Extraction`, `Tracer`}
+            Overall takes into account all of the tools of the given parser, or a specific tool can be specified
+        excluded_parsers : str or List[str]
+            Parsers to exclude from the report
+
+        Returns
+        -------
+        DataFrame
+            A DataFrame of the resulting labels
+        """
         if excluded_parsers is not None:
             if isinstance(excluded_parsers, str):
                 excluded_parsers = [excluded_parsers]
@@ -170,6 +196,21 @@ class SpotlightResult:
         return df.dropna(how='all')
 
     def overall_validity(self, version='original', excluded_parsers=None):
+        """
+        Return a classification for the overall validity of the specified document
+
+        Parameters
+        ----------
+        version : {`original`, `MuPDF`, `Poppler`, `Ghostscript`}
+            The document version to classify
+        excluded_parsers : str or List[str]
+            Any parsers to exclude in the determination of the overall validity
+
+        Returns
+        -------
+        str
+            The validity label
+        """
         if excluded_parsers is not None:
             if isinstance(excluded_parsers, str):
                 excluded_parsers = [excluded_parsers]
@@ -187,7 +228,7 @@ class SpotlightResult:
         else:
             return VALID
 
-    def sim_sunburst(self, compare_orig: bool = True):
+    def _sunburst_data(self, compare_orig, full):
         data = []
         for parser in self._spotlight_result.keys():
             versions = list(self._spotlight_result[parser].keys())
@@ -195,54 +236,60 @@ class SpotlightResult:
             versions.sort()
             if compare_orig:
                 versions.insert(0, 'original')
-            for version in versions:
-                vd = self._spotlight_result[parser][version]['comparisons']
-                for v in [outer for outer in versions if outer != version]:
-                    inner = version if version == 'original' else version + ' reforged'
-                    outer = v if v == 'original' else v + ' reforged'
-                    row = {'Parser': parser, 'inner': inner, 'outer': outer, 'sim': vd[v]['sim']}
-                    data.append(row)
+            if full:
+                for version in versions:
+                    vd = self._spotlight_result[parser][version]['comparisons']
+                    for v in [outer for outer in versions if outer != version]:
+                        inner = version if version == 'original' else version + ' reforged'
+                        outer = v if v == 'original' else v + ' reforged'
+                        row = {'Parser': parser, 'inner': inner, 'outer': outer, 'sim': max(vd[v]['sim'], 0.001)}
+                        data.append(row)
+            else:
+                for i in range(len(versions)):
+                    for j in range(i + 1, len(versions)):
+                        version = versions[i]
+                        v = versions[j]
+                        vd = self._spotlight_result[parser][version]['comparisons']
+                        inner = version if version == 'original' else version + ' reforged'
+                        outer = v if v == 'original' else v + ' reforged'
+                        row = {'Parser': parser, 'inner': inner, 'outer': outer, 'sim': max(vd[v]['sim'], 0.001)}
+                        data.append(row)
         df = pd.DataFrame(data)
         return df
 
-    # def sim_sunburst(self, compare_orig: bool = True):
-    #     data = []
-    #     for parser in self._spotlight_result.keys():
-    #         versions = list(self._spotlight_result[parser].keys())
-    #         versions.remove('original')
-    #         versions.sort()
-    #         if compare_orig:
-    #             versions.insert(0, 'original')
-    #         for i in range(len(versions)):
-    #             for j in range(i + 1, len(versions)):
-    #                 version = versions[i]
-    #                 v = versions[j]
-    #                 vd = self._spotlight_result[parser][version]['comparisons']
-    #                 inner = version if version == 'original' else version + ' reforged'
-    #                 outer = v if v == 'original' else v + ' reforged'
-    #                 row = {'Parser': parser, 'inner': inner, 'outer': outer, 'sim': vd[v]['sim']}
-    #                 data.append(row)
-    #     df = pd.DataFrame(data)
-    #     return df
+    def sim_sunburst(self, compare_orig: bool = True,
+                     full: bool = False,
+                     color: str = 'RdBu',
+                     color_range: List[float] = [.6, 1]):
+        """
+        Create an interactive sunburst for exploring the similarities between the documents for the Spotlight parsers
 
-    # def _parser_heatmap(self, parser, sim):
-    #     assert parser in self._spotlight_result, '%s not found' % parser
-    #     versions = list(self._spotlight_result[parser].keys())
-    #     versions.remove('original')
-    #     versions.sort()
-    #     versions.insert(0, 'original')
-    #     d = []
-    #     for version in versions:
-    #         vd = self._spotlight_result[parser][version]['comparisons']
-    #         row = dict()
-    #         for v in versions:
-    #             if v == version:
-    #                 row[v] = 1.0
-    #             else:
-    #                 row[v] = vd[v].get(sim, -1.0)
-    #         d.append(row)
-    #     df = pd.DataFrame(d, index=versions)
-    #     return df
+        Parameters
+        ----------
+        compare_orig : bool
+            Whether reforge<->original comparison scores should be displayed in the heatmap. These comparisons don't
+            impact the recoverablity of the file and would only provide insight into a differential between the original
+            and the reforge
+        full : bool
+            Create the full sunburst that has all possible combinations. Turning this off removes duplicate comparisons
+            to reduce the overall number of slices.
+        color : str
+            The color range to use. See https://plotly.com/python/builtin-colorscales/
+        color_range : List[float]
+            The range to base the color on. Format is [min, max]
+
+        Returns
+        -------
+        Plotly Sunburst
+        """
+        df = self._sunburst_data(compare_orig, full)
+        fig = px.sunburst(df,
+                          path=['Parser', 'inner', 'outer'],
+                          values='sim',
+                          color='sim',
+                          color_continuous_scale=color,
+                          range_color=color_range)
+        return fig
 
     def _create_heatmap(self, parsers, report, detailed, compare_orig):
         if parsers is None:
@@ -260,7 +307,7 @@ class SpotlightResult:
         if report is None:
             report = 'sim'
         else:
-            if report not in [RENDER+' sim', TRACER+' sim', TEXT+' sim', META+' sim', FONT+' sim']:
+            if report not in [RENDER+' sim', TRACER+' sim', TEXT+' sim']:
                 report = 'sim'
 
         all_versions = set()
@@ -304,45 +351,74 @@ class SpotlightResult:
         return d, columns, comparisons
 
     def sim_heatmap(self, parsers: str or List[str] = None,
-                    report: str = None,
-                    detailed: bool = False,
+                    report: str = 'sim',
+                    detailed: bool = True,
                     compare_orig: bool = True,
                     height: int = 10,
                     width: int = 10,
                     save_display=None):
+        """
+        A heatmap of the similarity scores for each parser over given pairs of documents
 
+        Parameters
+        ----------
+        parsers : str or List[str]
+            The parsers to display the similarity scores for
+        report : {'sim', 'Renderer sim', 'Text Extractor sim', 'Tracer sim'}
+            The specific similarity score to run. Choose one of `sim`, `Renderer sim`, `Text Extractor sim` or
+            `Tracer sim`
+        detailed : bool
+            Flag for displaying the similarity score
+        compare_orig : bool
+            Whether reforge<->original comparison scores should be displayed in the heatmap. These comparisons don't
+            impact the recoverablity of the file and would only provide insight into a differential between the original
+            and the reforge
+        height : int
+            Height of the figure
+        width : int
+            Width of the figure
+        save_display : str
+            If not `None`, save a png of the figure to the file path specified by `save_display`
+
+        Returns
+        -------
+        Seaborn heatmap
+        """
         d, columns, comparisons = self._create_heatmap(parsers, report, detailed, compare_orig)
 
         df = pd.DataFrame(d, columns=columns, index=['%s/%s' % (v1, v2) for v1, v2 in comparisons])
 
-        if detailed:
-            return sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
+        fig, ax = plt.subplots(figsize=(width, height))
+        if not detailed:
+            ax = sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
         else:
-            return sns.heatmap(df, vmin=.6, vmax=1, annot=True, fmt=".2f", cmap='RdBu')
-
-    # def sim_heatmap(self, detailed: bool = False,
-    #                 height: int = 10,
-    #                 width: int = 10,
-    #                 save_display=None):
-    #     sim = 'sim' if report == 'overall' else report
-    #     dfs = dict()
-    #     parsers = list(self._spotlight_result.keys())
-    #     if isinstance(parser, str):
-    #         if parser != 'all' and parser in parsers:
-    #             run_these = [parser]
-    #         else:
-    #             run_these = parsers
-    #     else:
-    #         run_these = [p for p in parser if p in parsers]
-    #
-    #     if parser == 'all':
-    #         for key in self._spotlight_result.keys():
-    #             dfs[key] = self._parser_heatmap(key, sim)
-    #     else:
-    #         dfs[parser] = self._parser_heatmap(parser, sim)
-    #     return dfs
+            ax = sns.heatmap(df, vmin=.6, vmax=1, annot=True, fmt=".2f", cmap='RdBu')
+        if save_display is not None:
+            fig.savefig(save_display)
+            plt.close(fig)
+        else:
+            plt.close(fig)
+            return fig
 
     def recoverable(self, excluded_parsers=None, sim_threshold=0.9):
+        """
+        Uses the spotlight results to determine if the document can be unambiguously recovered. The criteria is that
+        each of the reforges successfully parses for each parser and further that the Sparclur Hash between the reforged
+        documents is above the given threshold.
+
+        Parameters
+        ----------
+        excluded_parsers : str or List[str]
+            List of parsers to omit from the recoverable criteria
+        sim_threshold : float
+            The threshold to meet for the reforge comparisons. If a comparison falls below this threshold the recovery
+            is said to be ambiguous
+
+        Returns
+        -------
+        str
+            The overall report for whether the original document is unambiguously recoverable or not
+        """
         if excluded_parsers is not None:
             if isinstance(excluded_parsers, str):
                 excluded_parsers = [excluded_parsers]
@@ -384,16 +460,48 @@ class SpotlightResult:
 
 
 class Spotlight:
-
+    """
+    Runs all of the selected parsers over the document and also reforges the document with all available reforgers.
+    The results are hashed and stored for analysis.
+    """
     def __init__(self, num_workers: int = 1,
                  temp_folders_dir: str = None,
                  dpi: int = 72,
-                 parser_args: dict = dict(),
+                 parsers: Union[List[str], None] = None,
+                 parser_args: Dict[str, Dict[str, Any]] = dict(),
                  timeout: int = None,
                  progress_bar: bool = True):
+        """
+        Parameters
+        ----------
+        num_workers : int, default=1
+            Spotlight is set-up to run the parsers in parallel. This determines the number of workers to use. If set
+            to 1, the parsers will all be run serially.
+        temp_folders_dir : str
+            Path to create the temporary directories used for temporary files.
+        dpi : int, default=72
+            The resolution for the renders produced during processing.
+        parsers : List[str], default=None
+            Specify the parsers to run. Passing in `None` will use all available parsers.
+        parser_args: dict
+            Arguments to pass to the parser. Use the Parser name as the initial key for the dictionary args
+        timeout: int
+            Timeout for each parser run.
+        progress_bar: bool, default=True
+            Flag for displaying a progress bar
+        """
         self._dpi = dpi
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
+        if parsers is not None:
+            self._parsers: List[Parser] = [parser for parser in
+                                           present_parsers.get_sparclur_parsers(check_parsers=True,
+                                                                                parser_args=parser_args)
+                                           if parser.get_name() in parsers]
+        else:
+            self._parsers: List[Parser] = [parser for parser in
+                                           present_parsers.get_sparclur_parsers(check_parsers=True,
+                                                                                parser_args=parser_args)]
         self._parser_args = parser_args
         self._timeout = timeout
         self._results = None
@@ -401,7 +509,7 @@ class Spotlight:
 
     def run(self, doc: str or bytes):
         spotlight_path = tempfile.TemporaryDirectory(dir=self._temp_folders_dir)
-        for parser in present_parsers.get_sparclur_parsers():
+        for parser in self._parsers:
             os.makedirs(os.path.join(spotlight_path.name, parser.get_name()))
             if isinstance(doc, str):
                 shutil.copy2(doc, os.path.join(spotlight_path.name, parser.get_name(), 'original.pdf'))
@@ -415,12 +523,12 @@ class Spotlight:
                 kwargs['dpi'] = self._dpi
             p = parser(**kwargs)
             try:
-                for sub_folder in present_parsers.get_sparclur_parsers():
+                for sub_folder in self._parsers:
                     p.save_reforge(os.path.join(spotlight_path.name, sub_folder.get_name(), p.get_name() + '.pdf'))
             except Exception as e:
                 print('%s reforge failed: %s' % (p.get_name(), str(e)))
         data = []
-        for parser in present_parsers.get_sparclur_parsers():
+        for parser in self._parsers:
             kwargs = self._parser_args.get(parser.get_name(), dict())
             kwargs['timeout'] = self._timeout
             kwargs['hash_exclude'] = [META, FONT]
@@ -433,7 +541,7 @@ class Spotlight:
                 data.append(entry)
 
         parser_compares = []
-        for parser in present_parsers.get_sparclur_parsers():
+        for parser in self._parsers:
             comparisons = set()
             versions = [file.split('.')[0] for file in os.listdir(os.path.join(spotlight_path.name, parser.get_name()))]
             for left in versions:

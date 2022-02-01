@@ -36,24 +36,10 @@ class PDFBox(Hybrid):
         """
         Parameters
         ----------
-        doc_path : str
-            Full path to the document to be traced.
-        skip_check: bool
-            Flag for skipping the parser check.
         jar_path: str
             Path to the jar for PDFBox
-        temp_folders_dir : str
-            Path to create the temporary directories used for temporary files.
         page_delimiter: str
             Marks the end str that separates pages in pdftotext
-        dpi : int
-            Dots per inch used in rendering the document
-        cache_renders : bool
-            Specify whether or not renders should be retained in the object
-        timeout : int
-            Specify a timeout for rendering
-        ocr: bool
-            Specify whether or not to OCR for text extraction
         """
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
         with open('../../sparclur.yaml', 'r') as yaml_in:
@@ -121,6 +107,7 @@ class PDFBox(Hybrid):
     def _check_for_text_extraction(self) -> bool:
         return self._can_extract
 
+    @property
     def validate_renderer(self) -> Dict[str, Any]:
         if RENDER not in self._validity:
             validity_results = dict()
@@ -142,6 +129,7 @@ class PDFBox(Hybrid):
             self._validity[RENDER] = validity_results
         return self._validity[RENDER]
 
+    @property
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()

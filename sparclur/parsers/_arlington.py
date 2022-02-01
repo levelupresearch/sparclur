@@ -33,20 +33,27 @@ class Arlington(Tracer):
     """Wrapper for the Arlington DOM TestGrammar (https://github.com/pdf-association/arlington-pdf-model)"""
 
     def __init__(self, doc: Union[str, bytes],
-                 arlington_path: str = None,
-                 system_path: str = None,
+                 arlington_path: Union[str, None] = None,
                  version: Union[float, str] = None,
-                 skip_check: bool = None,
+                 skip_check: Union[bool, None] = None,
                  hash_exclude: Union[str, List[str], None] = None,
                  temp_folders_dir: Union[str, None] = None,
                  timeout: Union[int, None] = None
                  ):
-
+        """
+        Parameters
+        ----------
+        arlington_path : str
+            The top-level path to the local Arlington repo. Default is None, but only to facilitate putting this
+            parameter in to the sparclur.yaml for convenience. If this is not set in the config or at instantiation,
+            the class will fail to instantiate.
+        version : float or str
+            The PDF version to use for the DOM check. Default is 1.7, unless otherwise specified in the sparclur config.
+        """
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
         with open('../../sparclur.yaml', 'r') as yaml_in:
             config = yaml.full_load(yaml_in)
         arlington_path = _get_config_param(Arlington, config, 'arlington_path', arlington_path, None)
-        system_path = _get_config_param(Arlington, config, 'system_path', system_path, None)
         version = _get_config_param(Arlington, config, 'version', version, 1.7)
         skip_check = _get_config_param(Arlington, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(Arlington, config, 'hash_exclude', hash_exclude, None)
@@ -59,6 +66,7 @@ class Arlington(Tracer):
                          hash_exclude=hash_exclude,
                          timeout=timeout,
                          foo='bar')
+        assert arlington_path is not None, "Arlington path was not defined"
         self._arlington_path = arlington_path
         self._present_versions = os.listdir(os.path.join(arlington_path, 'tsv'))
         if str(version) not in self._present_versions:
@@ -67,7 +75,7 @@ class Arlington(Tracer):
         else:
             self._version = str(version)
         self._tsv_path = os.path.join(arlington_path, 'tsv', self._version)
-        sys_path = _binary_path() if system_path is None else system_path
+        sys_path = _binary_path()
         self._test_grammar_path = os.path.join(arlington_path, 'TestGrammar', 'bin', sys_path, 'TestGrammar')
         self._decoder = locale.getpreferredencoding()
         self._trace_exit_code = None
@@ -102,6 +110,7 @@ class Arlington(Tracer):
             self._can_trace = tg_present
         return self._can_trace
 
+    @property
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()

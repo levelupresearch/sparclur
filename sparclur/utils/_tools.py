@@ -341,7 +341,7 @@ def image_highlight(p1: PngImageFile or np.array_like,
                     plt.suptitle(right_title)
 
             if save_display is not None:
-                fig.savefig(os.path.join(save_display))
+                fig.savefig(save_display)
                 plt.close(fig)
             else:
                 plt.close(fig)

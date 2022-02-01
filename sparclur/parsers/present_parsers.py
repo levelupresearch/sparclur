@@ -10,9 +10,9 @@ from sparclur._text_compare import TextCompare
 from sparclur._metadata_extractor import MetadataExtractor
 from sparclur._text_extractor import TextExtractor
 from sparclur._font_extractor import FontExtractor
+from sparclur._image_data_extractor import ImageDataExtractor
 
-from typing import List, Dict
-
+from typing import List, Dict, Any
 
 _sparclur_parsers: Dict[str, Parser] = {
         PDFMiner.get_name(): PDFMiner,
@@ -26,6 +26,7 @@ _sparclur_parsers: Dict[str, Parser] = {
         #PDFBox.get_name(): PDFBox
     }
 
+min_pdf = '../../resources/min_vi.pdf'
 
 def get_parser(parser):
     if isinstance(parser, str):
@@ -47,10 +48,48 @@ def get_parser(parser):
         result = None
     return result
 
-def get_sparclur_parsers():
+
+def get_sparclur_parsers(check_parsers: bool=False, parser_args: Dict[str, Dict[str, Any]]=dict()):
     """Helper function that returns a list of all SPARCLUR Parsers"""
     present_parsers: List[Parser] = [parser for parser in _sparclur_parsers.values()]
-    return present_parsers
+    if check_parsers:
+        good_to_go_parsers = []
+        for parser in present_parsers:
+            args = parser_args.get(parser.get_name(), dict())
+            args['skip_check'] = False
+            p = parser(min_pdf, **args)
+            if issubclass(parser, Renderer):
+                renderer_present = p.can_render
+                if not renderer_present:
+                    continue
+            if issubclass(parser, Tracer):
+                tracer_present = p.can_trace
+                if not tracer_present:
+                    continue
+            if issubclass(parser, TextExtractor):
+                text_extraction_present = p.can_extract_text
+                if not text_extraction_present:
+                    continue
+            if issubclass(parser, MetadataExtractor):
+                meta_present = p.can_extract_metadata
+                if not meta_present:
+                    continue
+            if issubclass(parser, FontExtractor):
+                font_present = p.can_extract_font
+                if not font_present:
+                    continue
+            if issubclass(parser, Reforger):
+                reforge_present = p.can_reforge
+                if not reforge_present:
+                    continue
+            if issubclass(parser, ImageDataExtractor):
+                imager_present = p.can_extract_image_data
+                if not imager_present:
+                    continue
+            good_to_go_parsers.append(parser)
+        return good_to_go_parsers
+    else:
+        return present_parsers
 
 
 def get_sparclur_renderers():
@@ -94,3 +133,9 @@ def get_sparclur_reforgers():
     present_reforgers: List[Reforger] = \
         [reforger for reforger in _sparclur_parsers.values() if issubclass(reforger, Reforger)]
     return present_reforgers
+
+
+def get_sparclur_imagers():
+    present_imagers: List[ImageDataExtractor] = \
+        [imager for imager in _sparclur_parsers.values() if issubclass(imager, ImageDataExtractor)]
+    return present_imagers

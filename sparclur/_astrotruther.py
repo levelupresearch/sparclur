@@ -90,20 +90,20 @@ def _parse_document(parser_name, exclude, doc, timeout, parser_args):
         for key, value in cleaned_messages.items():
             vector['%s::%s' % (parser.get_name(), key)] = value
         if 'validity' not in exclude:
-            vector['%s::Tracer Valid' % parser.get_name()] = 1 if parser.validate_tracer()['valid'] else 0
+            vector['%s::Tracer Valid' % parser.get_name()] = 1 if parser.validate_tracer['valid'] else 0
     if isinstance(parser, Renderer) and 'renderer' not in exclude:
         if 'validity' not in exclude:
-            vector['%s::Renderer Valid' % parser.get_name()] = 1 if parser.validate_renderer()['valid'] else 0
+            vector['%s::Renderer Valid' % parser.get_name()] = 1 if parser.validate_renderer['valid'] else 0
     if isinstance(parser, TextExtractor) and 'text' not in exclude:
         if 'validity' not in exclude:
-            vector['%s::Text Extraction Valid' % parser.get_name()] = 1 if parser.validate_text()['valid'] else 0
+            vector['%s::Text Extraction Valid' % parser.get_name()] = 1 if parser.validate_text['valid'] else 0
     if isinstance(parser, MetadataExtractor) and 'metadata' not in exclude:
         if 'validity' not in exclude:
-            vector['%s::Metadata Extraction Valid' % parser.get_name()] = 1 if parser.validate_metadata()['valid'] else 0
+            vector['%s::Metadata Extraction Valid' % parser.get_name()] = 1 if parser.validate_metadata['valid'] else 0
     if isinstance(parser, FontExtractor) and 'font' not in exclude:
         vector['%s::Non-embedded Font' % parser.get_name()] = 1 if parser.non_embedded_fonts else 0
         if 'validity' not in exclude:
-            vector['%s::Font Extraction Valid' % parser.get_name()] = 1 if parser.validate_fonts()['valid'] else 0
+            vector['%s::Font Extraction Valid' % parser.get_name()] = 1 if parser.validate_fonts['valid'] else 0
     return vector
 
 
@@ -415,6 +415,9 @@ class Astrotruther:
         return astro
 
     def fit(self, docs, doc_loading_args=dict(), save_training_data=None):
+        """
+        Fits the model to the training data.
+        """
         X, Y = self._transform_training_data(docs, doc_loading_args, save_training_data=save_training_data)
         clf = _MODEL_SWITCHER[self._classifier](**self._classifier_args)
         self._model = clf.fit(X, Y)
@@ -429,6 +432,14 @@ class Astrotruther:
                 unseen_message_default='Not enough info',
                 prediction_column='astrotruth',
                 save_eval_data=None):
+        """
+        Uses the generated model to predict the validity of the given documents.
+
+        Returns
+        -------
+        DataFrame
+            DataFrame of the classification results
+        """
         assert self._model is not None, "Model has not been generated"
         file_col = self._file_col if file_col is None else file_col
         X = self._load_prediction_data(docs, file_col, doc_loading_args, save_eval_data)

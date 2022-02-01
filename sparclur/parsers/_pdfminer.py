@@ -27,7 +27,7 @@ from sparclur.utils._tools import _get_config_param
 
 
 class PDFMiner(TextExtractor, MetadataExtractor):
-    """PDFMiner Text Extraction"""
+    """PDFMiner Text Extraction https://pdfminersix.readthedocs.io/en/latest/"""
 
     def __init__(self, doc: str or bytes,
                  temp_folders_dir: str = None,
@@ -39,7 +39,21 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                  all_texts: bool = None,
                  stream_output: str = None,
                  suppress_warnings: bool = None):
-
+        """
+        Parameters
+        ----------
+        page_delimiter: str
+            Marks the end str that separates pages in pdftotext
+        detect_vertical : bool
+            Flag to detect vertically oriented text
+        all_texts : bool
+            If layout analysis should be performed on text in figures
+        stream_output : {`None`, 'raw', 'text', 'binary'}
+            `None` indicates that streams should not be returned in the metadata. 'raw' is the stream object without
+            encoding. 'binary' is the stream object with binary encoding. 'text' is the stream as plain text.
+        suppress_warnings : bool
+            EXPERIMENTAL: Tries to suppress the messages that PDFMiner displays during parsing.
+        """
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
         with open('../../sparclur.yaml', 'r') as yaml_in:
             config = yaml.full_load(yaml_in)
@@ -105,6 +119,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                 except:
                     pass
 
+    @property
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
@@ -135,6 +150,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
             self._can_meta_extract = pdfminer_present
         return self._can_meta_extract
 
+    @property
     def validate_metadata(self) -> Dict[str, Any]:
         if META not in self._validity:
             validity_results = dict()

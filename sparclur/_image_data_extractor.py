@@ -5,19 +5,43 @@ from typing import Dict, Any, List
 
 class ImageDataExtractor(Parser, metaclass=abc.ABCMeta):
     """
-        Abstract class for wrapping up parsers that extract image information from PDFs. Image content is not extracted.
+    Abstract class for wrapping up parsers that extract image information from PDFs. Image content is not extracted.
     """
 
-    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, hash_exclude, *args, **kwargs):
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          timeout=timeout,
+                         hash_exclude=hash_exclude,
                          *args,
                          **kwargs)
+        image_apis = {'can_extract_image_data': """(Property) Boolean for whether or not image data extraction 
+                                                capability is present""",
+                      'contains_jpeg': '(Property) Returns True if jpeg data was extracted from the PDF',
+                      'contains_images': '(Property) Returns True if image data was extracted from the PDF',
+                      'images': '(Property) Returns the image data that was extracted from the PDF',
+                      'validate_image_data': '(Property) Determines the PDF validity for image data extraction'
+                      }
+        self._api.update(image_apis)
         self._contains_jpeg: bool = None
         self._contains_images: bool = None
         self._images: List[Dict[str, Any]] = None
+        self._can_extract_image_data: bool = None
+
+    @property
+    def can_extract_image_data(self):
+        if self._can_extract_image_data is None:
+            self._can_extract_image_data = self._check_for_image_data_extraction()
+        return self._can_extract_font
+
+    @can_extract_image_data.deleter
+    def can_extract_font(self):
+        self._can_extract_font = None
+
+    @abc.abstractmethod
+    def _check_for_image_data_extraction(self) -> bool:
+        pass
 
     @property
     def contains_jpeg(self):
@@ -63,14 +87,25 @@ class ImageDataExtractor(Parser, metaclass=abc.ABCMeta):
     def _get_image_data(self):
         pass
 
+    @property
     @abc.abstractmethod
     def validate_image_data(self):
+        """
+        Checks whether or not image data can be successfully extracted from a document. Any issues or errors will result
+         in a 'Rejected' classification.
+
+        Returns
+        -------
+        Dict[str, str]
+            A dictionary containing a boolean for validity, a classification label for validity, and relevant info for
+            the classification
+        """
         pass
 
     @property
     def validity(self):
         if IMAGE not in self._validity:
-            self._validity[IMAGE] = self.validate_image_data()
+            self._validity[IMAGE] = self.validate_image_data
         return super().validity
 
     @property

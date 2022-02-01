@@ -26,21 +26,49 @@ SYSTEM_FONTS = ["Courier",
 
 class FontExtractor(Parser, metaclass=abc.ABCMeta):
     """
-        Abstract class for wrapping up parsers that extract font information from PDFs.
+    Abstract class for wrapping up parsers that extract font information from PDFs.
     """
 
-    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, hash_exclude, *args, **kwargs):
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          timeout=timeout,
+                         hash_exclude=hash_exclude,
                          *args,
                          **kwargs)
         self._non_embedded_fonts: bool = None
         self._fonts: List[Dict[str, Any]] = None
+        font_apis = {'can_extract_font': '(Property) Boolean for whether or not font extraction is present',
+                     'non_embedded_fonts': '(Property) Returns true if the document is missing non-system fonts',
+                     'fonts': '(Property) Returns the font information for the PDF',
+                     'validate_fonts': '(Property) Determines the PDF validity for font info extraction'}
+        self._api.update(font_apis)
+        self._can_extract_font: bool = None
+
+    @property
+    def can_extract_font(self):
+        if self._can_extract_font is None:
+            self._can_extract_font = self._check_for_font_extraction()
+        return self._can_extract_font
+
+    @can_extract_font.deleter
+    def can_extract_font(self):
+        self._can_extract_font = None
+
+    @abc.abstractmethod
+    def _check_for_font_extraction(self) -> bool:
+        pass
 
     @property
     def non_embedded_fonts(self):
+        """
+        Determine whether or not there are non-embedded fonts in the PDF. Returns True if there are missing fonts.
+
+        Returns
+        -------
+        bool
+        """
         if self._non_embedded_fonts is not None:
             return self._non_embedded_fonts
         else:
@@ -70,6 +98,13 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
 
     @property
     def fonts(self):
+        """
+        Extracts the detected fonts from the PDF file.
+
+        Returns
+            Dict[str, Any]
+        -------
+        """
         if self._fonts is None:
             _ = self._get_fonts()
         return self._fonts
@@ -82,14 +117,25 @@ class FontExtractor(Parser, metaclass=abc.ABCMeta):
     def _get_fonts(self):
         pass
 
+    @property
     @abc.abstractmethod
     def validate_fonts(self):
+        """
+        Checks whether or not fonts can be successfully extracted from a document. Any issues or errors will result in a
+        'Rejected' classification.
+
+        Returns
+        -------
+        Dict[str, str]
+            A dictionary containing a boolean for validity, a classification label for validity, and relevant info for the
+            classification
+        """
         pass
 
     @property
     def validity(self):
         if FONT not in self._validity:
-            _ = self.validate_fonts()
+            _ = self.validate_fonts
         return super().validity
 
     @property

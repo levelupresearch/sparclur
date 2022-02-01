@@ -48,29 +48,17 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         """
         Parameters
         ----------
-        doc_path : str
-            Full path to the document to be traced.
-        skip_check: bool
-            Flag for skipping the parser check.
+        trace : {'pdftoppm', 'pdftocairo'}
+            Specify which tool to collect trace messaging from
         binary_path : str
             If the Poppler binaries are not in the system PATH, add the path to the binaries here. Can also be used to
             use and compare specific versions of the binary.
-        temp_folders_dir : str
-            Path to create the temporary directories used for temporary files.
         page_delimiter: str
             Marks the end str that separates pages in pdftotext
         maintain_layout: bool
             Tries to maintain the original physical layout of the text. Otherwise uses read order.
-        dpi : int
-            Dots per inch used in rendering the document
         size : int or tuple or Dict[int, int] or Dict[int, tuple]
             fix size for the document or for individual pages
-        cache_renders : bool
-            Specify whether or not renders should be retained in the object
-        timeout : int
-            Specify a timeout for rendering
-        ocr: bool
-            Specify whether or not to OCR for text extraction
         """
 
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -232,6 +220,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 self._successfully_reforged = False
                 self._reforge_result = str(e)
 
+    @property
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
@@ -262,6 +251,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             self._validity[TRACER] = validity_results
         return self._validity[TRACER]
 
+    @property
     def validate_renderer(self) -> Dict[str, Any]:
         if RENDER not in self._validity:
             if self._trace != 'pdftoppm':
@@ -273,16 +263,17 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 self._trace_cmd = self._pdftoppm_path
                 self._messages = None
                 self._cleaned = None
-                validity_results = self.validate_tracer()
+                validity_results = self.validate_tracer
                 self._trace = orig_trace
                 self._messages = orig_message
                 self._cleaned = orig_cleaned
                 self._trace_cmd = orig_trace_cmd
             else:
-                validity_results = self.validate_tracer()
+                validity_results = self.validate_tracer
             self._validity[RENDER] = validity_results
         return self._validity[RENDER]
 
+    @property
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
@@ -323,6 +314,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 self._text = old_text
         return self._validity[TEXT]
 
+    @property
     def validate_image_data(self):
         if IMAGE not in self._validity:
             validity_results = dict()
@@ -350,6 +342,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             self._validity[IMAGE] = validity_results
         return self._validity[IMAGE]
 
+    @property
     def validate_fonts(self):
         if FONT not in self._validity:
             validity_results = dict()
@@ -387,6 +380,22 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 (_, err) = sp.communicate()
                 self._can_extract = 'Poppler' in err.decode(self._decoder)
         return self._can_extract
+
+    def _check_for_image_data_extraction(self) -> bool:
+        if self._can_extract_image_data is None:
+            sp = subprocess.Popen(shlex.split(self._pdfimages_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+                                  shell=False)
+            (_, err) = sp.communicate()
+            self._can_extract_image_data = 'Poppler' in err.decode(self._decoder)
+        return self._can_extract_image_data
+
+    def _check_for_font_extraction(self) -> bool:
+        if self._can_extract_font is None:
+            sp = subprocess.Popen(shlex.split(self._pdffonts_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+                                  shell=False)
+            (_, err) = sp.communicate()
+            self._can_extract_font = 'Poppler' in err.decode(self._decoder)
+        return self._can_extract_font
 
     @staticmethod
     def get_name():
