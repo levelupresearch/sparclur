@@ -4,7 +4,7 @@ SPARCLUR (Sparclur) is a collection of various wrappers for extant PDF
 parsers and renderers and tools for comparing and analyzing the outputs from
 these parsers.
 
-##Contents
+## Contents
 - [Parsers](#parsers)
   - [Arlington DOM Checker](#arlington-dom-checker)
   - [Ghostscript](#ghostscript)
@@ -14,7 +14,7 @@ these parsers.
   - [Poppler](#poppler)
   - [QPDF](#qpdf)
   - [XPDF](#xpdf)
-- [Config] (#config)
+- [Config](#config)
 - [Tools](#tools)
   - [Parser Wrappers](#parser-wrappers)
   - [Parser Trace Comparator](#parser-trace-comparator-ptc)
