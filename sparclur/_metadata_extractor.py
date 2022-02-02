@@ -2,6 +2,7 @@ import abc
 
 import mmh3
 
+from sparclur._metaclass import Meta
 from sparclur._parser import Parser, META
 from typing import Dict, Any
 
@@ -10,7 +11,7 @@ from sparclur.utils import stringify_dict
 METADATA_SUCCESS = "Metadata successfully extracted"
 
 
-class MetadataExtractor(Parser, metaclass=abc.ABCMeta):
+class MetadataExtractor(Parser, metaclass=Meta):
     """
     Abstract class for wrapping up parsers that allow for extracting PDF metadata.
     """

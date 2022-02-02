@@ -1,9 +1,10 @@
 import abc
 
+from sparclur._metaclass import Meta
 from sparclur._parser import Parser
 
 
-class Reforger(Parser, metaclass=abc.ABCMeta):
+class Reforger(Parser, metaclass=Meta):
     """
     Abstract class for parsers with tools for PDF clean-up and reconstruction.
     """

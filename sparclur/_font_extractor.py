@@ -3,6 +3,7 @@ import copy
 
 import mmh3
 
+from sparclur._metaclass import Meta
 from sparclur._parser import Parser, FONT
 from typing import Dict, Any, List
 
@@ -24,7 +25,7 @@ SYSTEM_FONTS = ["Courier",
                             "ZapfDingbats"]
 
 
-class FontExtractor(Parser, metaclass=abc.ABCMeta):
+class FontExtractor(Parser, metaclass=Meta):
     """
     Abstract class for wrapping up parsers that extract font information from PDFs.
     """

@@ -1,10 +1,11 @@
 import abc
 
+from sparclur._metaclass import Meta
 from sparclur._renderer import Renderer
 from sparclur._text_extractor import TextExtractor
 
 
-class Hybrid(TextExtractor, Renderer, metaclass=abc.ABCMeta):
+class Hybrid(TextExtractor, Renderer, metaclass=Meta):
     """
         Abstract class to handle parsers that both render and have text extraction.
     """

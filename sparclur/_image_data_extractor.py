@@ -1,9 +1,11 @@
 import abc
+
+from sparclur._metaclass import Meta
 from sparclur._parser import Parser, IMAGE
 from typing import Dict, Any, List
 
 
-class ImageDataExtractor(Parser, metaclass=abc.ABCMeta):
+class ImageDataExtractor(Parser, metaclass=Meta):
     """
     Abstract class for wrapping up parsers that extract image information from PDFs. Image content is not extracted.
     """

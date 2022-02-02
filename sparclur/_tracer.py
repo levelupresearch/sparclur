@@ -2,11 +2,12 @@ import abc
 
 import mmh3
 
+from sparclur._metaclass import Meta
 from sparclur._parser import Parser, TRACER
 from typing import List, Dict, Any
 
 
-class Tracer(Parser, metaclass=abc.ABCMeta):
+class Tracer(Parser, metaclass=Meta):
     """
         Abstract class for wrapping the process of getting error messages from a parser.
 

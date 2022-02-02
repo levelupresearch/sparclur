@@ -1,13 +1,15 @@
 import abc
 import re
 from typing import Dict, Any
+
+from sparclur._metaclass import Meta
 from sparclur._parser import Parser
 from sparclur.utils._tools import shingler, jac_dist, lev_dist
 import sys
 from spacy.lang.en import English
 
 
-class TextCompare(Parser, metaclass=abc.ABCMeta):
+class TextCompare(Parser, metaclass=Meta):
     """
     An abstract class that encapsulates parsers with Text Extraction capabilities and also Renderers when used in
     conjunction with OCR.

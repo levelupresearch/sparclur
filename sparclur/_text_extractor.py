@@ -2,13 +2,15 @@ import abc
 from typing import Dict, Any
 
 import mmh3
+
+from sparclur._metaclass import Meta
 from sparclur.utils import shingler
 
 from sparclur._text_compare import TextCompare
 from sparclur._parser import TEXT
 
 
-class TextExtractor(TextCompare, metaclass=abc.ABCMeta):
+class TextExtractor(TextCompare, metaclass=Meta):
     """
     Abstract class for parsers with text extraction capabilities.
     """

@@ -6,7 +6,7 @@ import sys
 module_path = os.path.abspath('../../../sparclur/')
 if module_path not in sys.path:
     sys.path.append(module_path)
-from sparclur.prc.viz import PRCViz
+from sparclur.prc._viz import PRCViz
 from sparclur.parsers.present_parsers import get_sparclur_renderers
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]

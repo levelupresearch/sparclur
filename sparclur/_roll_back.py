@@ -51,20 +51,6 @@ def _find_updates(doc: Union[str, bytes]) -> List[int]:
     return updates
 
 
-def _num_updates(doc: Union[str, bytes]) -> bool:
-    if isinstance(doc, str):
-        with open(doc, 'rb') as file_in:
-            raw = file_in.read()
-    else:
-        raw = doc
-    num_eofs = raw.count(b'%%EOF')
-    num_xrefs = raw.count(b'startxref')
-    if num_eofs == num_xrefs:
-        return num_eofs
-    else:
-        return 0
-
-
 def _find_all(a_str, sub):
     start = 0
     while True:
@@ -88,8 +74,7 @@ class RollBack:
         """
         self._doc = doc
         updates = _find_updates(doc)
-        self._num_updates = len(updates)
-        # self._versions = {version: raw[slice(0, idx+7)] for (version, idx) in enumerate(_find_all(raw, b'%%EOF'))}
+        self._num_versions = len(updates)
         self._versions = {version: offset for (version, offset) in enumerate(updates)}
 
     @property
@@ -101,10 +86,10 @@ class RollBack:
         -------
         bool
         """
-        return self._num_updates > 1
+        return self._num_versions > 1
 
     @property
-    def num_updates(self):
+    def num_versions(self):
         """
         The number of detected updates in the document.
 
@@ -112,7 +97,7 @@ class RollBack:
         -------
         int
         """
-        return self._num_updates
+        return self._num_versions
 
     def get_version(self, version: int):
         """
@@ -122,7 +107,7 @@ class RollBack:
         -------
         bytes
         """
-        assert self._num_updates > version >= 0, "Version must be between 0 and %i" % self._num_updates - 1
+        assert self._num_versions > version >= 0, "Version must be between 0 and %i" % self._num_versions - 1
         if isinstance(self._doc, str):
             with open(self._doc, 'rb') as file_in:
                 raw = file_in.read()
@@ -166,7 +151,7 @@ class RollBack:
             p = get_parser(parser)(raw, **parser_args)
             tokens[version] = set(gen_flatten(p.get_tokens().values()))
         text_diffs = dict()
-        for i in range(self._num_updates - 1):
+        for i in range(self._num_versions - 1):
             text_diffs['%i->%i' % (i, i+1)] = {'added': len(tokens[i+1].difference(tokens[i])),
                                                'removed': len(tokens[i].difference(tokens[i+1]))}
         x = list(text_diffs.keys())
@@ -229,9 +214,9 @@ class RollBack:
             else:
                 versions = None
         if versions is None:
-            if self._num_updates > 11:
-                print("%i versions detected. Only comparing the latest 11." % self._num_updates)
-                versions = list(range(self._num_updates - 11, self._num_updates))
+            if self._num_versions > 11:
+                print("%i versions detected. Only comparing the latest 11." % self._num_versions)
+                versions = list(range(self._num_versions - 11, self._num_versions))
             else:
                 versions = list(self._versions.keys())
         else:

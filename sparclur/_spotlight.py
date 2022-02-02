@@ -352,7 +352,8 @@ class SpotlightResult:
 
     def sim_heatmap(self, parsers: str or List[str] = None,
                     report: str = 'sim',
-                    detailed: bool = True,
+                    annotated: bool = True,
+                    detailed: bool = False,
                     compare_orig: bool = True,
                     height: int = 10,
                     width: int = 10,
@@ -367,8 +368,10 @@ class SpotlightResult:
         report : {'sim', 'Renderer sim', 'Text Extractor sim', 'Tracer sim'}
             The specific similarity score to run. Choose one of `sim`, `Renderer sim`, `Text Extractor sim` or
             `Tracer sim`
-        detailed : bool
-            Flag for displaying the similarity score
+        annotated : bool, default=True
+            Flag for whether or not similarity scores should be displayed on the heatmap
+        detailed : bool, default=False
+            Flag for displaying all similarity scores for each parser
         compare_orig : bool
             Whether reforge<->original comparison scores should be displayed in the heatmap. These comparisons don't
             impact the recoverablity of the file and would only provide insight into a differential between the original
@@ -389,7 +392,7 @@ class SpotlightResult:
         df = pd.DataFrame(d, columns=columns, index=['%s/%s' % (v1, v2) for v1, v2 in comparisons])
 
         fig, ax = plt.subplots(figsize=(width, height))
-        if not detailed:
+        if not annotated:
             ax = sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
         else:
             ax = sns.heatmap(df, vmin=.6, vmax=1, annot=True, fmt=".2f", cmap='RdBu')

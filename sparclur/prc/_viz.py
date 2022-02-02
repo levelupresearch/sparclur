@@ -13,6 +13,7 @@ from sparclur.prc._prc import _parse_viz_renderers
 
 AVAILABLE_RENDERERS = {r.get_name(): r for r in get_sparclur_renderers()}
 
+
 class PRCViz:
     """
     PDF Render Comparator
@@ -62,7 +63,7 @@ class PRCViz:
                 self._renders[name] = renderer(doc=doc_path, **args)
             # if mpg_path is not None:
             #     self._mpg_renders[name] = renderer(doc_path=doc_path, **args)
-        assert len(set([renderer.doc_path for renderer in self._renders.values()])) == 1, \
+        assert len(set([renderer.doc for renderer in self._renders.values()])) == 1, \
             "Document paths do not match for all renderers"
         self._sim_keys = list(itertools.combinations(self._renders.keys(), 2))
         for combo in self._sim_keys:

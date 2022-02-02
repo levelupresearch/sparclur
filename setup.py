@@ -33,6 +33,7 @@ setuptools.setup(
         'PyYAML',
         'mmh3',
         'seaborn',
-        'plotly'
+        'plotly',
+        'docstring-inheritance'
     ]
 )

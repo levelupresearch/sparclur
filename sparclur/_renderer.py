@@ -9,6 +9,7 @@ from imagehash import dhash
 from skimage.metrics import structural_similarity
 import numpy as np
 
+from sparclur._metaclass import Meta
 from sparclur._prc_sim import PRCSim
 from sparclur._text_compare import TextCompare
 from sparclur._parser import RENDER, RENDER_HASH_SIZE
@@ -203,7 +204,7 @@ def _template_ssim(pil1, pil2, top_left):
     return ssim, diff
 
 
-class Renderer(TextCompare, metaclass=abc.ABCMeta):
+class Renderer(TextCompare, metaclass=Meta):
     """
     Abstract class for PDF renderers.
     """
