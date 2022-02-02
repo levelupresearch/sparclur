@@ -470,6 +470,7 @@ class Spotlight:
     def __init__(self, num_workers: int = 1,
                  temp_folders_dir: str = None,
                  dpi: int = 72,
+                 hash_first_page: bool = False,
                  parsers: Union[List[str], None] = None,
                  parser_args: Dict[str, Dict[str, Any]] = dict(),
                  timeout: int = None,
@@ -484,6 +485,8 @@ class Spotlight:
             Path to create the temporary directories used for temporary files.
         dpi : int, default=72
             The resolution for the renders produced during processing.
+        hash_first_page : bool
+            Specify whether only the render of the first page should be hashed.
         parsers : List[str], default=None
             Specify the parsers to run. Passing in `None` will use all available parsers.
         parser_args: dict
@@ -494,6 +497,7 @@ class Spotlight:
             Flag for displaying a progress bar
         """
         self._dpi = dpi
+        self._hash_first_page = hash_first_page
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
         if parsers is not None:
@@ -524,6 +528,8 @@ class Spotlight:
             kwargs = {'doc': doc, 'timeout': 120, 'temp_folders_dir': self._temp_folders_dir}
             if 'dpi' in sig.parameters:
                 kwargs['dpi'] = self._dpi
+            if 'hash_first_page' in sig.parameters:
+                kwargs['hash_first_page'] = self._hash_first_page
             p = parser(**kwargs)
             try:
                 for sub_folder in self._parsers:

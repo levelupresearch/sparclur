@@ -215,6 +215,7 @@ class Renderer(TextCompare, metaclass=Meta):
                  timeout,
                  temp_folders_dir,
                  hash_exclude,
+                 hash_first_page,
                  dpi,
                  cache_renders,
                  *args,
@@ -226,6 +227,8 @@ class Renderer(TextCompare, metaclass=Meta):
             Set the dots-per-inch for the rendering
         cache_renders : bool
             Whether or not the renders should be cached in the object.
+        hash_first_page : bool
+            Specify whether only the first page should be hashed.
         """
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
@@ -249,6 +252,7 @@ class Renderer(TextCompare, metaclass=Meta):
         self._caching = cache_renders
         self._logs = dict()
         self._can_render: bool = None
+        self._first_hash_only = hash_first_page
 
     @property
     @abc.abstractmethod
@@ -265,8 +269,12 @@ class Renderer(TextCompare, metaclass=Meta):
     @property
     def sparclur_hash(self):
         if RENDER not in self._sparclur_hash and RENDER not in self._sparclur_hash.excluded:
+            if self._first_hash_only:
+                page = 0
+            else:
+                page = None
             try:
-                renders = self.get_renders()
+                renders = self.get_renders(page)
                 hashes = dict()
                 for page, pil in renders.items():
                     hashes[page] = dhash(pil, hash_size=RENDER_HASH_SIZE)
