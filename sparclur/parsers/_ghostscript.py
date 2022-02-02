@@ -33,7 +33,8 @@ class Ghostscript(Renderer, Reforger):
                  size: Tuple[int] or int = None,
                  cache_renders: bool = None,
                  timeout: int = None,
-                 hash_exclude: str or List[str] = None):
+                 hash_exclude: str or List[str] = None,
+                 hash_first_page: bool = False):
         """
         Parameters
         ----------
@@ -56,6 +57,7 @@ class Ghostscript(Renderer, Reforger):
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          hash_exclude=hash_exclude,
+                         hash_first_page=hash_first_page,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          verbose=True,
