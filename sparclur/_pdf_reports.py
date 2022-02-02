@@ -216,6 +216,9 @@ class SparclurReport:
         self._save_path = sp
 
     def generate_report(self):
+        """
+        Runs report generation.
+        """
         num_files = len(self._docs)
         pmd = "# %s\n\n" % self._title
         pmd = pmd + _import_block(self._sparclur_path)

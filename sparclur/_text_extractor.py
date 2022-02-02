@@ -2,21 +2,31 @@ import abc
 from typing import Dict, Any
 
 import mmh3
+
+from sparclur._metaclass import Meta
 from sparclur.utils import shingler
 
 from sparclur._text_compare import TextCompare
 from sparclur._parser import TEXT
 
 
-class TextExtractor(TextCompare, metaclass=abc.ABCMeta):
-
+class TextExtractor(TextCompare, metaclass=Meta):
+    """
+    Abstract class for parsers with text extraction capabilities.
+    """
     @abc.abstractmethod
-    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, hash_exclude, *args, **kwargs):
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
-                         timeout=timeout, *args, **kwargs)
+                         timeout=timeout,
+                         hash_exclude=hash_exclude,
+                         *args,
+                         **kwargs)
+        text_apis = {'validate_text': '(Property) Determines the PDF validity for the text extraction process'}
+        self._api.update(text_apis)
 
+    @property
     @abc.abstractmethod
     def validate_text(self) -> Dict[str, Any]:
         """
@@ -31,7 +41,7 @@ class TextExtractor(TextCompare, metaclass=abc.ABCMeta):
     @property
     def validity(self):
         if TEXT not in self._validity:
-            self._validity[TEXT] = self.validate_text()
+            self._validity[TEXT] = self.validate_text
         return super().validity
 
     @property

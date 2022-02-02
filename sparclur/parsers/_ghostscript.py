@@ -37,18 +37,8 @@ class Ghostscript(Renderer, Reforger):
         """
         Parameters
         ----------
-        doc : str or bytes
-            Full path to the document to be traced or the byte stream of a pdf
-        temp_folders_dir : str
-            Path to create the temporary directories used for temporary files.
-        dpi : int
-            Dots per inch used in rendering the document
         size : int or tuple or Dict[int, int] or Dict[int, tuple]
             fix size for the document or for individual pages
-        cache_renders : bool
-            Specify whether or not renders should be retained in the object
-        timeout : int
-            Specify a timeout for rendering
         """
 
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -126,6 +116,7 @@ class Ghostscript(Renderer, Reforger):
             self._can_render = self._check_for_reforger()
         return self._can_render
 
+    @property
     def validate_renderer(self):
         if RENDER in self._validity:
             return self._validity[RENDER]

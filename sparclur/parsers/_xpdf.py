@@ -47,27 +47,15 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         """
         Parameters
         ----------
-        doc_path : str
-            Full path to the document to be traced.
-        skip_check: bool
-            Flag for skipping the parser check.
         binary_path : str
             If the Poppler binaries are not in the system PATH, add the path to the binaries here. Can also be used to
             use and compare specific versions of the binary.
-        temp_folders_dir : str
-            Path to create the temporary directories used for temporary files.
         page_delimiter: str
             Marks the end str that separates pages in pdftotext
         maintain_layout: bool
             Tries to maintain the original physical layout of the text. Otherwise uses read order.
-        dpi : int
-            Dots per inch used in rendering the document
-        cache_renders : bool
-            Specify whether or not renders should be retained in the object
-        timeout : int
-            Specify a timeout for rendering
-        ocr: bool
-            Specify whether or not to OCR for text extraction
+        size : int or tuple or Dict[int, int] or Dict[int, tuple]
+            fix size for the document or for individual pages
         """
 
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -147,6 +135,15 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             self._can_render = trace_present
         return self._can_trace
 
+    def _check_for_font_extraction(self) -> bool:
+        if self._can_extract_font is None:
+            sp = subprocess.Popen(shlex.split(self._pdffonts_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
+                                  shell=False)
+            (_, err) = sp.communicate()
+            self._can_extract_font = 'pdffonts' in err.decode(self._decoder)
+        return self._can_extract_font
+
+    @property
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
@@ -177,12 +174,14 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             self._validity[TRACER] = validity_results
         return self._validity[TRACER]
 
+    @property
     def validate_renderer(self) -> Dict[str, Any]:
         if RENDER not in self._validity:
-            validity_results = self.validate_tracer()
+            validity_results = self.validate_tracer
             self._validity[RENDER] = validity_results
         return self._validity[RENDER]
 
+    @property
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
@@ -223,6 +222,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 self._text = old_text
         return self._validity[TEXT]
 
+    @property
     def validate_fonts(self):
         if FONT not in self._validity:
             validity_results = dict()

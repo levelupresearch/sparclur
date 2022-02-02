@@ -1,0 +1,14 @@
+Parser:
+  temp_folders_dir: '/path/to/temp/parent/directory/'
+  timeout: 120
+
+Renderer:
+  dpi: 72
+  cache_renders: False
+
+Arlington:
+  arlington_path: '/path/to/repo/'
+  version: '1.7'
+
+XPDF:
+  binary_path: '/path/to/binary/directory/'

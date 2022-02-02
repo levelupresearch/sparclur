@@ -29,13 +29,9 @@ class QPDF(Tracer, MetadataExtractor):
         """
         Parameters
         ----------
-        doc_path : str
-            Full path to the document to be traced.
         binary_path : str
             If the qpdf binary is not in the system PATH, add the path to the binary here. Can also be used to trace
             specific versions of the binary.
-        temp_folders_dir : str
-            Path to create the temporary directories used for temporary files.
         """
 
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -77,6 +73,7 @@ class QPDF(Tracer, MetadataExtractor):
             self._can_meta_extract = qpdf_present
         return self._can_trace
 
+    @property
     def validate_tracer(self) -> Dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
@@ -118,9 +115,10 @@ class QPDF(Tracer, MetadataExtractor):
             self._can_meta_extract = qpdf_present
         return self._can_meta_extract
 
+    @property
     def validate_metadata(self) -> Dict[str, Any]:
         if META not in self._validity:
-            _ = self.validate_tracer()
+            _ = self.validate_tracer
         return self._validity[META]
 
     @staticmethod

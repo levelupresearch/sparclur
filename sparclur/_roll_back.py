@@ -1,6 +1,7 @@
 import multiprocessing
 from math import ceil
-from typing import Union
+from typing import Union, List
+from io import BytesIO
 
 from func_timeout import func_timeout
 
@@ -9,6 +10,10 @@ from sparclur.utils import gen_flatten
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from pebble import ProcessPool
+
+EOF = b'%%EOF'
+XREF = b'startxref'
+LINEAR = b'/Linearized'
 
 
 def _render_compare_worker(entry):
@@ -22,18 +27,28 @@ def _render_compare_worker(entry):
     return '%i->%i' % (left_version, right_version), {page: prc.sim for (page, prc) in page_sims.items()}
 
 
-def _num_updates(doc: Union[str, bytes]) -> bool:
+def _find_updates(doc: Union[str, bytes]) -> List[int]:
     if isinstance(doc, str):
         with open(doc, 'rb') as file_in:
             raw = file_in.read()
     else:
         raw = doc
-    num_eofs = raw.count(b'%%EOF')
-    num_xrefs = raw.count(b'startxref')
-    if num_eofs == num_xrefs:
-        return num_eofs
-    else:
-        return 0
+    potential_updates = list(_find_all(raw, EOF))
+    previous_offset = 0
+    updates = []
+    is_linear = False
+    has_startxref = False
+    for offset in potential_updates:
+        if raw[previous_offset:offset].find(LINEAR) > 0:
+            is_linear = True
+        if raw[previous_offset:offset].find(XREF) > 0:
+            has_startxref = True
+        if not is_linear and has_startxref:
+            updates.append(offset)
+        previous_offset = offset
+        is_linear = False
+        has_startxref = False
+    return updates
 
 
 def _find_all(a_str, sub):
@@ -51,40 +66,92 @@ class RollBack:
     def __init__(self,
                  doc: Union[str, bytes]
                  ):
-
-        if isinstance(doc, str):
-            with open(doc, 'rb') as file_in:
-                raw = file_in.read()
-        self._raw = raw
-        self._num_updates = _num_updates(raw)
-        self._versions = {version: raw[slice(0, idx+7)] for (version, idx) in enumerate(_find_all(raw, b'%%EOF'))}
+        """
+        Parameters
+        ----------
+        doc : str or bytes
+            The document to check for incremental updates.
+        """
+        self._doc = doc
+        updates = _find_updates(doc)
+        self._num_versions = len(updates)
+        self._versions = {version: offset for (version, offset) in enumerate(updates)}
 
     @property
     def contains_updates(self):
-        return self._num_updates > 1
+        """
+        Whether or not the document has incremental updates.
+
+        Returns
+        -------
+        bool
+        """
+        return self._num_versions > 1
 
     @property
-    def num_updates(self):
-        return self._num_updates
+    def num_versions(self):
+        """
+        The number of detected updates in the document.
+
+        Returns
+        -------
+        int
+        """
+        return self._num_versions
 
     def get_version(self, version: int):
-        assert self._num_updates > version >= 0, "Version must be between 0 and %i" % self._num_updates - 1
-        return self._versions.get(version, b'')
+        """
+        Return the specified version. Versions are 0-indexed.
+
+        Returns
+        -------
+        bytes
+        """
+        assert self._num_versions > version >= 0, "Version must be between 0 and %i" % self._num_versions - 1
+        if isinstance(self._doc, str):
+            with open(self._doc, 'rb') as file_in:
+                raw = file_in.read()
+        else:
+            raw = self._doc
+        return raw[slice(0, self._versions.get(version) + 7)]
 
     def save_version(self, version: int, save_path: str):
-        assert self._num_updates > version >= 0, "Version must be between 0 and %i" % self._num_updates - 1
+        """
+        Save the specified incremental update version. Versions are 0-indexed.
+        """
+        raw = self._get_version(version)
         with open(save_path, 'wb') as file_out:
-            file_out.write(self._versions.get(version, self._versions[0]))
+            file_out.write(raw)
 
     def compare_text(self, parser='Poppler', parser_args=dict(), display_width=10, display_height=10):
+        """
+        Compares the extracted text tokens between subsequent versions and plots the number of additions and
+        subtractions in stacked bars. The Parser needs to support text extraction.
+
+        Parameters
+        ----------
+        parser : str, default='Poppler'
+            Name of the parser to use for the text extraction
+        parser_args : Dict[str, Any]
+            Any specific arguments to pass to the selected parser
+        display_width : int
+            The width of the resulting plot
+        display_height : int
+            The height of the resulting plot
+
+        Returns
+        -------
+        PyPlot figure
+        """
         assert self.contains_updates, "No incremental updates detected."
         assert parser in [p.get_name() for p in get_sparclur_texters()], '%s does not support text extraction' % parser
         tokens = dict()
-        for (version, raw) in self._versions.items():
+        for version in self._versions.keys():
+            raw = self.get_version(version)
             p = get_parser(parser)(raw, **parser_args)
             tokens[version] = set(gen_flatten(p.get_tokens().values()))
         text_diffs = dict()
-        for i in range(self._num_updates - 1):
+        for i in range(self._num_versions - 1):
             text_diffs['%i->%i' % (i, i+1)] = {'added': len(tokens[i+1].difference(tokens[i])),
                                                'removed': len(tokens[i].difference(tokens[i+1]))}
         x = list(text_diffs.keys())
@@ -106,6 +173,39 @@ class RollBack:
                         display_width=10,
                         display_height=10,
                         ncols=5):
+        """
+        Compares the renders between subsequent versions of incremental updates. If the versions are not specified and
+        there are more than 11 versions detected, only the lastest 11 versions will be compared. The rendering
+        comparisons can be run in parallel by setting the `num_workers` greater than 1. This can be a time consuming
+        process and care should be taken in trying to compare too many versions at one time. These render comparisons
+        are then plotted by subsequent versions comparisons for each page.
+
+        Parameters
+        ----------
+        parser : str, default='Poppler'
+            The parser to use to generate the renders.
+        parser_args : Dict[str, Any]
+            Any additional arguments to pass to the specified parser
+        num_workers : int, default=1
+            The number of workers to use if render comparisons are run in parallel. Choose 1 to run serially.
+        versions : List[int], default=None
+            The specific versions to compare. If the versions are not contiguous, they will be sorted and comparisons
+            will happen between neighbors in the sorted list.
+        progress_bar : bool, default=True
+            Flag that determines if a progress bar for the render comparisons is displayed
+        timeout : int, default=120
+            A timeout parameter for the rendering comparison
+        display_width : int
+            The width of the resulting plot
+        display_height : int
+            The height of the resulting plot
+        ncols : int
+            The number of columns in the final subplot of comparisons.
+
+        Returns
+        -------
+        PyPlot figure
+        """
         assert self.contains_updates, "No incremental updates detected."
         assert parser in [p.get_name() for p in get_sparclur_texters()], '%s does not support text extraction' % parser
         if isinstance(versions, str):
@@ -114,9 +214,9 @@ class RollBack:
             else:
                 versions = None
         if versions is None:
-            if self._num_updates > 11:
-                print("%i versions detected. Only comparing the latest 11." % self._num_updates)
-                versions = list(range(self._num_updates - 11, self._num_updates))
+            if self._num_versions > 11:
+                print("%i versions detected. Only comparing the latest 11." % self._num_versions)
+                versions = list(range(self._num_versions - 11, self._num_versions))
             else:
                 versions = list(self._versions.keys())
         else:
@@ -129,8 +229,8 @@ class RollBack:
         versions = [version for version in versions if version in self._versions.keys()]
         comparisons = []
         for (idx, version) in enumerate(versions[:-1]):
-            entry = {'left': (version, self._versions[version]),
-                     'right': (versions[idx+1], self._versions[versions[idx+1]]),
+            entry = {'left': (version, self.get_version(version)),
+                     'right': (versions[idx+1], self.get_version(versions[idx+1])),
                      'parser': parser,
                      'parser_args': parser_args}
             comparisons.append(entry)

@@ -53,7 +53,7 @@ def _prc_worker(entry):
             page_log = renderer.logs[i]
             i_result['%s_render' % name] = page_log.get('result', None)
             i_result['%s_timing' % name] = page_log.get('timing', None)
-            i_result['%s_status' % name] = renderer.validate_renderer()['status']
+            i_result['%s_status' % name] = renderer.validate_renderer['status']
         for combo in itertools.combinations(renders.keys(), 2):
             col_name = '%s_%s' % (combo[0], combo[1]) if combo[0] < combo[1] else '%s_%s' % (combo[1], combo[0])
             sim_result: PRCSim = renders[combo[0]].compare(renders[combo[1]], page=i, full=False)

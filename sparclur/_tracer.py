@@ -2,11 +2,12 @@ import abc
 
 import mmh3
 
+from sparclur._metaclass import Meta
 from sparclur._parser import Parser, TRACER
 from typing import List, Dict, Any
 
 
-class Tracer(Parser, metaclass=abc.ABCMeta):
+class Tracer(Parser, metaclass=Meta):
     """
         Abstract class for wrapping the process of getting error messages from a parser.
 
@@ -15,8 +16,19 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc, temp_folders_dir, skip_check, timeout, *args, **kwargs):
-        super().__init__(doc=doc, temp_folders_dir=temp_folders_dir, skip_check=skip_check, timeout=timeout, *args, **kwargs)
+    def __init__(self, doc, temp_folders_dir, skip_check, timeout, hash_exclude, *args, **kwargs):
+        super().__init__(doc=doc,
+                         temp_folders_dir=temp_folders_dir,
+                         skip_check=skip_check,
+                         timeout=timeout,
+                         hash_exclude=hash_exclude,
+                         *args,
+                         **kwargs)
+        trace_apis = {'can_trace': '(Property) Boolean for whether or not trace collection capability is present',
+                      'validate_tracer': '(Property) Determines the PDF validity for the tracing process',
+                      'messages': '(Property) The list of raw messages from the parser',
+                      'cleaned': '(Property) A dictionary of normalized messages with their counts'}
+        self._api.update(trace_apis)
         self._messages: List[str] = None
         self._cleaned: Dict[str, int] = None
         self._can_trace: bool = None
@@ -35,7 +47,7 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
     @property
     def validity(self):
         if TRACER not in self._validity:
-            _ = self.validate_tracer()
+            _ = self.validate_tracer
         return super().validity
 
     @property
@@ -45,6 +57,16 @@ class Tracer(Parser, metaclass=abc.ABCMeta):
             hashes = set(mmh3.hash128(message) for message in cleaned_messages.keys())
             self._sparclur_hash._add_hash(TRACER, hashes)
         return super().sparclur_hash
+
+    @property
+    def can_trace(self):
+        if self._can_trace is None:
+            self._can_trace = self._check_for_tracer()
+        return self._can_trace
+
+    @can_trace.deleter
+    def can_trace(self):
+        self._can_trace = None
 
     @abc.abstractmethod
     def _check_for_tracer(self) -> bool:
