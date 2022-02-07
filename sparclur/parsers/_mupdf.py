@@ -1,6 +1,6 @@
 import locale
 import shlex
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Tuple
 
 import yaml
 from func_timeout import func_timeout, FunctionTimedOut
@@ -35,7 +35,8 @@ class MuPDF(Tracer, Hybrid, Reforger):
     def __init__(self, doc: Union[str, bytes],
                  skip_check: Union[bool, None] = None,
                  hash_exclude: Union[str, List[str], None] = None,
-                 hash_first_page: bool = False,
+                 page_hashes: Union[int, Tuple[Any], None] = None,
+                 validate_hash: bool = False,
                  parse_streams: Union[bool, None] = None,
                  binary_path: Union[str, None] = None,
                  temp_folders_dir: Union[str, None] = None,
@@ -71,7 +72,8 @@ class MuPDF(Tracer, Hybrid, Reforger):
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          hash_exclude=hash_exclude,
-                         hash_first_page=hash_first_page,
+                         page_hashes=page_hashes,
+                         validate_hash=validate_hash,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          timeout=timeout,
@@ -92,7 +94,10 @@ class MuPDF(Tracer, Hybrid, Reforger):
         else:
             validity_results = dict()
             if len(self._logs) == 0:
-                _ = self.get_renders()
+                if self._validate_hash:
+                    _ = self.get_renders(self._parse_page_hashes)
+                else:
+                    _ = self.get_renders()
             results = [(page, value['result']) for (page, value) in self._logs.items()]
             not_successful = [result for (_, result) in results if result != SUCCESS]
             if len(results) == 0:
@@ -128,8 +133,9 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 doc_path = self._doc
             try:
                 doc = fitz.open(doc_path)
-                self._num_pages = doc.page_count
+                self._num_pages = doc.pageCount
             except Exception as e:
+                print(e)
                 self._num_pages = 0
             finally:
                 try:
@@ -186,7 +192,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 self._logs[page] = {'result': str(e), 'timing': timing}
             return mu_pil
 
-    def _render_doc(self):
+    def _render_doc(self, pages=None):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             if isinstance(self._doc, bytes):
                 file_hash = hash_file(self._doc)
@@ -199,22 +205,27 @@ class MuPDF(Tracer, Hybrid, Reforger):
             try:
                 mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
                 doc = fitz.open(doc_path)
+                num_pages = doc.pageCount
+                if num_pages == 0 and pages is not None:
+                    num_pages = max(pages) + 1
+                page_range = range(num_pages) if pages is None \
+                    else [page for page in pages if -1 < page < num_pages]
                 if len(doc) == 0:
                     doc.close()
                     raise Exception('Document failed to load')
                 pils: Dict[int, PngImageFile] = dict()
-                for page in doc:
+                for page in page_range:
                     fitz.TOOLS.reset_mupdf_warnings()
                     page_start = time.perf_counter()
                     try:
                         if self._timeout is None:
-                            pils[page.number] = self._mudraw(page, mat)
+                            pils[page.number] = self._mudraw(doc[page], mat)
                         else:
                             pils[page.number] = func_timeout(
                                 self._timeout,
                                 self._mudraw,
                                 kwargs={
-                                    'page': page,
+                                    'page': doc[page],
                                     'mat': mat
                                 }
                             )
@@ -228,8 +239,9 @@ class MuPDF(Tracer, Hybrid, Reforger):
                         self._logs[page.number] = {'result': str(e), 'timing': time.perf_counter() - page_start}
                 doc.close()
                 if self._caching:
-                    self._full_doc_rendered = True
-                    self._renders = pils
+                    if pages is None:
+                        self._full_doc_rendered = True
+                    self._renders.update(pils)
                 # timing = time.perf_counter() - start_time
                 # num_pages = len(pils)
                 # for page in pils.keys():
@@ -239,6 +251,9 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
             return pils
+
+    def _render_pages(self, pages: List[int]):
+        return self._render_doc(pages)
 
 # class MuPDF(Tracer, TextCompare):
 #     """MuPDF tracer and renderer """

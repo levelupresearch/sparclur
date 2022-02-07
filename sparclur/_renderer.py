@@ -1,7 +1,8 @@
 import abc
 
 import sys
-from typing import Dict, Any
+import random
+from typing import Dict, Any, Union, List
 from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
 from func_timeout import func_timeout, FunctionTimedOut
@@ -215,7 +216,8 @@ class Renderer(TextCompare, metaclass=Meta):
                  timeout,
                  temp_folders_dir,
                  hash_exclude,
-                 hash_first_page,
+                 page_hashes,
+                 validate_hash,
                  dpi,
                  cache_renders,
                  *args,
@@ -227,8 +229,10 @@ class Renderer(TextCompare, metaclass=Meta):
             Set the dots-per-inch for the rendering
         cache_renders : bool
             Whether or not the renders should be cached in the object.
-        hash_first_page : bool
-            Specify whether only the first page should be hashed.
+        page_hashes : int, Tuple
+            Specify specific pages to hash or a specific scheme for selecting page hashes
+        validate_hash : bool
+            Indicates that render validity should use the page hashes parameter instead of rendering the entire PDF
         """
         super().__init__(doc=doc,
                          temp_folders_dir=temp_folders_dir,
@@ -252,7 +256,8 @@ class Renderer(TextCompare, metaclass=Meta):
         self._caching = cache_renders
         self._logs = dict()
         self._can_render: bool = None
-        self._first_hash_only = hash_first_page
+        self._page_hashes = page_hashes
+        self._validate_hash = validate_hash
 
     @property
     @abc.abstractmethod
@@ -267,14 +272,40 @@ class Renderer(TextCompare, metaclass=Meta):
         pass
 
     @property
+    def _parse_page_hashes(self):
+        if self._page_hashes is not None:
+            if isinstance(self._page_hashes, int):
+                pages = self._page_hashes
+            elif isinstance(self._page_hashes, tuple):
+                if self._page_hashes[0] == 'random':
+                    num_pages = self.num_pages
+                    if num_pages == 0:
+                        pages = 0
+                    else:
+                        if len(self._page_hashes) == 3:
+                            seed = self._page_hashes[2]
+                            random.seed(seed)
+                        if self._page_hashes[1] >= num_pages:
+                            pages = list(range(num_pages))
+                        else:
+                            pages = random.sample(range(num_pages), self._page_hashes[1])
+                elif self._page_hashes[0] == 'first':
+                    pages = list(range(self._page_hashes[1]))
+                else:
+                    pages = None
+            else:
+                pages = None
+        else:
+            pages = None
+
+        return pages
+
+    @property
     def sparclur_hash(self):
         if RENDER not in self._sparclur_hash and RENDER not in self._sparclur_hash.excluded:
-            if self._first_hash_only:
-                page = 0
-            else:
-                page = None
+            pages = self._parse_page_hashes
             try:
-                renders = self.get_renders(page)
+                renders = self.get_renders(pages)
                 hashes = dict()
                 for page, pil in renders.items():
                     hashes[page] = dhash(pil, hash_size=RENDER_HASH_SIZE)
@@ -421,15 +452,26 @@ class Renderer(TextCompare, metaclass=Meta):
         """
         pass
 
-    def get_renders(self, page: int = None):
+    @abc.abstractmethod
+    def _render_pages(self, pages: List[int]):
+        """
+        Renders specific collection of pages
+
+        Returns
+        -------
+        Dict[int, PngImageFile]
+        """
+        pass
+
+    def get_renders(self, page: Union[int, List[int]] = None):
         """
         Return the renders of the object document. If page is None, return the entire rendered document. Otherwise
         returns the specified page only.
 
         Parameters
         ----------
-        page: int or None
-            zero-indexed page to be rendered. Returns the whole document if None
+        page: int, List[int], or None
+            zero-indexed page or list of pages to be rendered. Returns the whole document if None
         Returns
         -------
         PngImageFile or Dict[int, PngImageFile]
@@ -437,10 +479,21 @@ class Renderer(TextCompare, metaclass=Meta):
         assert self._skip_check or self._check_for_renderer(), "%s not found" % self.get_name()
         if self._renders:
             if page is not None:
-                if page in self._renders:
-                    result = self._renders[page]
+                if isinstance(page, int):
+                    if page in self._renders:
+                        result = self._renders[page]
+                    else:
+                        result = self._render_page(page=page)
                 else:
-                    result = self._render_page(page=page)
+                    result = dict()
+                    missing_pages = []
+                    for p in page:
+                        if p in self._renders:
+                            result[p] = self._renders[p]
+                        else:
+                            missing_pages.append(p)
+                    remaining_renders = self._render_pages(pages=missing_pages) if len(missing_pages) > 0 else dict()
+                    result.update(remaining_renders)
             else:
                 if self._full_doc_rendered:
                     result = self._renders
@@ -453,7 +506,10 @@ class Renderer(TextCompare, metaclass=Meta):
                 else:
                     result = dict()
             elif page is not None:
-                result = self._render_page(page=page)
+                if isinstance(page, int):
+                    result = self._render_page(page=page)
+                else:
+                    result = self._render_pages(pages=page)
             else:
                 result = self._render_doc()
         return result
@@ -466,8 +522,9 @@ class Renderer(TextCompare, metaclass=Meta):
         ----------
         other : Renderer
             The other Parser and document to compare this Parser and document to.
-        page : int, default=None
-            Specifiy whether a single page should be compared. If 'None', all pages are comapred.
+        page : int, List[int], default=None
+            Specifiy whether a single page or specific collection of pages should be compared.
+            If 'None', all pages are compared.
         full : bool, default=False
             Return an image of the comparison of the two document renders for each page or the specified page.
 
@@ -476,8 +533,12 @@ class Renderer(TextCompare, metaclass=Meta):
         Dict[int, PRCSim] or PRCSim
         """
         if page is not None:
-            left = {page: self.get_renders(page=page)}
-            right = {page: other.get_renders(page=page)}
+            if isinstance(page, int):
+                left = {page: self.get_renders(page=page)}
+                right = {page: other.get_renders(page=page)}
+            else:
+                left = self.get_renders(page)
+                right = self.get_renders(page)
         else:
             left = self.get_renders()
             right = other.get_renders()

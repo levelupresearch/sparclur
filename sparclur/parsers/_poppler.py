@@ -16,7 +16,7 @@ from sparclur._image_data_extractor import ImageDataExtractor
 from sparclur.parsers._poppler_helpers import _parse_poppler_size, _pdftocairo_clean_message, _pdftoppm_clean_message
 from sparclur.utils._tools import fix_splits, hash_file, _get_config_param
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import tempfile
 import subprocess
 from subprocess import DEVNULL, TimeoutExpired
@@ -33,8 +33,9 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
 
     def __init__(self, doc: str or bytes,
                  skip_check: bool = None,
-                 hash_exclude: str or List[str] = None,
-                 hash_first_page: bool = False,
+                 hash_exclude: Union[str, List[str], None] = None,
+                 page_hashes: Union[int, Tuple[Any], None] = None,
+                 validate_hash: bool = False,
                  trace: str = None,
                  binary_path: str = None,
                  temp_folders_dir: str = None,
@@ -82,7 +83,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          hash_exclude=hash_exclude,
-                         hash_first_page=hash_first_page,
+                         page_hashes=page_hashes,
+                         validate_hash=validate_hash,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          timeout=timeout,
@@ -155,7 +157,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                                       stdout=subprocess.PIPE, shell=False)
                 (stdout, _) = sp.communicate()
                 stdout = stdout.decode(self._decoder)
-                self._num_pages = [line.split(':')[1].strip() for line in stdout.split('\n') if line.startswith('Pages:')][0]
+                self._num_pages = int([line.split(':')[1].strip() for line
+                                       in stdout.split('\n') if line.startswith('Pages:')][0])
             except:
                 self._num_pages = 0
 
@@ -413,9 +416,20 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             else:
                 doc_path = self._doc
             try:
-                sp = subprocess.Popen(
-                    shlex.split('%s %s %s' % (self._trace_cmd, doc_path, os.path.join(temp_path, 'out'))),
-                    stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
+                cmd = [self._trace_cmd,
+                       doc_path]
+                if self._validate_hash:
+                    pages = self._parse_page_hashes
+                    if pages is not None:
+                        if isinstance(pages, int):
+                            first_page = pages
+                            last_page = pages
+                        elif isinstance:
+                            first_page = str(max(0, min(pages)) + 1)
+                            last_page = str(max(pages) + 1)
+                        cmd.extend(['-f', first_page, '-l', last_page])
+                cmd.append(os.path.join(temp_path, 'out'))
+                sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
                 err = fix_splits(err.decode(self._decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
@@ -483,7 +497,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
     #     return render
 
     def _render_page(self, page):
-        render: PngImageFile = self._poppler_render(page=page).get(page)
+        render: PngImageFile = self._poppler_render(pages=page).get(page)
         if self._caching:
             self._renders[page] = render
         return render
@@ -519,23 +533,32 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
     #     return renders
 
     def _render_doc(self):
-        renders: Dict[int, PngImageFile] = self._poppler_render(page=None)
+        renders: Dict[int, PngImageFile] = self._poppler_render(pages=None)
         if self._caching:
             self._full_doc_rendered = True
             self._renders = renders
         return renders
 
-    def _poppler_render(self, page=None):
+    def _render_pages(self, pages):
+        renders: Dict[int, PngImageFile] = self._poppler_render(pages=pages)
+        if self._caching:
+            self._renders.update(renders)
+        return renders
+
+    def _poppler_render(self, pages=None):
+        num_pages = self.num_pages
+        if num_pages == 0 and pages is not None:
+            num_pages = max(pages) + 1
         start_time = time.perf_counter()
         if isinstance(self._size, dict):
-            if page is None:
-                warnings.warn("""Poppler does not support page specific sizing when rendering the entire 
-                    document. If you want to size each page individually render each page individually. The 
+            if pages is None or isinstance(pages, list):
+                warnings.warn("""Poppler does not support page specific sizing when rendering more than one page of 
+                    the entire document. If you want to size each page individually render each page individually. The 
                     first size will be selected from the dictionary for this rendering attempt.""")
                 sizes = [self._size.values()]
                 size = sizes[0] if len(sizes) > 0 else None
             else:
-                size = self._size.get(page)
+                size = self._size.get(pages)
         else:
             size = self._size
 
@@ -544,10 +567,13 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         size = _parse_poppler_size(size)
         if size is not None:
             cmd.extend(size)
-        if page is not None:
-            page = str(int(page) + 1)
+        if pages is not None:
+            if isinstance(pages, int):
+                pages = [pages]
+            first_page = str(min(max(0, min(pages)), num_pages - 1) + 1)
+            last_page = str(min(num_pages - 1, max(pages)) + 1)
             # return_single_page = True
-            cmd.extend(['-f', page, '-l', page])
+            cmd.extend(['-f', first_page, '-l', last_page])
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             if isinstance(self._doc, bytes):
                 file_hash = hash_file(self._doc)
@@ -562,7 +588,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 sp = subprocess.Popen(shlex.split(cmd), stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
                 self._render_exit_code = sp.returncode
-                if page is None and self._messages is None and self._trace == 'pdftoppm':
+                if pages is None and self._messages is None and self._trace == 'pdftoppm':
                     err = fix_splits(err.decode(self._decoder))
                     error_arr = [message for message in err.split('\n') if len(message) > 0]
                     self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
@@ -570,7 +596,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 result: Dict[int, PngImageFile] = dict()
                 for render in [file for file in os.listdir(temp_path) if file.endswith('.png')]:
                     page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
-                    result[page_index] = Image.open(os.path.join(temp_path, render))
+                    if pages is None or page_index in pages:
+                        result[page_index] = Image.open(os.path.join(temp_path, render))
                 num_pages = len(result)
                 timing = time.perf_counter() - start_time
                 for page in result.keys():
@@ -593,16 +620,12 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 self._logs[0] = {'result': str(e), 'timing': timing}
 
         # if return_single_page:
-        if page is not None:
+        if pages is not None and len(pages) == 1:
+            page = pages[0]
             single_page_result = result.get(int(page) - 1)
             if single_page_result is not None:
                 if single_page_result.width * single_page_result.height == 1:
-                    result[page] = self._render_doc().get(int(page) - 1)
-        #         else:
-        #             result = single_page_result
-        #     else:
-        #         result = None
-            # result: PngImageFile = result.get(int(page) - 1)
+                    result = self._render_pages(pages=[page-1, page, page+1])
         return result
 
     def _extract_doc(self):

@@ -34,7 +34,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
     def __init__(self, doc: Union[str, bytes],
                  skip_check: Union[bool, None] = None,
                  hash_exclude: Union[str, List[str], None] = None,
-                 hash_first_page: bool = False,
+                 page_hashes: Union[int, Tuple[Any], None] = None,
+                 validate_hash: bool = False,
                  binary_path: Union[str, None] = None,
                  temp_folders_dir: Union[str, None] = None,
                  page_delimiter: Union[str, None] = None,
@@ -78,7 +79,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          hash_exclude=hash_exclude,
-                         hash_first_page=hash_first_page,
+                         page_hashes=page_hashes,
+                         validate_hash=validate_hash,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          timeout=timeout,
@@ -283,7 +285,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                                       stdout=subprocess.PIPE, shell=False)
                 (stdout, _) = sp.communicate()
                 stdout = stdout.decode(self._decoder)
-                self._num_pages = [line.split(':')[1].strip() for line in stdout.split('\n') if line.startswith('Pages:')][0]
+                self._num_pages = int([line.split(':')[1].strip() for line
+                                       in stdout.split('\n') if line.startswith('Pages:')][0])
             except:
                 self._num_pages = 0
 
@@ -298,9 +301,20 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             else:
                 doc_path = self._doc
             try:
-                sp = subprocess.Popen(
-                    shlex.split('%s %s %s' % (self._pdftoppm_path, doc_path, os.path.join(temp_path, 'out'))),
-                    stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
+                cmd = [self._pdftoppm_path,
+                       doc_path]
+                if self._validate_hash:
+                    pages = self._parse_page_hashes
+                    if pages is not None:
+                        if isinstance(pages, int):
+                            first_page = pages
+                            last_page = pages
+                        elif isinstance:
+                            first_page = str(max(0, min(pages)) + 1)
+                            last_page = str(max(pages) + 1)
+                        cmd.extend(['-f', first_page, '-l', last_page])
+                cmd.append(os.path.join(temp_path, 'out'))
+                sp = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=DEVNULL, shell=False)
                 (_, err) = sp.communicate(timeout=self._timeout or 600)
                 err = fix_splits(err.decode(self._decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
@@ -365,56 +379,36 @@ class XPDF(Tracer, Hybrid, FontExtractor):
     #     return render
 
     def _render_page(self, page: int):
-        render: PngImageFile = self._xpdf_render(page=page).get(page)
+        render: PngImageFile = self._xpdf_render(pages=page).get(page)
         if self._caching:
             self._renders[page] = render
         return render
 
-    # def _render_doc(self):
-    #     start_time = time.perf_counter()
-    #     try:
-    #         if self._timeout is None:
-    #             renders: Dict[int, PngImageFile] = self._xpdf_render(page=None)
-    #         else:
-    #             renders: Dict[int, PngImageFile] = func_timeout(
-    #                 self._timeout,
-    #                 self._xpdf_render,
-    #                 kwargs={
-    #                     'page': None
-    #                 }
-    #             )
-    #         if self._caching:
-    #             self._full_doc_rendered = True
-    #             self._renders = renders
-    #         timing = time.perf_counter() - start_time
-    #         num_pages = len(renders)
-    #         for page in renders.keys():
-    #             self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
-    #     except FunctionTimedOut:
-    #         renders: Dict[int, PngImageFile] = dict()
-    #         self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
-    #     except Exception as e:
-    #         print(e)
-    #         renders: Dict[int, PngImageFile] = dict()
-    #         timing = time.perf_counter() - start_time
-    #         self._logs[0] = {'result': str(e), 'timing': timing}
-    #     return renders
-
     def _render_doc(self):
-        renders: Dict[int, PngImageFile] = self._xpdf_render(page=None)
+        renders: Dict[int, PngImageFile] = self._xpdf_render(pages=None)
         if self._caching:
             self._full_doc_rendered = True
             self._renders = renders
         return renders
 
-    def _xpdf_render(self, page=None):
+    def _render_pages(self, pages):
+        renders: Dict[int, PngImageFile] = self._xpdf_render(pages=pages)
+        if self._caching:
+            self._renders.update(renders)
+        return renders
+
+    def _xpdf_render(self, pages=None):
+        num_pages = self.num_pages
+        if num_pages == 0 and pages is not None:
+            num_pages = max(pages) + 1
         start_time = time.perf_counter()
-        # return_single_page = False
         cmd = [self._pdftoppm_path, '-r', str(self._dpi)]
-        if page is not None:
-            page = str(int(page) + 1)
-            # return_single_page = True
-            cmd.extend(['-f', page, '-l', page])
+        if pages is not None:
+            if isinstance(pages, int):
+                pages = [pages]
+            first_page = str(min(max(0, min(pages)), num_pages - 1) + 1)
+            last_page = str(min(num_pages - 1, max(pages)) + 1)
+            cmd.extend(['-f', first_page, '-l', last_page])
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             if isinstance(self._doc, bytes):
                 file_hash = hash_file(self._doc)
@@ -429,7 +423,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 sp = subprocess.Popen(shlex.split(cmd), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
                 self._render_exit_code = sp.returncode
                 (_, err) = sp.communicate(self._timeout or 600)
-                if page is None and self._messages is None:
+                if pages is None and self._messages is None:
                     self._trace_exit_code = sp.returncode
                     decoder = locale.getpreferredencoding()
                     err = fix_splits(err.decode(decoder))
@@ -438,7 +432,8 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 result: Dict[int, PngImageFile] = dict()
                 for render in [file for file in os.listdir(temp_path) if file.endswith('.ppm')]:
                     page_index = int(re.sub('out-', '', re.sub('.ppm', '', render))) - 1
-                    result[page_index] = Image.open(os.path.join(temp_path, render))
+                    if pages is None or page_index in pages:
+                        result[page_index] = Image.open(os.path.join(temp_path, render))
                 num_pages = len(result)
                 timing = time.perf_counter() - start_time
                 for page in result.keys():
@@ -460,16 +455,12 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
 
-        if page is not None:
+        if pages is not None and len(pages) == 1:
+            page = pages[0]
             single_page_result = result.get(int(page) - 1)
             if single_page_result is not None:
                 if single_page_result.width * single_page_result.height == 1:
-                    result[page] = self._render_doc().get(int(page) - 1)
-            #     else:
-            #         result = single_page_result
-            # else:
-            #     result = None
-            # result: PngImageFile = result.get(int(page) - 1)
+                    result = self._render_pages(pages=[page-1, page, page+1])
         return result
 
     def _extract_doc(self):

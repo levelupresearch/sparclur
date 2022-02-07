@@ -310,16 +310,6 @@ class Parser(metaclass=Meta):
         return self._validity
 
     @property
-    def help(self):
-        """
-        Returns all of the API calls available to the parser.
-
-        Returns
-        -------
-        str
-
-        """
-    @property
     def sparclur_hash(self):
         """
         The SPARCLUR hash attempts to distill the information from the different parser tools: image hashes for the

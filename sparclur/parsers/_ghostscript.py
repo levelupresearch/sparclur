@@ -8,7 +8,7 @@ import shlex
 import tempfile
 import time
 import warnings
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union, Any
 
 #import ghostscript as external_gs
 from PIL import Image
@@ -25,16 +25,16 @@ from sparclur.utils._tools import _get_config_param
 
 
 class Ghostscript(Renderer, Reforger):
-    """SPARCLUR renderer wrapper for Ghostscript"""
     def __init__(self, doc: str or bytes,
                  skip_check: bool = None,
                  temp_folders_dir: str = None,
                  dpi: int = None,
-                 size: Tuple[int] or int = None,
+                 size: Union[Tuple[int], int, None] = None,
                  cache_renders: bool = None,
                  timeout: int = None,
-                 hash_exclude: str or List[str] = None,
-                 hash_first_page: bool = False):
+                 hash_exclude: Union[str, List[str], None] = None,
+                 page_hashes: Union[int, Tuple[Any], None] = None,
+                 validate_hash: bool = False):
         """
         Parameters
         ----------
@@ -57,7 +57,8 @@ class Ghostscript(Renderer, Reforger):
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          hash_exclude=hash_exclude,
-                         hash_first_page=hash_first_page,
+                         page_hashes=page_hashes,
+                         validate_hash=validate_hash,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          verbose=True,
@@ -65,7 +66,8 @@ class Ghostscript(Renderer, Reforger):
         # self._ghostscript_present = 'ghostscript' in sys.modules.keys()
         # assert self._ghostscript_present, "Ghostscript not found"
         self._size = size
-        self._encoding = locale.getpreferredencoding()
+        self._decoder = locale.getpreferredencoding()
+    """SPARCLUR renderer wrapper for Ghostscript"""
 
     def _reforge(self):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
@@ -125,7 +127,10 @@ class Ghostscript(Renderer, Reforger):
         else:
             validity_results = dict()
             if len(self._logs) == 0:
-                _ = self.get_renders()
+                if self._validate_hash:
+                    _ = self.get_renders(self._parse_page_hashes)
+                else:
+                    _ = self.get_renders()
             results = [(page, value['result']) for (page, value) in self._logs.items()]
             if len(results) == 0:
                 validity_results['valid'] = False
@@ -159,10 +164,28 @@ class Ghostscript(Renderer, Reforger):
         self._size = s
 
     def _get_num_pages(self):
-        try:
-            self._num_pages = len(self.get_renders())
-        except Exception as _:
-            self._num_pages = 0
+        with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
+            if isinstance(self._doc, bytes):
+                file_hash = hash_file(self._doc)
+                doc_path = os.path.join(tmpdir, file_hash)
+                with open(doc_path, 'wb') as doc_out:
+                    doc_out.write(self._doc)
+            else:
+                doc_path = self._doc
+            try:
+                cmd = ['gs',
+                       '-q',
+                       '-dNODISPLAY',
+                       '-dNOSAFER',
+                       '--permit-file-read="%s"' % doc_path,
+                       '-c',
+                       '"(%s) (r) file runpdfbegin pdfpagecount = quit"' % doc_path
+                       ]
+                sp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=DEVNULL, shell=False)
+                (stdout, _) = sp.communicate()
+                self._num_pages = int(stdout.decode(self._decoder))
+            except Exception as _:
+                self._num_pages = 0
 
     def _render_page(self, page):
         start_time = time.perf_counter()
@@ -220,6 +243,7 @@ class Ghostscript(Renderer, Reforger):
         return pil
 
     def _render_doc(self):
+
         start_time = time.perf_counter()
 
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as tmpdir:
@@ -238,8 +262,7 @@ class Ghostscript(Renderer, Reforger):
                         "-dNOPAUSE",
                         "-sDEVICE=png16m",
                         "-dTextAlphaBits=4",
-                        "-r"+str(self._dpi)
-                        ]
+                        "-r%s" % self._dpi]
 
                 if isinstance(self._size, dict):
                     warnings.warn("""Ghostscript does not support page specific sizing when rendering the entire 
@@ -258,7 +281,7 @@ class Ghostscript(Renderer, Reforger):
 
                 args.append("-sOutputFile="+os.path.join(tmpdir, "page-%04d.png"))
                 args.append(doc_path)
-
+                print(args)
                 subprocess.run(args, timeout=self._timeout or 600, shell=False)
 
                 pils: Dict[int, PngImageFile] = dict()
@@ -267,12 +290,13 @@ class Ghostscript(Renderer, Reforger):
                         i = int(re.sub('.png', '', re.sub('page-', '', png))) - 1
                         pil = Image.open(os.path.join(tmpdir, png))
                         pils[i] = pil
-                    except:
-                       pass
-
+                    except Exception as e:
+                        print(e)
+                       # pass
+                print(len(pils))
                 if self._caching:
                     self._full_doc_rendered = True
-                    self._renders = pils
+                    self._renders.update(pils)
                 timing = time.perf_counter() - start_time
                 num_pages = len(pils)
                 for page in pils.keys():
@@ -287,3 +311,13 @@ class Ghostscript(Renderer, Reforger):
             # finally:
             #     external_gs.cleanup()
         return pils
+
+    def _render_pages(self, pages):
+        result = dict()
+        for page in pages:
+            render = self._render_page(page)
+            if render is not None:
+                result[page] = render
+        if self._caching:
+            self._renders.update(result)
+        return result

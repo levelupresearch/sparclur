@@ -565,7 +565,7 @@ class Spotlight:
             if self._progress_bar:
                 map_results = list(tqdm(executor.map(_mapper, data), total=len(data)))
             else:
-                map_results = executor.map(_mapper, data)
+                map_results = list(executor.map(_mapper, data))
 
             distributor = defaultdict(list)
             for key, value in map_results:
@@ -574,7 +574,7 @@ class Spotlight:
             if self._progress_bar:
                 reduced = list(tqdm(executor.map(_reducer, distributor.items()), total=len(distributor)))
             else:
-                reduced = executor.map(_reducer, distributor.items())
+                reduced = list(executor.map(_reducer, distributor.items()))
 
             spotlight = reduced[0]
             for r in reduced[1:]:
@@ -589,7 +589,7 @@ class Spotlight:
             if self._progress_bar:
                 compare_map_results = list(tqdm(executor.map(_combiner_mapper, compare_data), total=len(compare_data)))
             else:
-                compare_map_results = executor.map(_combiner_mapper, compare_data)
+                compare_map_results = list(executor.map(_combiner_mapper, compare_data))
 
             compare_distributor = defaultdict(list)
             for key, value in compare_map_results:
@@ -598,7 +598,7 @@ class Spotlight:
             if self._progress_bar:
                 result = list(tqdm(executor.map(_reducer, compare_distributor.items()), total=len(compare_distributor)))
             else:
-                result = executor.map(_reducer, compare_distributor.items())
+                result = list(executor.map(_reducer, compare_distributor.items()))
 
             full_spotlight = result[0]
             for r in result[1:]:
