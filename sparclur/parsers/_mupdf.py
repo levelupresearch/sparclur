@@ -219,9 +219,9 @@ class MuPDF(Tracer, Hybrid, Reforger):
                     page_start = time.perf_counter()
                     try:
                         if self._timeout is None:
-                            pils[page.number] = self._mudraw(doc[page], mat)
+                            pils[page] = self._mudraw(doc[page], mat)
                         else:
-                            pils[page.number] = func_timeout(
+                            pils[page] = func_timeout(
                                 self._timeout,
                                 self._mudraw,
                                 kwargs={
@@ -232,11 +232,11 @@ class MuPDF(Tracer, Hybrid, Reforger):
                         timing = time.perf_counter() - page_start
                         warnings = fitz.TOOLS.mupdf_warnings()
                         result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
-                        self._logs[page.number] = {'result': result, 'timing': timing}
+                        self._logs[page] = {'result': result, 'timing': timing}
                     except FunctionTimedOut:
-                        self._logs[page.number] = {'result': 'Timed out', 'timing': self._timeout}
+                        self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
                     except Exception as e:
-                        self._logs[page.number] = {'result': str(e), 'timing': time.perf_counter() - page_start}
+                        self._logs[page] = {'result': str(e), 'timing': time.perf_counter() - page_start}
                 doc.close()
                 if self._caching:
                     if pages is None:
