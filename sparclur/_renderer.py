@@ -290,7 +290,14 @@ class Renderer(TextCompare, metaclass=Meta):
                         else:
                             pages = random.sample(range(num_pages), self._page_hashes[1])
                 elif self._page_hashes[0] == 'first':
-                    pages = list(range(self._page_hashes[1]))
+                    num_pages = self.num_pages
+                    if num_pages == 0:
+                        pages = None
+                    else:
+                        if self._page_hashes[1] >= num_pages:
+                            pages = list(range(num_pages))
+                        else:
+                            pages = list(range(self._page_hashes[1]))
                 else:
                     pages = None
             else:

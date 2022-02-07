@@ -281,7 +281,6 @@ class Ghostscript(Renderer, Reforger):
 
                 args.append("-sOutputFile="+os.path.join(tmpdir, "page-%04d.png"))
                 args.append(doc_path)
-                print(args)
                 subprocess.run(args, timeout=self._timeout or 600, shell=False)
 
                 pils: Dict[int, PngImageFile] = dict()
@@ -291,9 +290,7 @@ class Ghostscript(Renderer, Reforger):
                         pil = Image.open(os.path.join(tmpdir, png))
                         pils[i] = pil
                     except Exception as e:
-                        print(e)
-                       # pass
-                print(len(pils))
+                       pass
                 if self._caching:
                     self._full_doc_rendered = True
                     self._renders.update(pils)
