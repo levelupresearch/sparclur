@@ -57,6 +57,10 @@ def _pdftoppm_clean_message(err):
         'Syntax Error: Softmask with matte entry must have same geometry as the image', cleaned)
     cleaned = re.sub(r'Syntax Error: Unknown marker segment \d+ in JPX tile-part stream',
                      'Syntax Error: Unknown marker segment in JPX tile-part stream', cleaned)
+    cleaned = re.sub(r'Syntax Error: \d+ extraneous bytes after segment',
+                     'Syntax Error: <x> extraneous bytes after segment', cleaned)
+    cleaned = re.sub(r'Syntax Error: Illegal character <[^>]+> in hex string',
+                     'Syntax Error: Illegal character <x> in hex string', cleaned)
     cleaned: str = re.sub(r'Syntax Warning: Could not parse ligature component \"[^"]+\" of \"[^"]+\" in parseCharName',
                           'Syntax Warning: Could not parse ligature component in parseCharName', cleaned)
 

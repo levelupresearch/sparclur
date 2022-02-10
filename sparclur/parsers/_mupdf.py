@@ -527,6 +527,8 @@ class MuPDF(Tracer, Hybrid, Reforger):
         cleaned = 'warning: openjpeg error: read: segment too long  with max  for codeblock' if cleaned.startswith(
             'warning: openjpeg error: read: segment too long  with max  for codeblock') else cleaned
         cleaned = re.sub(r'comp\[\d+\]', 'comp', cleaned)
+        cleaned = re.sub(r'ignoring CMap range \(\d+-\d+\)', 'ignoring CMap range ', cleaned)
+        cleaned = re.sub(r'FT_New_Memory_Face\([^)]+\)', 'FT_New_Memory_Face(x)', cleaned)
         cleaned: str = re.sub(r'\[\d+\] prec\(\d+\) sgnd\(\d+\) \[\d+\] prec\(\d+\) sgnd\(\d+\)', 'Out of Memory Error',
                               cleaned)
 

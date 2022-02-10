@@ -500,7 +500,7 @@ class Spotlight:
         self._hash_first_page = hash_first_page
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
-        if parsers is not None:
+        if parsers is not None and len(parsers) > 0:
             self._parsers: List[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)
