@@ -64,6 +64,7 @@ def _get_single_validity(entry):
     gather_traces = entry['gather_traces']
 
     if translation == 'original':
+        t = 'original'
         p = parser(doc_path, **parser_args.get(parser.get_name(), dict()))
         if issubclass(parser, Tracer) and gather_traces:
             traces = {'%s::%s' % (parser, trace) for trace in p.cleaned.keys()}
@@ -71,6 +72,7 @@ def _get_single_validity(entry):
             traces = set()
         validity = p.validity['overall']['status']
     else:
+        t = translation.get_name()
         translation = translation(doc_path).reforge
         if translation:
             validity = parser(translation, **parser_args.get(parser.get_name(), dict())).validity['overall']['status']
@@ -78,7 +80,7 @@ def _get_single_validity(entry):
             validity = REJECTED
         traces = set()
 
-    return (doc_path, translation), {'validity': validity, 'traces': traces}
+    return (doc_path, t), {'validity': validity, 'traces': traces}
 
 
 def _get_overall_validities(entry):
