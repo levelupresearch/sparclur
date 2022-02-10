@@ -67,7 +67,7 @@ def _get_single_validity(entry):
         t = 'original'
         p = parser(doc_path, **parser_args.get(parser.get_name(), dict()))
         if issubclass(parser, Tracer) and gather_traces:
-            traces = {'%s::%s' % (parser, trace) for trace in p.cleaned.keys()}
+            traces = {'%s::%s' % (parser.get_name(), trace) for trace in p.cleaned.keys()}
         else:
             traces = set()
         validity = p.validity['overall']['status']
