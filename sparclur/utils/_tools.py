@@ -36,6 +36,13 @@ class InputError(Exception):
 _COMPARISON_SUCCESSFUL_MESSAGE = 'Successfully Compared'
 
 
+def display_raw(file):
+    assert os.path.isfile(file), 'File not found'
+    with open(file, 'rb') as file_in:
+        raw = file_in.read()
+    return raw
+
+
 def _get_config_param(cls, config, key, value, default):
     if value is not None:
         return value
