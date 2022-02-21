@@ -35,11 +35,11 @@ class ImageDataExtractor(Parser, metaclass=Meta):
     def can_extract_image_data(self):
         if self._can_extract_image_data is None:
             self._can_extract_image_data = self._check_for_image_data_extraction()
-        return self._can_extract_font
+        return self._can_extract_image_data
 
     @can_extract_image_data.deleter
-    def can_extract_font(self):
-        self._can_extract_font = None
+    def can_extract_image_data(self):
+        self._can_extract_image_data = None
 
     @abc.abstractmethod
     def _check_for_image_data_extraction(self) -> bool:

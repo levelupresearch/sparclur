@@ -378,7 +378,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
     def _check_for_text_extraction(self) -> bool:
         if self._can_extract is None:
             if self._ocr:
-                self._can_extract = super(Renderer)._check_for_text_extraction() and self._check_for_renderer()
+                self._can_extract = super()._check_for_text_extraction() and self._check_for_renderer()
             else:
                 sp = subprocess.Popen(shlex.split(self._pdftotext_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
                                       shell=False)
@@ -546,6 +546,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         return renders
 
     def _poppler_render(self, pages=None):
+        if isinstance(pages, int):
+            pages = [pages]
         num_pages = self.num_pages
         if num_pages == 0 and pages is not None:
             num_pages = max(pages) + 1
@@ -568,8 +570,6 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         if size is not None:
             cmd.extend(size)
         if pages is not None:
-            if isinstance(pages, int):
-                pages = [pages]
             first_page = str(min(max(0, min(pages)), num_pages - 1) + 1)
             last_page = str(min(num_pages - 1, max(pages)) + 1)
             # return_single_page = True

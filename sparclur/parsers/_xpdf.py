@@ -257,7 +257,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
     def _check_for_text_extraction(self) -> bool:
         if self._can_extract is None:
             if self._ocr:
-                self._can_extract = super(Renderer)._check_for_text_extraction() and self._check_for_renderer()
+                self._can_extract = super()._check_for_text_extraction() and self._check_for_renderer()
             else:
                 sp = subprocess.Popen(shlex.split(self._pdftotext_path + " -v"), stderr=subprocess.PIPE, stdout=DEVNULL,
                                       shell=False)
@@ -281,13 +281,14 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             else:
                 doc_path = self._doc
             try:
-                sp = subprocess.Popen(shlex.split(self._pdfinfo_path + doc_path), stderr=DEVNULL,
+                sp = subprocess.Popen(shlex.split(self._pdfinfo_path + ' ' + doc_path), stderr=DEVNULL,
                                       stdout=subprocess.PIPE, shell=False)
                 (stdout, _) = sp.communicate()
                 stdout = stdout.decode(self._decoder)
                 self._num_pages = int([line.split(':')[1].strip() for line
                                        in stdout.split('\n') if line.startswith('Pages:')][0])
-            except:
+            except Exception as e:
+                print(e)
                 self._num_pages = 0
 
     def _parse_document(self):
@@ -398,14 +399,14 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         return renders
 
     def _xpdf_render(self, pages=None):
+        if isinstance(pages, int):
+            pages = [pages]
         num_pages = self.num_pages
         if num_pages == 0 and pages is not None:
             num_pages = max(pages) + 1
         start_time = time.perf_counter()
         cmd = [self._pdftoppm_path, '-r', str(self._dpi)]
         if pages is not None:
-            if isinstance(pages, int):
-                pages = [pages]
             first_page = str(min(max(0, min(pages)), num_pages - 1) + 1)
             last_page = str(min(num_pages - 1, max(pages)) + 1)
             cmd.extend(['-f', first_page, '-l', last_page])

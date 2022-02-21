@@ -8,7 +8,9 @@ from func_timeout import func_timeout, FunctionTimedOut
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT
 from sparclur._hybrid import Hybrid
 from sparclur._reforge import Reforger
-from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
+from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
+from sparclur._renderer import _SUCCESS_WITH_WARNINGS as SUCCESS_WITH_WARNINGS
+from sparclur._renderer import _ocr_text
 from sparclur._tracer import Tracer
 from sparclur.utils import fix_splits, hash_file
 
@@ -26,8 +28,6 @@ from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
 from sparclur.utils._tools import _get_config_param
-
-SUCCESS_WITH_WARNINGS = "Successful with warnings"
 
 
 class MuPDF(Tracer, Hybrid, Reforger):
@@ -79,7 +79,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                          timeout=timeout,
                          ocr=ocr)
         self._parse_streams = parse_streams
-        self._cmd_path = 'mutool clean' if binary_path is None else binary_path
+        self._cmd_path = 'mutool clean' if binary_path is None else binary_path.strip() + ' clean'
         self._trace_exit_code = None
 
     def _check_for_renderer(self) -> bool:
@@ -163,8 +163,6 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
                 fitz.TOOLS.reset_mupdf_warnings()
                 doc = fitz.open(doc_path)
-                # page = doc[page]
-                pils = dict()
                 if self._timeout is None:
                     mu_pil: PngImageFile = self._mudraw(doc[page], mat)
                 else:
@@ -208,8 +206,10 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 num_pages = doc.pageCount
                 if num_pages == 0 and pages is not None:
                     num_pages = max(pages) + 1
-                page_range = range(num_pages) if pages is None \
-                    else [page for page in pages if -1 < page < num_pages]
+                if pages is None:
+                    page_range = range(num_pages)
+                else:
+                    page_range = [page for page in pages if -1 < page < num_pages]
                 if len(doc) == 0:
                     doc.close()
                     raise Exception('Document failed to load')

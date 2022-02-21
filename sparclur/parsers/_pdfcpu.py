@@ -118,7 +118,8 @@ class PDFCPU(Tracer):
                                       shell=False)
                 (stdout, _) = sp.communicate()
                 stdout = stdout.decode(self._decoder)
-                self._num_pages = [line.split(':')[1].strip() for line in stdout.split('\n') if 'Page count:' in line][0]
+                self._num_pages = [int(line.split(':')[1].strip())
+                                   for line in stdout.split('\n') if 'Page count:' in line][0]
             except:
                 self._num_pages = 0
 

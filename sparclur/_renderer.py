@@ -21,6 +21,7 @@ from sparclur.utils import entropy_sim, whash_sim, phash_sim, size_sim, sum_squa
     pad_images, image_compare
 
 _SUCCESSFUL_RENDER_MESSAGE = 'Successfully Rendered'
+_SUCCESS_WITH_WARNINGS = "Successful with warnings"
 # _COMPARISON_SUCCESSFUL_MESSAGE = 'Successfully Compared'
 
 
@@ -230,7 +231,9 @@ class Renderer(TextCompare, metaclass=Meta):
         cache_renders : bool
             Whether or not the renders should be cached in the object.
         page_hashes : int, Tuple
-            Specify specific pages to hash or a specific scheme for selecting page hashes
+            Specify specific pages to hash or a specific scheme for selecting page hashes. Tuple can be `('first', x)`
+            where x is the number of pages or `('random', x, [seed])` where x is the number of pages and seed is
+            optional.
         validate_hash : bool
             Indicates that render validity should use the page hashes parameter instead of rendering the entire PDF
         """
