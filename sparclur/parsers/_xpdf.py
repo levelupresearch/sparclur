@@ -288,7 +288,6 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 self._num_pages = int([line.split(':')[1].strip() for line
                                        in stdout.split('\n') if line.startswith('Pages:')][0])
             except Exception as e:
-                print(e)
                 self._num_pages = 0
 
     def _parse_document(self):
