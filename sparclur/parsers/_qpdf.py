@@ -208,6 +208,10 @@ class QPDF(Tracer, MetadataExtractor):
         cleaned = re.sub(r'converting [\d]+ ', "converting bigint ", cleaned)
         cleaned = re.sub(r' /QPDFFake[\d]+', "", cleaned)
         cleaned = re.sub(r'\([^)]*\)\s{0, 1}', "", cleaned)
+        cleaned = re.sub(r'dictionary has duplicated key /[^;]+;', 'dictionary has duplicated key <key>;', cleaned)
+        cleaned = re.sub(r'expected \d+ \d+ obj', 'expected <obj>', cleaned)
+        cleaned = re.sub(r'reported number of objects \(\d+\) is not one plus the highest object number \(\d+\)',
+                         'reported number of objects (x) is not one plus the highest object number (y)', cleaned)
         cleaned: str = re.sub(r' [\d]+ [\d]+ obj\s{0, 1}', ' something else ', cleaned)
         return cleaned
 

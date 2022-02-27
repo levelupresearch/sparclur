@@ -294,6 +294,17 @@ class RollBack:
             ax.set(xlabel='Version comparison', ylabel='Similarity')
             plt.close(fig)
             return fig
+        elif len(render_diffs) == 1:
+            page_compares = list(render_diffs.values())[0]
+            x = list(page_compares.keys())
+            y = list(page_compares.values())
+            fig = plt.figure(figsize=(display_width, display_height))
+            ax = plt.subplot(111)
+            ax.plot(x, y, 'k.')
+            ax.set_title('%s Comparisons' % X[0])
+            ax.set(xlabel='Page', ylabel='Similarity')
+            plt.close(fig)
+            return fig
         else:
             nrows = ceil(len(comparisons) / ncols)
             fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(display_width, display_height))

@@ -470,6 +470,7 @@ class Spotlight:
     def __init__(self, num_workers: int = 1,
                  temp_folders_dir: str = None,
                  dpi: int = 72,
+                 hash_first_page: bool = False,
                  parsers: Union[List[str], None] = None,
                  parser_args: Dict[str, Dict[str, Any]] = dict(),
                  timeout: int = None,
@@ -484,6 +485,8 @@ class Spotlight:
             Path to create the temporary directories used for temporary files.
         dpi : int, default=72
             The resolution for the renders produced during processing.
+        hash_first_page : bool
+            Specify whether only the render of the first page should be hashed.
         parsers : List[str], default=None
             Specify the parsers to run. Passing in `None` will use all available parsers.
         parser_args: dict
@@ -494,9 +497,10 @@ class Spotlight:
             Flag for displaying a progress bar
         """
         self._dpi = dpi
+        self._hash_first_page = hash_first_page
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
-        if parsers is not None:
+        if parsers is not None and len(parsers) > 0:
             self._parsers: List[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)
@@ -524,6 +528,8 @@ class Spotlight:
             kwargs = {'doc': doc, 'timeout': 120, 'temp_folders_dir': self._temp_folders_dir}
             if 'dpi' in sig.parameters:
                 kwargs['dpi'] = self._dpi
+            if 'hash_first_page' in sig.parameters:
+                kwargs['hash_first_page'] = self._hash_first_page
             p = parser(**kwargs)
             try:
                 for sub_folder in self._parsers:
@@ -559,7 +565,7 @@ class Spotlight:
             if self._progress_bar:
                 map_results = list(tqdm(executor.map(_mapper, data), total=len(data)))
             else:
-                map_results = executor.map(_mapper, data)
+                map_results = list(executor.map(_mapper, data))
 
             distributor = defaultdict(list)
             for key, value in map_results:
@@ -568,7 +574,7 @@ class Spotlight:
             if self._progress_bar:
                 reduced = list(tqdm(executor.map(_reducer, distributor.items()), total=len(distributor)))
             else:
-                reduced = executor.map(_reducer, distributor.items())
+                reduced = list(executor.map(_reducer, distributor.items()))
 
             spotlight = reduced[0]
             for r in reduced[1:]:
@@ -583,7 +589,7 @@ class Spotlight:
             if self._progress_bar:
                 compare_map_results = list(tqdm(executor.map(_combiner_mapper, compare_data), total=len(compare_data)))
             else:
-                compare_map_results = executor.map(_combiner_mapper, compare_data)
+                compare_map_results = list(executor.map(_combiner_mapper, compare_data))
 
             compare_distributor = defaultdict(list)
             for key, value in compare_map_results:
@@ -592,7 +598,7 @@ class Spotlight:
             if self._progress_bar:
                 result = list(tqdm(executor.map(_reducer, compare_distributor.items()), total=len(compare_distributor)))
             else:
-                result = executor.map(_reducer, compare_distributor.items())
+                result = list(executor.map(_reducer, compare_distributor.items()))
 
             full_spotlight = result[0]
             for r in result[1:]:

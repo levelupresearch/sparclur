@@ -1,6 +1,6 @@
 import locale
 import shlex
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Tuple
 
 import yaml
 from func_timeout import func_timeout, FunctionTimedOut
@@ -8,7 +8,9 @@ from func_timeout import func_timeout, FunctionTimedOut
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT
 from sparclur._hybrid import Hybrid
 from sparclur._reforge import Reforger
-from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
+from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
+from sparclur._renderer import _SUCCESS_WITH_WARNINGS as SUCCESS_WITH_WARNINGS
+from sparclur._renderer import _ocr_text
 from sparclur._tracer import Tracer
 from sparclur.utils import fix_splits, hash_file
 
@@ -27,14 +29,14 @@ from PIL.PngImagePlugin import PngImageFile
 
 from sparclur.utils._tools import _get_config_param
 
-SUCCESS_WITH_WARNINGS = "Successful with warnings"
-
 
 class MuPDF(Tracer, Hybrid, Reforger):
     """MuPDF parser"""
     def __init__(self, doc: Union[str, bytes],
                  skip_check: Union[bool, None] = None,
                  hash_exclude: Union[str, List[str], None] = None,
+                 page_hashes: Union[int, Tuple[Any], None] = None,
+                 validate_hash: bool = False,
                  parse_streams: Union[bool, None] = None,
                  binary_path: Union[str, None] = None,
                  temp_folders_dir: Union[str, None] = None,
@@ -70,12 +72,14 @@ class MuPDF(Tracer, Hybrid, Reforger):
                          temp_folders_dir=temp_folders_dir,
                          skip_check=skip_check,
                          hash_exclude=hash_exclude,
+                         page_hashes=page_hashes,
+                         validate_hash=validate_hash,
                          dpi=dpi,
                          cache_renders=cache_renders,
                          timeout=timeout,
                          ocr=ocr)
         self._parse_streams = parse_streams
-        self._cmd_path = 'mutool clean' if binary_path is None else binary_path
+        self._cmd_path = 'mutool clean' if binary_path is None else binary_path.strip() + ' clean'
         self._trace_exit_code = None
 
     def _check_for_renderer(self) -> bool:
@@ -90,7 +94,10 @@ class MuPDF(Tracer, Hybrid, Reforger):
         else:
             validity_results = dict()
             if len(self._logs) == 0:
-                _ = self.get_renders()
+                if self._validate_hash:
+                    _ = self.get_renders(self._parse_page_hashes)
+                else:
+                    _ = self.get_renders()
             results = [(page, value['result']) for (page, value) in self._logs.items()]
             not_successful = [result for (_, result) in results if result != SUCCESS]
             if len(results) == 0:
@@ -126,8 +133,9 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 doc_path = self._doc
             try:
                 doc = fitz.open(doc_path)
-                self._num_pages = doc.page_count
+                self._num_pages = doc.pageCount
             except Exception as e:
+                print(e)
                 self._num_pages = 0
             finally:
                 try:
@@ -155,8 +163,6 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
                 fitz.TOOLS.reset_mupdf_warnings()
                 doc = fitz.open(doc_path)
-                # page = doc[page]
-                pils = dict()
                 if self._timeout is None:
                     mu_pil: PngImageFile = self._mudraw(doc[page], mat)
                 else:
@@ -184,7 +190,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 self._logs[page] = {'result': str(e), 'timing': timing}
             return mu_pil
 
-    def _render_doc(self):
+    def _render_doc(self, pages=None):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
             if isinstance(self._doc, bytes):
                 file_hash = hash_file(self._doc)
@@ -197,37 +203,45 @@ class MuPDF(Tracer, Hybrid, Reforger):
             try:
                 mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
                 doc = fitz.open(doc_path)
+                num_pages = doc.pageCount
+                if num_pages == 0 and pages is not None:
+                    num_pages = max(pages) + 1
+                if pages is None:
+                    page_range = range(num_pages)
+                else:
+                    page_range = [page for page in pages if -1 < page < num_pages]
                 if len(doc) == 0:
                     doc.close()
                     raise Exception('Document failed to load')
                 pils: Dict[int, PngImageFile] = dict()
-                for page in doc:
+                for page in page_range:
                     fitz.TOOLS.reset_mupdf_warnings()
                     page_start = time.perf_counter()
                     try:
                         if self._timeout is None:
-                            pils[page.number] = self._mudraw(page, mat)
+                            pils[page] = self._mudraw(doc[page], mat)
                         else:
-                            pils[page.number] = func_timeout(
+                            pils[page] = func_timeout(
                                 self._timeout,
                                 self._mudraw,
                                 kwargs={
-                                    'page': page,
+                                    'page': doc[page],
                                     'mat': mat
                                 }
                             )
                         timing = time.perf_counter() - page_start
                         warnings = fitz.TOOLS.mupdf_warnings()
                         result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
-                        self._logs[page.number] = {'result': result, 'timing': timing}
+                        self._logs[page] = {'result': result, 'timing': timing}
                     except FunctionTimedOut:
-                        self._logs[page.number] = {'result': 'Timed out', 'timing': self._timeout}
+                        self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
                     except Exception as e:
-                        self._logs[page.number] = {'result': str(e), 'timing': time.perf_counter() - page_start}
+                        self._logs[page] = {'result': str(e), 'timing': time.perf_counter() - page_start}
                 doc.close()
                 if self._caching:
-                    self._full_doc_rendered = True
-                    self._renders = pils
+                    if pages is None:
+                        self._full_doc_rendered = True
+                    self._renders.update(pils)
                 # timing = time.perf_counter() - start_time
                 # num_pages = len(pils)
                 # for page in pils.keys():
@@ -237,6 +251,9 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
             return pils
+
+    def _render_pages(self, pages: List[int]):
+        return self._render_doc(pages)
 
 # class MuPDF(Tracer, TextCompare):
 #     """MuPDF tracer and renderer """
@@ -510,6 +527,8 @@ class MuPDF(Tracer, Hybrid, Reforger):
         cleaned = 'warning: openjpeg error: read: segment too long  with max  for codeblock' if cleaned.startswith(
             'warning: openjpeg error: read: segment too long  with max  for codeblock') else cleaned
         cleaned = re.sub(r'comp\[\d+\]', 'comp', cleaned)
+        cleaned = re.sub(r'ignoring CMap range \(\d+-\d+\)', 'ignoring CMap range ', cleaned)
+        cleaned = re.sub(r'FT_New_Memory_Face\([^)]+\)', 'FT_New_Memory_Face(x)', cleaned)
         cleaned: str = re.sub(r'\[\d+\] prec\(\d+\) sgnd\(\d+\) \[\d+\] prec\(\d+\) sgnd\(\d+\)', 'Out of Memory Error',
                               cleaned)
 

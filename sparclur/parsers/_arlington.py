@@ -140,7 +140,8 @@ class Arlington(Tracer):
         return self._validity[TRACER]
 
     def _get_num_pages(self):
-        self._num_pages = 'Not supported'
+        print('Warning: This method is not supported')
+        self._num_pages = -1
 
     def _parse_document(self):
 

@@ -6,3 +6,4 @@ from ._qpdf import QPDF
 from ._pdfminer import PDFMiner
 from ._arlington import Arlington
 from ._pdfcpu import PDFCPU
+from ._pdfium import PDFium

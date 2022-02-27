@@ -145,6 +145,8 @@ findings and conclusions or recommendations expressed in this material are
 those of the author(s) and do not necessarily reflect the views of the 
 Defense Advanced Research Projects Agency (DARPA).
 
+Distribution Statement "A" (Approved for Public Release, Distribution Unlimited).
+
 # Contributors
 - Shawn Davis
 - Dan Becker
