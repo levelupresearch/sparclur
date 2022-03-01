@@ -7,3 +7,4 @@ from ._pdfminer import PDFMiner
 from ._arlington import Arlington
 from ._pdfcpu import PDFCPU
 from ._pdfium import PDFium
+from ._mupdf_new import NuPDF
