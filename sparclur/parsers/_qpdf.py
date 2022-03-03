@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 import yaml
 
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER, TIMED_OUT
 from sparclur._tracer import Tracer
 from sparclur.utils._tools import fix_splits, hash_file, _get_config_param
 
@@ -85,7 +85,11 @@ class QPDF(Tracer, MetadataExtractor):
             valid_with_warning_check = len([message for message in observed_messages if 'WARNING' in message]) == \
                                        len(observed_messages) or \
                                        'qpdf: operation succeeded with warnings' in self._messages
-            if self._exit_code != 0 and self._exit_code != 3:
+            if self._file_timed_out[TRACER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._exit_code != 0 and self._exit_code != 3:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._exit_code
@@ -161,6 +165,7 @@ class QPDF(Tracer, MetadataExtractor):
                 err = fix_splits(err.decode(self._decoder, errors='ignore'))
                 stdout = stdout.decode(self._decoder, errors='ignore')
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
+                self._file_timed_out[TRACER] = False
             except TimeoutExpired:
                 sp.kill()
                 (stdout, err) = sp.communicate()
@@ -170,6 +175,7 @@ class QPDF(Tracer, MetadataExtractor):
                 self._exit_code = 0
                 stdout = stdout
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
+                self._file_timed_out[TRACER] = True
             except Exception as e:
                 self._exit_code = 0
                 sp.kill()
@@ -178,6 +184,7 @@ class QPDF(Tracer, MetadataExtractor):
                 stdout = stdout.decode(self._decoder, errors='ignore')
                 error_arr = str(e).split('\n')
                 error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+                self._file_timed_out[TRACER] = False
             self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
             try:
                 file = json.loads(stdout)
@@ -202,16 +209,29 @@ class QPDF(Tracer, MetadataExtractor):
             err = split_attempt[0] + ': ' + split_attempt[-1]
         else:
             err = split_attempt[-1]
-        cleaned = re.sub(r'recovered stream length [\d]+', 'recovered stream length', err)
-        cleaned = re.sub(r'object [\d]+ [\d+]', 'object', cleaned)
+        cleaned = re.sub(r'recovered stream length [\d]+', 'recovered stream length <x>', err)
+        cleaned = re.sub(r'object\s{0, 1}[\d]+ [\d]*', 'object', cleaned)
         cleaned = re.sub(r" \(obj=[\d]+\)", "", cleaned)
         cleaned = re.sub(r'converting [\d]+ ', "converting bigint ", cleaned)
         cleaned = re.sub(r' /QPDFFake[\d]+', "", cleaned)
         cleaned = re.sub(r'\([^)]*\)\s{0, 1}', "", cleaned)
-        cleaned = re.sub(r'dictionary has duplicated key /[^;]+;', 'dictionary has duplicated key <key>;', cleaned)
+        cleaned = re.sub(r'dictionary has duplicated key /[^;]*;', 'dictionary has duplicated key <key>;', cleaned)
         cleaned = re.sub(r'expected \d+ \d+ obj', 'expected <obj>', cleaned)
         cleaned = re.sub(r'reported number of objects \(\d+\) is not one plus the highest object number \(\d+\)',
                          'reported number of objects (x) is not one plus the highest object number (y)', cleaned)
+        cleaned = re.sub(r'overflow/underflow converting [-]?[\d]+', 'overflow/underflow converting <x>', cleaned)
+        cleaned = re.sub(r'expected = [\d]+; actual = [\d]+', 'expected = <x>; actual = <y>', cleaned)
+        cleaned = re.sub(r'supposed object stream [\d]+ is not a stream', 'supposed object stream <x> is not a stream',
+                         cleaned)
+        cleaned = re.sub(r'object, offset [\d]+\)',
+                         'object, offset <x>)', cleaned)
+        cleaned = re.sub(r'Subprocess timed out: [\d]+', 'Subprocess timed out: <t>', cleaned)
+        cleaned = re.sub(r'invalid character \([^)]*\) in hexstring',
+                         'invalid character (<c>) in hexstring', cleaned)
+        cleaned = re.sub(r'json key "[^"]+" is supposed to be an array',
+                         'json key "<key>" is supposed to be an array', cleaned)
+        cleaned = re.sub(r'object [\d+]/[\d+] has unexpected xref entry type',
+                         'object <obj>/<gen> has unexpected xref entry type', cleaned)
         cleaned: str = re.sub(r' [\d]+ [\d]+ obj\s{0, 1}', ' something else ', cleaned)
         return cleaned
 

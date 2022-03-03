@@ -6,7 +6,8 @@ import warnings
 # from func_timeout import func_timeout, FunctionTimedOut
 import yaml
 
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, IMAGE
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, IMAGE, \
+    TIMED_OUT
 from sparclur._hybrid import Hybrid
 from sparclur._reforge import Reforger
 from sparclur._tracer import Tracer
@@ -234,7 +235,11 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             if self._cleaned is None:
                 self._scrub_messages()
             observed_messages = list(self._cleaned.keys())
-            if self._trace_exit_code > 0:
+            if self._file_timed_out[TRACER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._trace_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._trace_exit_code
@@ -264,15 +269,18 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 orig_message = self._messages
                 orig_cleaned = self._cleaned
                 orig_trace_cmd = self._trace_cmd
+                orig_timed_out = self._file_timed_out[TRACER]
                 self._trace = 'pdftoppm'
                 self._trace_cmd = self._pdftoppm_path
                 self._messages = None
                 self._cleaned = None
+                self._file_timed_out = None
                 validity_results = self.validate_tracer
                 self._trace = orig_trace
                 self._messages = orig_message
                 self._cleaned = orig_cleaned
                 self._trace_cmd = orig_trace_cmd
+                self._file_timed_out = orig_timed_out
             else:
                 validity_results = self.validate_tracer
             self._validity[RENDER] = validity_results
@@ -294,7 +302,11 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 swap = False
             if len(self._text) == 0:
                 _ = self.get_text()
-            if self._text_exit_code > 0:
+            if self._file_timed_out[TEXT]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._text_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._text_exit_code
@@ -325,7 +337,11 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             validity_results = dict()
             if self._images is None:
                 self._get_image_data()
-            if self._images_exit_code > 0:
+            if self._file_timed_out[IMAGE]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._images_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._images_exit_code
@@ -353,7 +369,11 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             validity_results = dict()
             if self._fonts is None:
                 self._get_fonts()
-            if self._fonts_exit_code > 0:
+            if self._file_timed_out[FONT]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._fonts_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._fonts_exit_code
@@ -434,6 +454,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 err = fix_splits(err.decode(self._decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._trace_exit_code = sp.returncode
+                self._file_timed_out[TRACER] = False
             except TimeoutExpired:
                 sp.kill()
                 (_, err) = sp.communicate()
@@ -441,6 +462,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = True
             except Exception as e:
                 sp.kill()
                 (_, err) = sp.communicate()
@@ -448,6 +470,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 error_arr = str(e).split('\n')
                 error_arr.extend([message for message in err.split('\n') if len(message) > 0])
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = False
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
     def _scrub_messages(self):
@@ -593,6 +616,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                     error_arr = [message for message in err.split('\n') if len(message) > 0]
                     self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
                     self._trace_exit_code = sp.returncode
+                    self._file_timed_out[TRACER] = False
                 result: Dict[int, PngImageFile] = dict()
                 for render in [file for file in os.listdir(temp_path) if file.endswith('.png')]:
                     page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
@@ -608,6 +632,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                     error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
                     self._messages = error_arr
                     self._trace_exit_code = 0
+                    self._file_timed_out[TRACER] = True
                 result: Dict[int, PngImageFile] = dict()
                 self._logs[0] = {'result': 'Timed out', 'timing': (self._timeout or 600)}
             except Exception as e:
@@ -615,6 +640,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                     error_arr = str(e).split('\n')
                     self._messages = error_arr
                     self._trace_exit_code = 0
+                    self._file_timed_out[TRACER] = False
                 result: Dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
@@ -672,7 +698,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             self._text_exit_code = sp.returncode
             err = fix_splits(err.decode(self._decoder))
             error_arr = [message for message in err.split('\n') if len(message) > 0]
-
+            self._file_timed_out[TEXT] = False
         except TimeoutExpired:
             self._text_exit_code = 0
             sp.kill()
@@ -680,6 +706,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             err = fix_splits(err.decode(self._decoder))
             error_arr = [message for message in err.split('\n') if len(message) > 0]
             error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
+            self._file_timed_out[TEXT] = True
         except Exception as e:
             self._text_exit_code = 0
             sp.kill()
@@ -687,6 +714,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             err = fix_splits(err.decode(self._decoder))
             error_arr = str(e).split('\n')
             error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+            self._file_timed_out[TEXT] = False
         self._text_messages = error_arr
         result = stdout.decode(self._decoder, errors='ignore')
         return result
@@ -743,7 +771,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                         d[after_yes_nos_header[-1]] = after_yes_nos[sum(after_yes_nos_field_lengths[
                                                                         :len(after_yes_nos_header) - 1]):].strip() + ' R'
                         font_results.append(d)
-                    self._fonts = font_results
+                self._fonts = font_results
+                self._file_timed_out[FONT] = False
             except TimeoutExpired:
                 self._fonts = []
                 sp.kill()
@@ -753,6 +782,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
                 self._font_messages = error_arr
                 self._fonts_exit_code = 0
+                self._file_timed_out[FONT] = True
             except Exception as e:
                 self._fonts = []
                 sp.kill()
@@ -762,6 +792,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 error_arr.extend([message for message in err.split('\n') if len(message) > 0])
                 self._font_messages = error_arr
                 self._fonts_exit_code = 0
+                self._file_timed_out[FONT] = False
 
     def _get_image_data(self):
         with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
@@ -787,11 +818,14 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 else:
                     header = re.split('\s+', lines[0])
                     self._images = [dict(zip(header, re.split('\s+', line)[1:])) for line in lines[2:]]
+                self._file_timed_out[IMAGE] = False
             except TimeoutError:
                 self._images = []
                 self._image_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
                 self._images_exit_code = 0
+                self._file_timed_out[IMAGE] = True
             except Exception as e:
                 self._images = []
                 self._images_exit_code = 0
                 self._image_messages = str(e).split('\n')
+                self._file_timed_out[IMAGE] = False

@@ -31,15 +31,15 @@ def _pdftoppm_clean_message(err):
     cleaned = re.sub(r"Couldn't", 'Could not', err)
     cleaned = re.sub(r"wasn't", 'was not', cleaned)
     cleaned = re.sub(r"isn't", 'is not', cleaned)
-    cleaned = re.sub(r' \([a-f\d]+\)', '', cleaned)
-    cleaned = re.sub(r'\s{0, 1}\<[^>]+\>\s{0, 1}', ' ', cleaned)
-    cleaned = re.sub(r"\'[^']+\'", "\'<x>\'", cleaned)
+    cleaned = re.sub(r' \(-?[a-f\d]+\)', '<x>', cleaned)
+    cleaned = re.sub(r'\s{0, 1}\<[^>]+\>\s{0, 1}', '<x>', cleaned)
+    cleaned = re.sub(r"\'[^']+\'", "<x>", cleaned)
     cleaned = re.sub(r'xref num \d+', 'xref num <x>', cleaned)
     cleaned = re.sub(r'\(page \d+\)', '', cleaned)
     cleaned = re.sub(r'\(bad size: \d+\)', '(bad size)', cleaned)
     cleaned = 'Syntax Error: Unknown operator' if cleaned.startswith('Syntax Error: Unknown operator') else cleaned
-    cleaned = 'Syntax Error: Unknown character collection Adobe-Identity' if cleaned.startswith(
-        'Syntax Error: Unknown character collection Adobe-Identity') else cleaned
+    cleaned = re.sub(r'Unknown character collection [.]*',
+                     'Unknown character collection <x>', cleaned)
     cleaned = 'Syntax Error: Invalid XRef entry' if cleaned.startswith(
         'Syntax Error: Invalid XRef entry') else cleaned
     cleaned = re.sub(r'Corrupt JPEG data: \d+ extraneous bytes before marker [xa-f\d]{4, 4}',
@@ -61,6 +61,21 @@ def _pdftoppm_clean_message(err):
                      'Syntax Error: <x> extraneous bytes after segment', cleaned)
     cleaned = re.sub(r'Syntax Error: Illegal character <[^>]+> in hex string',
                      'Syntax Error: Illegal character <x> in hex string', cleaned)
+    cleaned = re.sub(r'Subprocess timed out: [\d]+', 'Subprocess timed out: <t>', cleaned)
+    cleaned = re.sub(r'Corrupt JPEG data: [\d]+ extraneous bytes before marker [.]+',
+                     'Corrupt JPEG data: <x> extraneous bytes before marker <m>', cleaned)
+    cleaned = re.sub(r'Syntax Error: Matte entry should have 1 components but has [\d]+',
+                     'Syntax Error: Matte entry should have 1 components but has <x>', cleaned)
+    cleaned = re.sub(r'Syntax Warning: Read from memory error. Got [\d]+ bytes, block should be of 128 bytes',
+                     'Syntax Warning: Read from memory error. Got <x> bytes, block should be of 128 bytes', cleaned)
+    cleaned = re.sub(r'Syntax Warning: Unexpected oc reference target: [.]+',
+                     'Syntax Warning: Unexpected oc reference target: <x>', cleaned)
+    cleaned = re.sub(r'Syntax Error: Unknown DCT marker <[\d]+>',
+                     'Syntax Error: Unknown DCT marker <x>', cleaned)
+    cleaned = re.sub(r'Could not find [.]* CMap file for [.]* collection',
+                     'Could not find <x> CMap file for <x> collection', cleaned)
+    cleaend = re.sub(r'Unknown CMap [.]* for character collection [.]*',
+                     'Unknown CMap <x> for character collection <x>', cleaned)
     cleaned: str = re.sub(r'Syntax Warning: Could not parse ligature component \"[^"]+\" of \"[^"]+\" in parseCharName',
                           'Syntax Warning: Could not parse ligature component in parseCharName', cleaned)
 
@@ -72,6 +87,7 @@ def _pdftocairo_clean_message(err):
     cleaned = re.sub(r"\'[^']+\'", "\'x\'", cleaned)
     cleaned = re.sub(r'\([^)]+\)', "\'x\'", cleaned)
     cleaned = re.sub(r'xref num [\d]+', "xref num \'x\'", cleaned)
+    cleaned = re.sub(r'Subprocess timed out: [\d]+', 'Subprocess timed out: <t>', cleaned)
     cleaned: str = 'Syntax Error: Unknown character collection Adobe-Identity' if cleaned.startswith(
         'Syntax Error: Unknown character collection Adobe-Identity') else cleaned
     return cleaned

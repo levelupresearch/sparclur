@@ -12,6 +12,7 @@ VALID = 'Valid'
 VALID_WARNINGS = 'Valid with Warnings'
 REJECTED = 'Rejected'
 REJECTED_AMBIG = 'Rejected; Ambiguous'
+TIMED_OUT = 'Timed Out'
 
 RENDER = 'Renderer'
 TRACER = 'Tracer'
@@ -234,6 +235,7 @@ class Parser(metaclass=Meta):
         self._api: Dict[str, str] = {'num_pages': '(Property) Returns number of pages in the document'}
         self._num_pages = None
         self._sparclur_hash = SparclurHash(doc, hash_exclude)
+        self._file_timed_out = dict()
 
     def __repr__(self):
         return '\n'.join('%s:\t%s' % (method, desc) for (method, desc) in self._api.items())
@@ -334,11 +336,13 @@ class Parser(metaclass=Meta):
     def timeout(self, to: int):
         self._sparclur_hash = SparclurHash(self._doc, self._hash_exclude)
         self._timeout = to
+        self._file_timed_out = dict()
 
     @timeout.deleter
     def timeout(self):
         self._sparclur_hash = SparclurHash(self._doc, self._hash_exclude)
         self._timeout = None
+        self._file_timed_out = dict()
 
     @property
     def num_pages(self):

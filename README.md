@@ -1,7 +1,7 @@
 # SPARCLUR - Some PDF Analyzers and Renderer Comparators: LevelUp Research
 
 SPARCLUR (Sparclur) is a collection of various wrappers for extant PDF 
-parsers and renderers and tools for comparing and analyzing the outputs from
+parsers and/or renderers along with accompanying tools for comparing and analyzing the outputs from
 these parsers.
 
 ## Contents
@@ -10,6 +10,7 @@ these parsers.
   - [Ghostscript](#ghostscript)
   - [MuPDF](#mupdf)
   - [PDFCPU](#pdfcpu)
+  - [PDFium](#pdfium)
   - [PDFMiner](#pdfminer)
   - [Poppler](#poppler)
   - [QPDF](#qpdf)
@@ -56,6 +57,13 @@ PDFCPU is a Go based PDF processor. So both Go and PDFCPU will need to be instal
 config, or entered at run-time.
 
 https://pdfcpu.io/
+
+### PDFium
+Google's PDF rendering software. This is accessed using the pypdfium2 package.
+
+https://pdfium.googlesource.com/pdfium/
+
+https://github.com/pypdfium2-team/pypdfium2
 
 ### PDFMiner
 PDFMiner is a Python based parser. The package needs to be installed into the working environment.

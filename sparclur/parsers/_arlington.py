@@ -3,7 +3,7 @@ import platform
 import shlex
 import time
 
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TIMED_OUT, RENDER, TRACER, TEXT, FONT
 from sparclur._tracer import Tracer
 from sparclur.utils import hash_file
 from sparclur.utils._tools import _get_config_param
@@ -117,7 +117,11 @@ class Arlington(Tracer):
             if self._cleaned is None:
                 self._scrub_messages()
             observed_messages = list(self._cleaned.keys())
-            if self._trace_exit_code > 0:
+            if self._file_timed_out[TRACER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._trace_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._trace_exit_code
@@ -174,15 +178,18 @@ class Arlington(Tracer):
                     messages.append(m)
                 if len(messages) == 0:
                     messages = ['No warnings']
+                self._file_timed_out[TRACER] = False
             except TimeoutExpired:
                 sp.kill()
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = True
                 messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
             except Exception as e:
                 sp.kill()
                 messages = str(e).split('\n')
                 messages.extend([message for message in err.split('\n') if len(message) > 0])
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = False
         self._messages = messages
 
     def _scrub_messages(self):

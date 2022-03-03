@@ -11,7 +11,7 @@ from subprocess import DEVNULL, TimeoutExpired
 import yaml
 
 from sparclur._tracer import Tracer
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TRACER
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TRACER, TIMED_OUT
 from sparclur.utils._tools import _get_config_param, hash_file
 
 
@@ -73,7 +73,11 @@ class PDFCPU(Tracer):
             if self._cleaned is None:
                 self._scrub_messages()
             observed_messages = list(self._cleaned.keys())
-            if self._trace_exit_code > 1:
+            if self._file_timed_out[TRACER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._trace_exit_code > 1:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._trace_exit_code
@@ -155,6 +159,7 @@ class PDFCPU(Tracer):
                 error_arr = [relaxed_err, strict_err] if relaxed_err not in strict_err else [relaxed_err]
                 # error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._trace_exit_code = max(strict_sp.returncode, relaxed_sp.returncode)
+                self._file_timed_out[TRACER] = False
             except TimeoutExpired:
                 strict_sp.kill()
                 relaxed_sp.kill()
@@ -166,6 +171,7 @@ class PDFCPU(Tracer):
                 error_arr = [relaxed_err, strict_err] if relaxed_err not in strict_err else [relaxed_err]
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = True
             except Exception as e:
                 strict_sp.kill()
                 relaxed_sp.kill()
@@ -178,6 +184,7 @@ class PDFCPU(Tracer):
                 pdfcpu_errs = [relaxed_err, strict_err] if relaxed_err not in strict_err else [relaxed_err]
                 error_arr.extend(pdfcpu_errs)
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = False
         error_arr = [err for err in error_arr if len(err) > 0]
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 

@@ -19,7 +19,7 @@ import yaml
 from sparclur._reforge import Reforger
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
-from sparclur._parser import VALID, REJECTED, REJECTED_AMBIG, RENDER
+from sparclur._parser import VALID, REJECTED, REJECTED_AMBIG, RENDER, TIMED_OUT
 from sparclur.utils import hash_file
 from sparclur.utils._tools import _get_config_param
 
@@ -132,7 +132,11 @@ class Ghostscript(Renderer, Reforger):
                 else:
                     _ = self.get_renders()
             results = [(page, value['result']) for (page, value) in self._logs.items()]
-            if len(results) == 0:
+            if self._file_timed_out[RENDER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif len(results) == 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'No info returned'
@@ -231,13 +235,16 @@ class Ghostscript(Renderer, Reforger):
                     self._renders[page] = pil
                 timing = time.perf_counter() - start_time
                 self._logs[page] = {'result': SUCCESS, 'timing': timing}
+                self._file_timed_out[RENDER] = False
             except TimeoutExpired:
                 pil: PngImageFile = None
                 self._logs[page] = {'result': 'Timed out', 'timing': self._timeout or 600}
+                self._file_timed_out[RENDER] = True
             except Exception as e:
                 pil: PngImageFile = None
                 timing = time.perf_counter() - start_time
                 self._logs[page] = {'result': str(e), 'timing': timing}
+                self._file_timed_out[RENDER] = False
             # finally:
             #     external_gs.cleanup()
         return pil
@@ -298,13 +305,16 @@ class Ghostscript(Renderer, Reforger):
                 num_pages = len(pils)
                 for page in pils.keys():
                     self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
+                self._file_timed_out[RENDER] = False
             except TimeoutExpired:
                 pils: Dict[int, PngImageFile] = dict()
                 self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
+                self._file_timed_out[RENDER] = True
             except Exception as e:
                 pils: Dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
+                self._file_timed_out[RENDER] = False
             # finally:
             #     external_gs.cleanup()
         return pils

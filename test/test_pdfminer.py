@@ -3,7 +3,7 @@ from sparclur.parsers import PDFMiner
 from parser_tests import ParserTestMixin, TextExtractorTestMixin, MetadataExtractorTestMixin, TEST_PDF
 
 
-class GhostscriptTestCase(unittest.TestCase, ParserTestMixin, TextExtractorTestMixin, MetadataExtractorTestMixin):
+class PDFMinerTestCase(unittest.TestCase, ParserTestMixin, TextExtractorTestMixin, MetadataExtractorTestMixin):
 
     def setUp(self):
         self.parser = PDFMiner

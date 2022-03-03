@@ -119,7 +119,7 @@ class RollBack:
         """
         Save the specified incremental update version. Versions are 0-indexed.
         """
-        raw = self._get_version(version)
+        raw = self.get_version(version)
         with open(save_path, 'wb') as file_out:
             file_out.write(raw)
 
