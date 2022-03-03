@@ -10,7 +10,7 @@ from func_timeout import func_timeout, FunctionTimedOut
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TIMED_OUT
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._renderer import _SUCCESS_WITH_WARNINGS as SUCCESS_WITH_WARNINGS
@@ -72,6 +72,10 @@ class PDFium(Renderer):
                     _ = self.get_renders()
             results = [(page, value['result']) for (page, value) in self._logs.items()]
             not_successful = [result for (_, result) in results if result != SUCCESS]
+            if self._file_timed_out[RENDER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
             if len(results) == 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
@@ -125,13 +129,16 @@ class PDFium(Renderer):
                 timing = time.perf_counter() - start_time
                 result = SUCCESS
                 self._logs[page] = {'result': result, 'timing': timing}
+                self._file_timed_out = False
         except FunctionTimedOut:
             pil_image: PngImageFile = None
             self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
+            self._file_timed_out = True
         except Exception as e:
             pil_image: PngImageFile = None
             timing = time.perf_counter() - start_time
             self._logs[page] = {'result': str(e), 'timing': timing}
+            self._file_timed_out = False
         return pil_image
 
     def _pdfium_render_pdf(self, page_indices):
@@ -177,13 +184,16 @@ class PDFium(Renderer):
                     pil = self._render_page(page)
                     if pil is not None:
                         result[page] = pil
+            self._file_timed_out[RENDER] = False
         except FunctionTimedOut:
             result = dict()
             self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
+            self._file_timed_out[RENDER] = True
         except Exception as e:
             result = dict()
             timing = time.perf_counter() - start_time
             self._logs[0] = {'result': str(e), 'timing': timing}
+            self._file_timed_out[RENDER] = False
         if self._caching:
             if pages is None:
                 self._full_doc_rendered = True
@@ -192,7 +202,4 @@ class PDFium(Renderer):
 
     def _render_doc(self):
         renders = self._render_pages(pages=None)
-        if self._caching:
-            self._full_doc_rendered = True
-            self._renders.update(renders)
         return renders

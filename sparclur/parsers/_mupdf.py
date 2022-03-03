@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Union, Tuple
 import yaml
 from func_timeout import func_timeout, FunctionTimedOut
 
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, TIMED_OUT
 from sparclur._hybrid import Hybrid
 from sparclur._reforge import Reforger
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
@@ -100,7 +100,11 @@ class MuPDF(Tracer, Hybrid, Reforger):
                     _ = self.get_renders()
             results = [(page, value['result']) for (page, value) in self._logs.items()]
             not_successful = [result for (_, result) in results if result != SUCCESS]
-            if len(results) == 0:
+            if self._file_timed_out[RENDER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif len(results) == 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'No info returned'
@@ -181,13 +185,16 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 warnings = fitz.TOOLS.mupdf_warnings()
                 result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
                 self._logs[page] = {'result': result, 'timing': timing}
+                self._file_timed_out[RENDER] = False
             except FunctionTimedOut:
                 mu_pil: PngImageFile = None
                 self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
+                self._file_timed_out[RENDER] = True
             except Exception as e:
                 mu_pil: PngImageFile = None
                 timing = time.perf_counter() - start_time
                 self._logs[page] = {'result': str(e), 'timing': timing}
+                self._file_timed_out[RENDER] = False
             return mu_pil
 
     def _render_doc(self, pages=None):
@@ -233,10 +240,13 @@ class MuPDF(Tracer, Hybrid, Reforger):
                         warnings = fitz.TOOLS.mupdf_warnings()
                         result = SUCCESS if warnings == '' else SUCCESS_WITH_WARNINGS
                         self._logs[page] = {'result': result, 'timing': timing}
+                        self._file_timed_out[RENDER] = False
                     except FunctionTimedOut:
                         self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
+                        self._file_timed_out[RENDER] = True
                     except Exception as e:
                         self._logs[page] = {'result': str(e), 'timing': time.perf_counter() - page_start}
+                        self._file_timed_out[RENDER] = False
                 doc.close()
                 if self._caching:
                     if pages is None:
@@ -250,6 +260,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 pils: Dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
+                self._file_timed_out[RENDER] = False
             return pils
 
     def _render_pages(self, pages: List[int]):
@@ -405,7 +416,11 @@ class MuPDF(Tracer, Hybrid, Reforger):
             if self._cleaned is None:
                 self._scrub_messages()
             observed_messages = list(self._cleaned.keys())
-            if self._trace_exit_code > 0:
+            if self._file_timed_out[TRACER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._trace_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._trace_exit_code
@@ -455,6 +470,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
+                self._file_timed_out[TRACER] = False
             except TimeoutExpired:
                 sp.kill()
                 (_, err) = sp.communicate()
@@ -462,12 +478,14 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 err = fix_splits(err.decode(decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
+                self._file_timed_out[TRACER] = True
             except Exception as e:
                 sp.kill()
                 decoder = locale.getpreferredencoding()
                 err = fix_splits(err.decode(decoder))
                 error_arr = str(e).split('\n')
                 error_arr.extend([message for message in err.split('\n') if len(message) > 0])
+                self._file_timed_out[TRACER] = False
         self._trace_exit_code = sp.returncode
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
@@ -478,8 +496,8 @@ class MuPDF(Tracer, Hybrid, Reforger):
         cleaned = 'error: expected generation number' if cleaned.startswith(
             'error: expected generation number ') else cleaned
         cleaned = 'error: unknown colorspace' if cleaned.startswith('error: unknown colorspace: ') else cleaned
-        cleaned = 'warning: non-embedded font using identity encoding' if cleaned.startswith(
-            'warning: non-embedded font using identity encoding: ') else cleaned
+        cleaned = re.sub(r'non-embedded font using identity encoding: [.]*',
+                         'non-embedded font using identity encoding: <font>', cleaned)
         cleaned = re.sub(r'\(gid [\d]+\)', '', cleaned)
         cleaned = 'error: expected  keyword' if cleaned.startswith('error: expected  keyword ') else cleaned
         cleaned = 'warning: unknown filter name' if cleaned.startswith('warning: unknown filter name ') else cleaned
@@ -505,8 +523,8 @@ class MuPDF(Tracer, Hybrid, Reforger):
                          'warning: Encountered new definition for object - keeping the original one', cleaned)
         cleaned = 'warning: bf_range limits out of range in cmap' if cleaned.startswith(
             'warning: bf_range limits out of range in cmap') else cleaned
-        cleaned = 'warning: ignoring one to many mapping in cmap' if cleaned.startswith(
-            'warning: ignoring one to many mapping in cmap') else cleaned
+        cleaned = re.sub(r'ignoring one to many mapping in cmap [.]*',
+                         'ignoring one to many mapping in cmap', cleaned)
         cleaned = re.sub(r'\(segment [\-]?\d+\)', '', cleaned)
         cleaned = re.sub(r'\([\-]?\d+\)', '', cleaned)
         cleaned = re.sub(r'\(\d+\/\d+\)', '', cleaned)
@@ -527,8 +545,23 @@ class MuPDF(Tracer, Hybrid, Reforger):
         cleaned = 'warning: openjpeg error: read: segment too long  with max  for codeblock' if cleaned.startswith(
             'warning: openjpeg error: read: segment too long  with max  for codeblock') else cleaned
         cleaned = re.sub(r'comp\[\d+\]', 'comp', cleaned)
-        cleaned = re.sub(r'ignoring CMap range \(\d+-\d+\)', 'ignoring CMap range ', cleaned)
+        cleaned = re.sub(r'ignoring CMap range \(\d+-\d+\)', 'ignoring CMap range (a-b)', cleaned)
         cleaned = re.sub(r'FT_New_Memory_Face\([^)]+\)', 'FT_New_Memory_Face(x)', cleaned)
+        cleaned = re.sub(r'FT_Load_Glyph\([^)]+\)', 'FT_Load_Glyph(x)', cleaned)
+        cleaned = re.sub(r'FT_Set_Char_Size\([^)]+\)', 'FT_Set_Char_Size(x)', cleaned)
+        cleaned = re.sub(r'Subprocess timed out: [\d]+', 'Subprocess timed out: <t>', cleaned)
+        cleaned = re.sub(r'error: cannot find page [\d]+ in page tree',
+                         'error: cannot find page <p> in page tree', cleaned)
+        cleaned = re.sub(r'unknown cid collection: [.]+', 'unknown cid collection', cleaned)
+        cleaned = re.sub(r'content stream is not a stream \([^)]*\)',
+                         'content stream is not a stream (<x>)', cleaned)
+        cleaned = re.sub(r'expected endobj or stream keyword \([^)]*\)',
+                         'expected endobj or stream keyword (<x>)', cleaned)
+        cleaned = re.sub(r'ignoring object with invalid object number \([^)]*\)',
+                         'ignoring object with invalid object number (<x>)', cleaned)
+        cleaned = re.sub(r'invalid indirect reference \([^)]*\)',
+                         'invalid indirect reference (<x>)', cleaned)
+
         cleaned: str = re.sub(r'\[\d+\] prec\(\d+\) sgnd\(\d+\) \[\d+\] prec\(\d+\) sgnd\(\d+\)', 'Out of Memory Error',
                               cleaned)
 

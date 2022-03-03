@@ -6,7 +6,7 @@ import warnings
 # from func_timeout import func_timeout, FunctionTimedOut
 import yaml
 
-from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT
+from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, TIMED_OUT
 from sparclur._hybrid import Hybrid
 from sparclur._tracer import Tracer
 from sparclur._font_extractor import FontExtractor
@@ -156,7 +156,11 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             if self._cleaned is None:
                 self._scrub_messages()
             observed_messages = list(self._cleaned.keys())
-            if self._trace_exit_code > 0:
+            if self._file_timed_out[TRACER]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._trace_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._trace_exit_code
@@ -176,6 +180,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 validity_results['status'] = REJECTED_AMBIG
                 validity_results['info'] = 'Unknown message type returned'
             self._validity[TRACER] = validity_results
+            self._validity[RENDER] = validity_results
         return self._validity[TRACER]
 
     @property
@@ -201,7 +206,11 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 swap = False
             if len(self._text) == 0:
                 _ = self.get_text()
-            if self._text_exit_code > 0:
+            if self._file_timed_out[TEXT]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._text_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._text_exit_code
@@ -232,7 +241,11 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             validity_results = dict()
             if self._fonts is None:
                 self._get_fonts()
-            if self._fonts_exit_code > 0:
+            if self._file_timed_out[FONT]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._fonts_exit_code > 0:
                 validity_results['valid'] = False
                 validity_results['status'] = REJECTED
                 validity_results['info'] = 'Exit code: %i' % self._fonts_exit_code
@@ -319,6 +332,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 err = fix_splits(err.decode(self._decoder))
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 self._trace_exit_code = sp.returncode
+                self._file_timed_out[TRACER] = False
             except TimeoutExpired:
                 sp.kill()
                 (_, err) = sp.communicate()
@@ -326,6 +340,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 error_arr = [message for message in err.split('\n') if len(message) > 0]
                 error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = True
             except Exception as e:
                 sp.kill()
                 (_, err) = sp.communicate()
@@ -333,6 +348,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 error_arr = str(e).split('\n')
                 error_arr.extend([message for message in err.split('\n') if len(message) > 0])
                 self._trace_exit_code = 0
+                self._file_timed_out[TRACER] = False
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
     def _scrub_messages(self):
@@ -429,6 +445,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                     err = fix_splits(err.decode(decoder))
                     error_arr = [message for message in err.split('\n') if len(message) > 0]
                     self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
+                    self._file_timed_out[TRACER] = False
                 result: Dict[int, PngImageFile] = dict()
                 for render in [file for file in os.listdir(temp_path) if file.endswith('.ppm')]:
                     page_index = int(re.sub('out-', '', re.sub('.ppm', '', render))) - 1
@@ -444,6 +461,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                     error_arr = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
                     self._messages = error_arr
                     self._trace_exit_code = 0
+                    self._file_timed_out[TRACER] = True
                 result: Dict[int, PngImageFile] = dict()
                 self._logs[0] = {'result': 'Timed out', 'timing': (self._timeout or 600)}
             except Exception as e:
@@ -451,6 +469,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                     error_arr = str(e).split('\n')
                     self._messages = error_arr
                     self._trace_exit_code = 0
+                    self._file_timed_out[TRACER] = False
                 result: Dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
@@ -519,6 +538,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
 
             self._text_messages = error_arr
             result = stdout.decode(self._decoder, errors='ignore')
+            self._file_timed_out[TEXT] = False
         except TimeoutExpired:
             self._text_exit_code = 0
             sp.kill()
@@ -528,6 +548,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             error_arr.insert(0, 'Error: Subprocess timed out: %i' % (self._timeout or 600))
             self._text_messages = error_arr
             result = ''
+            self._file_timed_out[TEXT] = True
         except Exception as e:
             self._text_exit_code = 0
             sp.kill()
@@ -537,6 +558,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             error_arr.extend([message for message in err.split('\n') if len(message) > 0])
             self._text_messages = error_arr
             result = ''
+            self._file_timed_out[TEXT] = False
 
         return result
 
@@ -587,12 +609,15 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                         d['location'] = after_yes_nos[field_lengths[header.index('prob')] + field_lengths[
                             header.index('object ID')]:].strip()
                         font_results.append(d)
-                    self._fonts = font_results
+                self._fonts = font_results
+                self._file_timed_out[FONT] = False
             except TimeoutError:
                 self._fonts = []
                 self._font_messages = ['Error: Subprocess timed out: %i' % (self._timeout or 600)]
                 self._fonts_exit_code = 0
+                self._file_timed_out[FONT] = True
             except Exception as e:
                 self._fonts = []
                 self._fonts_exit_code = 0
                 self._font_messages = str(e).split('\n')
+                self._file_timed_out[FONT] = False

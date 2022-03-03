@@ -21,7 +21,7 @@ from pdfminer.utils import isnumber
 
 from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
-from sparclur._parser import VALID, REJECTED, META, TEXT
+from sparclur._parser import VALID, REJECTED, META, TEXT, TIMED_OUT
 from sparclur.utils import hash_file
 from sparclur.utils._tools import _get_config_param
 
@@ -78,6 +78,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         self._laparams = LAParams(detect_vertical=self._detect_vertical, all_texts=self._all_texts)
         self._stream_output = stream_output if stream_output in ['text', 'raw', 'binary'] else None
         self._suppress_warnings = suppress_warnings
+        self._decoder = locale.getpreferredencoding()
         if suppress_warnings:
             # pdflogs = [logging.getLogger(name) for name in logging.root.manager.loggerDict if name.startswith('pdfminer')]
             # for ll in pdflogs:
@@ -123,24 +124,28 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def validate_text(self) -> Dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
-            decoder = locale.getpreferredencoding()
-            with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
-                if isinstance(self._doc, bytes):
-                    file_hash = hash_file(self._doc)
-                    doc_path = os.path.join(temp_path, file_hash)
-                    with open(doc_path, 'wb') as doc_out:
-                        doc_out.write(self._doc)
-                else:
-                    doc_path = self._doc
-                try:
-                    _ = extract_text(doc_path, page_numbers=None, codec=decoder, laparams=self._laparams)
-                    validity_results['valid'] = True
-                    validity_results['status'] = VALID
-                except Exception as e:
-                    validity_results['valid'] = False
-                    validity_results['status'] = REJECTED
-                    validity_results['info'] = str(e)
-                self._validity[TEXT] = validity_results
+            if self._file_timed_out.get(TEXT, False):
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            else:
+                with tempfile.TemporaryDirectory(dir=self._temp_folders_dir) as temp_path:
+                    if isinstance(self._doc, bytes):
+                        file_hash = hash_file(self._doc)
+                        doc_path = os.path.join(temp_path, file_hash)
+                        with open(doc_path, 'wb') as doc_out:
+                            doc_out.write(self._doc)
+                    else:
+                        doc_path = self._doc
+                    try:
+                        _ = extract_text(doc_path, page_numbers=None, codec=self._decoder, laparams=self._laparams)
+                        validity_results['valid'] = True
+                        validity_results['status'] = VALID
+                    except Exception as e:
+                        validity_results['valid'] = False
+                        validity_results['status'] = REJECTED
+                        validity_results['info'] = str(e)
+                    self._validity[TEXT] = validity_results
         return self._validity[TEXT]
 
     def _check_for_metadata(self) -> bool:
@@ -156,7 +161,11 @@ class PDFMiner(TextExtractor, MetadataExtractor):
             validity_results = dict()
             if self._metadata is None:
                 self._extract_metadata()
-            if self._metadata_result == METADATA_SUCCESS:
+            if self._file_timed_out[META]:
+                validity_results['valid'] = False
+                validity_results['status'] = TIMED_OUT
+                validity_results['info'] = 'Timed Out: %i' % self._timeout
+            elif self._metadata_result == METADATA_SUCCESS:
                 validity_results['valid'] = True
                 validity_results['status'] = VALID
             else:
@@ -242,14 +251,17 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                             'laparams': self._laparams
                         }
                     )
+                self._file_timed_out[TEXT] = False
             except FunctionTimedOut as e:
                 print(e)
                 self._text = dict()
                 text = self._text
+                self._file_timed_out[TEXT] = True
             except Exception as e:
                 print(e)
                 self._text = dict()
                 text = self._text
+                self._file_timed_out[TEXT] = False
             return text
 
     def _extract_metadata(self):
@@ -262,12 +274,15 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                     self._parsepdf
                 )
             self._metadata_result = METADATA_SUCCESS
+            self._file_timed_out[META] = False
         except FunctionTimedOut as e:
             self._metadata = dict()
             self._metadata_result = str(e)
+            self._file_timed_out = True
         except Exception as e:
             self._metadata = dict()
             self._metadata_result = str(e)
+            self._file_timed_out = False
 
     # The following functions were adapted from the PDFMiner dumppdf CLI:
     # https://github.com/euske/pdfminer/blob/master/tools/dumppdf.py
