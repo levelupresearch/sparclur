@@ -609,7 +609,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                         d['location'] = after_yes_nos[field_lengths[header.index('prob')] + field_lengths[
                             header.index('object ID')]:].strip()
                         font_results.append(d)
-                self._fonts = font_results
+                    self._fonts = font_results
                 self._file_timed_out[FONT] = False
             except TimeoutError:
                 self._fonts = []

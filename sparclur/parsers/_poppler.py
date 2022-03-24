@@ -771,7 +771,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                         d[after_yes_nos_header[-1]] = after_yes_nos[sum(after_yes_nos_field_lengths[
                                                                         :len(after_yes_nos_header) - 1]):].strip() + ' R'
                         font_results.append(d)
-                self._fonts = font_results
+                    self._fonts = font_results
                 self._file_timed_out[FONT] = False
             except TimeoutExpired:
                 self._fonts = []
