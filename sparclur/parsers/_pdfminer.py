@@ -278,11 +278,11 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         except FunctionTimedOut as e:
             self._metadata = dict()
             self._metadata_result = str(e)
-            self._file_timed_out = True
+            self._file_timed_out[META] = True
         except Exception as e:
             self._metadata = dict()
             self._metadata_result = str(e)
-            self._file_timed_out = False
+            self._file_timed_out[META] = False
 
     # The following functions were adapted from the PDFMiner dumppdf CLI:
     # https://github.com/euske/pdfminer/blob/master/tools/dumppdf.py
