@@ -11,14 +11,17 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="sparclur",
-    version="2022.04.01",
+    version="2022.04.02",
     author="Shawn Davis",
     author_email="shawn@levelupresearch.com",
     description="Tools for analyzing PDF files and comparing PDF parsers",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/levelupresearch/sparclur",
-    packages=setuptools.find_packages('sparclur', 'sparclur.*'),
+    packages=setuptools.find_packages(where="src"),
+    package_dir={
+        "": "src"
+    },
     python_requires='>=3.8',
     license='Apache-2.0',
     install_requires=[

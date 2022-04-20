@@ -1,11 +1,7 @@
-import math
-
 from PIL.Image import Image
-from sparclur._hybrid import Hybrid
-from sparclur._parser import Parser
-from sparclur._parser import RENDER, TRACER, TEXT, FONT, IMAGE, META
-
-from unittest.mock import MagicMock
+from src.sparclur import Hybrid
+from src.sparclur import Parser
+from src.sparclur import RENDER, TRACER, TEXT, FONT, IMAGE, META
 
 TEST_PDF = '../../resources/hello_world_hand_edit.pdf'
 

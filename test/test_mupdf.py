@@ -2,7 +2,7 @@ import unittest
 
 from parser_tests import ParserTestMixin, TracerTestMixin, RendererTestMixin, TextExtractorTestMixin, TEST_PDF, \
     ReforgerTestMixin
-from sparclur.parsers import MuPDF
+from src.sparclur import MuPDF
 
 
 class MuPDFTestCase(unittest.TestCase, ParserTestMixin, TracerTestMixin, RendererTestMixin, TextExtractorTestMixin,

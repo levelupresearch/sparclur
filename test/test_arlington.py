@@ -1,5 +1,5 @@
 import unittest
-from sparclur.parsers import Arlington
+from src.sparclur import Arlington
 from parser_tests import ParserTestMixin, TracerTestMixin, TEST_PDF
 
 
