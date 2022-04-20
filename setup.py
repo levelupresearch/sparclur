@@ -11,10 +11,10 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="sparclur",
-    version="2022.03.00",
+    version="2022.04.01",
     author="Shawn Davis",
     author_email="shawn@levelupresearch.com",
-    description="Tools for analyzing PDF files and compare PDF parsers",
+    description="Tools for analyzing PDF files and comparing PDF parsers",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/levelupresearch/sparclur",

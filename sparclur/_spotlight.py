@@ -6,7 +6,7 @@ import shutil
 import sys
 import tempfile
 from collections import defaultdict
-from typing import List, Union, Dict, Any
+from typing import List, Union, Dict, Any, Tuple
 
 import numpy as np
 from tqdm import tqdm
@@ -470,7 +470,7 @@ class Spotlight:
     def __init__(self, num_workers: int = 1,
                  temp_folders_dir: str = None,
                  dpi: int = 72,
-                 hash_first_page: bool = False,
+                 page_hashes: Union[int, Tuple, None] = None,
                  parsers: Union[List[str], None] = None,
                  parser_args: Dict[str, Dict[str, Any]] = dict(),
                  timeout: int = None,
@@ -485,8 +485,10 @@ class Spotlight:
             Path to create the temporary directories used for temporary files.
         dpi : int, default=72
             The resolution for the renders produced during processing.
-        hash_first_page : bool
-            Specify whether only the render of the first page should be hashed.
+        page_hashes : int, Tuple
+            Specify specific pages to hash or a specific scheme for selecting page hashes. Tuple can be `('first', x)`
+            where x is the number of pages or `('random', x, [seed])` where x is the number of pages and seed is
+            optional.
         parsers : List[str], default=None
             Specify the parsers to run. Passing in `None` will use all available parsers.
         parser_args: dict
@@ -497,7 +499,7 @@ class Spotlight:
             Flag for displaying a progress bar
         """
         self._dpi = dpi
-        self._hash_first_page = hash_first_page
+        self._page_hashes = page_hashes
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
         if parsers is not None and len(parsers) > 0:
@@ -528,8 +530,8 @@ class Spotlight:
             kwargs = {'doc': doc, 'timeout': 120, 'temp_folders_dir': self._temp_folders_dir}
             if 'dpi' in sig.parameters:
                 kwargs['dpi'] = self._dpi
-            if 'hash_first_page' in sig.parameters:
-                kwargs['hash_first_page'] = self._hash_first_page
+            if 'page_hashes' in sig.parameters:
+                kwargs['page_hashes'] = self._page_hashes
             p = parser(**kwargs)
             try:
                 for sub_folder in self._parsers:
