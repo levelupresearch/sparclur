@@ -9,7 +9,8 @@ import yaml
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER, TIMED_OUT
 from sparclur._tracer import Tracer
-from sparclur.utils._tools import fix_splits, hash_file, _get_config_param, _load_config
+from sparclur.utils import fix_splits, hash_file
+from sparclur.utils._config import _get_config_param, _load_config
 
 import re
 import subprocess

@@ -15,7 +15,8 @@ from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 from sparclur._font_extractor import FontExtractor
 from sparclur._image_data_extractor import ImageDataExtractor
 from sparclur.parsers._poppler_helpers import _parse_poppler_size, _pdftocairo_clean_message, _pdftoppm_clean_message
-from sparclur.utils._tools import fix_splits, hash_file, _get_config_param, _load_config
+from sparclur.utils import fix_splits, hash_file
+from sparclur.utils._config import _get_config_param, _load_config
 
 from typing import List, Dict, Any, Union
 import tempfile

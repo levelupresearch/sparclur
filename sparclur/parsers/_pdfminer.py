@@ -23,7 +23,7 @@ from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, REJECTED, META, TEXT, TIMED_OUT
 from sparclur.utils import hash_file
-from sparclur.utils._tools import _get_config_param, _load_config
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class PDFMiner(TextExtractor, MetadataExtractor):

@@ -23,7 +23,7 @@ from typing import Tuple
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
-from sparclur.utils._tools import _get_config_param, _load_config
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class XPDF(Tracer, Hybrid, FontExtractor):

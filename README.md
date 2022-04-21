@@ -89,8 +89,11 @@ SPARCLUR config or at class instantiation.
 https://www.xpdfreader.com/
 
 ## Config
-A sparclur.yaml file can be set in the top-level SPARCLUR folder. Parameters for the various parser classes can
-be set, such as binary paths and other default values. See the `examples` directory for an example yaml file.
+A sparclur.yaml file can be set in the top-level SPARCLUR folder if you are running the code cloned from GitHub. Parameters for the various parser classes can
+be set, such as binary paths and other default values. See the `examples` directory for an example yaml file. If Sparclur
+has been installed from PyPi, the `get_config` and `update_config` methods in the `utils` directory can be used to
+view and update the current global config. The `update_config` just takes a dictionary of the values to be updated. The yaml can also be directly edited in either the system/virtual environment `etc` folder
+or the users `.local` folder if installed at the user level.
 
 ## Tools
 See the `examples` directory for Jupyter noteboooks showcasing the following tools.

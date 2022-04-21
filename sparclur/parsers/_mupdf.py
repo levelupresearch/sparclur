@@ -27,7 +27,7 @@ import fitz
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
-from sparclur.utils._tools import _get_config_param, _load_config
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class MuPDF(Tracer, Hybrid, Reforger):
@@ -146,7 +146,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                     pass
 
     def _mudraw(self, page, mat):
-        pix = page.getPixmap(matrix=mat)
+        pix = page.get_pixmap(matrix=mat)
         width = pix.width
         height = pix.height
         return Image.frombytes("RGB", [width, height], pix.samples)

@@ -12,7 +12,8 @@ import yaml
 
 from sparclur._tracer import Tracer
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TRACER, TIMED_OUT
-from sparclur.utils._tools import _get_config_param, hash_file, _load_config
+from sparclur.utils import hash_file
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class PDFCPU(Tracer):

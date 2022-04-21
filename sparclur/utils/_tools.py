@@ -45,44 +45,7 @@ def display_raw(file):
     return raw
 
 
-def _get_config_param(cls, config, key, value, default):
-    if value is not None:
-        return value
-    else:
-        try:
-            inheritance: List[type] = cls.mro()[0:-1]
-            inheritance = [i.__name__ for i in inheritance]
-            for i in inheritance:
-                config_param = config.get(i, dict()).get(key, None)
-                if config_param is not None:
-                    break
-            if config_param is None:
-                return default
-            else:
-                return config_param
-        except Exception as e:
-            return default
 
-
-def _load_config():
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    _cloned_path = os.path.realpath('../../sparclur.yaml')
-    _user_path = os.path.join(site.USER_BASE, 'etc', 'sparclur', 'sparclur.yaml')
-    _env_path = os.path.join(sys.prefix, 'etc', 'sparclur', 'sparclur.yaml')
-    if os.path.isfile(_cloned_path):
-        yaml_path = _cloned_path
-    elif os.path.isfile(os.path.join(_user_path)):
-        yaml_path = _user_path
-    elif os.path.isfile(_env_path):
-        yaml_path = _env_path
-    else:
-        yaml_path = None
-    if yaml_path is None:
-        return dict()
-    else:
-        with open(yaml_path, 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
-        return config
 
 
 def stringify_dict(d):

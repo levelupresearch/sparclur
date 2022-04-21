@@ -19,7 +19,7 @@ from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._parser import VALID, REJECTED, REJECTED_AMBIG, RENDER, TIMED_OUT
 from sparclur.utils import hash_file
-from sparclur.utils._tools import _get_config_param, _load_config
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class Ghostscript(Renderer, Reforger):

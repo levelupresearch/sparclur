@@ -5,8 +5,7 @@ import shlex
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TIMED_OUT, TRACER
 from sparclur._tracer import Tracer
 from sparclur.utils import hash_file
-from sparclur.utils._tools import _get_config_param, _load_config
-import yaml
+from sparclur.utils._config import _get_config_param, _load_config
 
 from typing import List, Dict, Any, Union
 import tempfile

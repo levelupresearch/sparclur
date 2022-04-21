@@ -142,7 +142,7 @@ class TextCompare(Parser, metaclass=Meta):
         """
         assert self._skip_check or 'spacy' in sys.modules.keys(), "spaCy not found for tokenization"
         nlp = English()
-        tokenizer = nlp.Defaults.create_tokenizer(nlp)
+        tokenizer = nlp.tokenizer
 
         text = self.get_text(page=page)
         if page is not None:
@@ -151,8 +151,8 @@ class TextCompare(Parser, metaclass=Meta):
                     tokenized = ['']
                 else:
                     tokenized = [str(token) for token in tokenizer(text)]
-                    remove_white_space_tokens = [t for t in [re.sub('\s+', '', token) for token in tokenized] if t != '']
-                self._tokens[page] = remove_white_space_tokens
+                    tokenized = [t for t in [re.sub('\s+', '', token) for token in tokenized] if t != '']
+                self._tokens[page] = tokenized
             tokens = self._tokens[page]
         else:
             if not self._document_tokenized:

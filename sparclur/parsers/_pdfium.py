@@ -12,7 +12,7 @@ from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, RENDER, TIMED_OUT
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._renderer import _SUCCESS_WITH_WARNINGS as SUCCESS_WITH_WARNINGS
-from sparclur.utils._tools import _get_config_param, _load_config
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class PDFium(Renderer):
