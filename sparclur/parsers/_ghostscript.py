@@ -1,7 +1,6 @@
 import locale
 import os
 import re
-import sys
 import subprocess
 from subprocess import TimeoutExpired, DEVNULL
 import shlex
@@ -13,7 +12,6 @@ from typing import Dict, Tuple, List, Union, Any
 #import ghostscript as external_gs
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
-from func_timeout import func_timeout, FunctionTimedOut
 import yaml
 
 from sparclur._reforge import Reforger
@@ -21,7 +19,7 @@ from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._parser import VALID, REJECTED, REJECTED_AMBIG, RENDER, TIMED_OUT
 from sparclur.utils import hash_file
-from sparclur.utils._tools import _get_config_param
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class Ghostscript(Renderer, Reforger):
@@ -42,9 +40,7 @@ class Ghostscript(Renderer, Reforger):
             fix size for the document or for individual pages
         """
 
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         skip_check = _get_config_param(Ghostscript, config, 'skip_check', skip_check, False)
         temp_folders_dir = _get_config_param(Ghostscript, config, 'temp_folders_dir', temp_folders_dir, None)
         dpi = _get_config_param(Ghostscript, config, 'dpi', dpi, 200)

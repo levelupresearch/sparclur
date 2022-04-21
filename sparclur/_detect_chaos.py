@@ -1,10 +1,7 @@
-import multiprocessing
 from collections import defaultdict
 import random
-from typing import Callable, List, Dict, Any
+from typing import List, Dict, Any
 from inspect import isclass
-import os
-from collections.abc import Iterable
 from imagehash import dhash
 import pandas as pd
 
@@ -21,8 +18,6 @@ from sparclur.utils import create_file_list, gen_flatten, stringify_dict
 
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor as Executor
-import multiprocessing
-from func_timeout import func_timeout
 import mmh3
 
 

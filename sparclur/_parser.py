@@ -1,7 +1,6 @@
 from __future__ import annotations
 import abc
 from typing import Dict, Any, List, Union
-from docstring_inheritance import NumpyDocstringInheritanceMeta
 
 from imagehash import ImageHash
 

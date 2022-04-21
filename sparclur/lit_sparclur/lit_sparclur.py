@@ -1,12 +1,14 @@
 import os
 import sys
 
-module_path = os.path.abspath('../../../sparclur/')
+module_path = os.path.abspath('../../')
 if module_path not in sys.path:
     sys.path.append(module_path)
 
 from sparclur.parsers import MuPDF, PDFMiner
-from sparclur.lit_sparclur import _lit_ptc, _lit_prc, _lit_pxc, _lit_raw, _lit_meta, _lit_font
+from sparclur.lit_sparclur import _lit_prc, _lit_pxc
+from sparclur.lit_sparclur import _lit_meta
+from sparclur.lit_sparclur import _lit_ptc, _lit_raw
 from sparclur.lit_sparclur._non_parser import NonParser
 from sparclur.lit_sparclur._lit_helper import parse_init
 from sparclur.utils._tools import create_file_list, is_pdf

@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import os
 import shutil
-import sys
 import tempfile
 from collections import defaultdict
 from typing import List, Union, Dict, Any, Tuple

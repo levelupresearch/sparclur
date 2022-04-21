@@ -9,7 +9,8 @@ import yaml
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER, TIMED_OUT
 from sparclur._tracer import Tracer
-from sparclur.utils._tools import fix_splits, hash_file, _get_config_param
+from sparclur.utils import fix_splits, hash_file
+from sparclur.utils._config import _get_config_param, _load_config
 
 import re
 import subprocess
@@ -34,9 +35,7 @@ class QPDF(Tracer, MetadataExtractor):
             specific versions of the binary.
         """
 
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         temp_folders_dir = _get_config_param(QPDF, config, 'temp_folders_dir', temp_folders_dir, None)
         skip_check = _get_config_param(QPDF, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(QPDF, config, 'hash_exclude', hash_exclude, None)

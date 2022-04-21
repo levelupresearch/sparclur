@@ -1,7 +1,6 @@
 import locale
 import shlex
 import time
-import warnings
 
 # from func_timeout import func_timeout, FunctionTimedOut
 import yaml
@@ -10,7 +9,6 @@ from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RE
 from sparclur._hybrid import Hybrid
 from sparclur._tracer import Tracer
 from sparclur._font_extractor import FontExtractor
-from sparclur._renderer import Renderer
 from sparclur.parsers._poppler_helpers import _pdftoppm_clean_message
 from sparclur.utils import fix_splits, hash_file
 
@@ -25,7 +23,7 @@ from typing import Tuple
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
-from sparclur.utils._tools import _get_config_param
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class XPDF(Tracer, Hybrid, FontExtractor):
@@ -60,9 +58,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
             fix size for the document or for individual pages
         """
 
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         skip_check = _get_config_param(XPDF, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(XPDF, config, 'hash_exclude', hash_exclude, None)
         binary_path = _get_config_param(XPDF, config, 'binary_path', binary_path, None)

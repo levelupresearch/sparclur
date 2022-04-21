@@ -4,7 +4,6 @@ import sys
 import random
 from typing import Dict, Any, Union, List
 from PIL.PngImagePlugin import PngImageFile
-from PIL import Image
 from func_timeout import func_timeout, FunctionTimedOut
 from imagehash import dhash
 from skimage.metrics import structural_similarity
@@ -16,9 +15,7 @@ from sparclur._text_compare import TextCompare
 from sparclur._parser import RENDER, RENDER_HASH_SIZE
 import re
 from pytesseract import image_to_string
-import cv2
-from sparclur.utils import entropy_sim, whash_sim, phash_sim, size_sim, sum_square_sim, ccorr_sim, ccoeff_sim, \
-    pad_images, image_compare
+from sparclur.utils import image_compare
 
 _SUCCESSFUL_RENDER_MESSAGE = 'Successfully Rendered'
 _SUCCESS_WITH_WARNINGS = "Successful with warnings"

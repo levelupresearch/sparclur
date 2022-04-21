@@ -4,7 +4,7 @@ import sys
 import itertools
 import pandas as pd
 
-module_path = os.path.abspath('../../../sparclur/')
+module_path = os.path.abspath('../../')
 if module_path not in sys.path:
     sys.path.append(module_path)
 from sparclur.parsers.present_parsers import get_sparclur_texters, get_sparclur_renderers

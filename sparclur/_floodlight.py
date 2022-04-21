@@ -1,29 +1,18 @@
 from __future__ import annotations
 
-import copy
 import multiprocessing
-import os
-import shutil
-import sys
-import tempfile
-from collections import defaultdict
-from typing import List, Union, Dict, Any, Tuple
+from typing import List, Union, Tuple
 
-import numpy as np
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor as Executor
 from pebble import ProcessPool
 from inspect import signature
 
 import pandas as pd
 
-from sparclur._parser import SparclurHash, TEXT, RENDER, META, REJECTED, REJECTED_AMBIG, VALID_WARNINGS, VALID, FONT, \
-    TRACER
+from sparclur._parser import VALID
 from sparclur._reforge import Reforger
-from sparclur._renderer import Renderer
 from sparclur._tracer import Tracer
-from sparclur.parsers import MuPDF, Ghostscript, Poppler, present_parsers
-from sparclur.parsers.present_parsers import get_parser
+from sparclur.parsers import present_parsers
 from sparclur._parser import Parser
 
 

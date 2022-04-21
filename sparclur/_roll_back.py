@@ -1,7 +1,6 @@
 import multiprocessing
 from math import ceil
 from typing import Union, List
-from io import BytesIO
 
 from func_timeout import func_timeout
 

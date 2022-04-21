@@ -1,10 +1,13 @@
 import hashlib
 import os
-from typing import Iterable, Dict, Any, List
+import site
+import sys
+from typing import Dict, List
 
 import fitz
 import re
 import numpy as np
+import yaml
 from skimage.metrics import structural_similarity
 from inspect import signature
 from imagehash import average_hash, phash, dhash, whash
@@ -15,7 +18,6 @@ from func_timeout import FunctionTimedOut
 from math import log, e, sqrt
 import cv2
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import imshow
 
 from sparclur._prc_sim import PRCSim
 
@@ -43,48 +45,7 @@ def display_raw(file):
     return raw
 
 
-def _get_config_param(cls, config, key, value, default):
-    if value is not None:
-        return value
-    else:
-        try:
-            inheritance: List[type] = cls.mro()[0:-1]
-            inheritance = [i.__name__ for i in inheritance]
-            for i in inheritance:
-                config_param = config.get(i, dict()).get(key, None)
-                if config_param is not None:
-                    break
-            if config_param is None:
-                return default
-            else:
-                return config_param
-        except Exception as e:
-            return default
 
-
-def _parse_config_param(key, value, config, default):
-    config_value = value if value is not None else config.get(key, default)
-
-
-def get_config_params(sparclur_class, config_path='../../sparclur.ini') -> Dict[str, str]:
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    try:
-        inheritance: List[type] = sparclur_class.mro()[0:-1]
-        inheritance = [i.__name__ for i in inheritance]
-        sig_params = set([key for key in signature(sparclur_class.__init__).parameters.keys() if key not in ['self', 'doc']])
-        config = configparser.ConfigParser()
-        config.read(config_path)
-        params = dict()
-        for i in inheritance:
-            for key in sig_params:
-                config_param = config.get(section=i, option=key, fallback=None)
-                if config_param is not None:
-                    params[key] = config_param
-            sig_params.difference_update(params.keys())
-    except Exception as e:
-        print(e)
-        params = dict()
-    return params
 
 
 def stringify_dict(d):

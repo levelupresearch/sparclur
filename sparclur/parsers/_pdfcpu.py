@@ -12,7 +12,8 @@ import yaml
 
 from sparclur._tracer import Tracer
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TRACER, TIMED_OUT
-from sparclur.utils._tools import _get_config_param, hash_file
+from sparclur.utils import hash_file
+from sparclur.utils._config import _get_config_param, _load_config
 
 
 class PDFCPU(Tracer):
@@ -32,11 +33,7 @@ class PDFCPU(Tracer):
             If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
             specific versions of the binary.
         """
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
-        # mode = _get_config_param(PDFCPU, config, 'mode', mode, 'relaxed')
-        # verbose = _get_config_param(PDFCPU, config, 'verbose', verbose, False)
+        config = _load_config()
         skip_check = _get_config_param(PDFCPU, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(PDFCPU, config, 'hash_exclude', hash_exclude, None)
         binary_path = _get_config_param(PDFCPU, config, 'binary_path', binary_path, None)
@@ -50,9 +47,6 @@ class PDFCPU(Tracer):
                          timeout=timeout)
 
         self._pdfcpu_path = 'pdfcpu' if binary_path is None else os.path.join(binary_path, 'pdfcpu')
-        # self._mode = mode
-        self._config_path = os.path.abspath('./')
-        # self._verbose = verbose
         self._trace_exit_code = None
         self._decoder = locale.getpreferredencoding()
 
@@ -118,7 +112,7 @@ class PDFCPU(Tracer):
             else:
                 doc_path = self._doc
             try:
-                sp = subprocess.Popen([self._pdfcpu_path, 'info', '-c', self._config_path, doc_path], stdout=subprocess.PIPE, stderr=DEVNULL,
+                sp = subprocess.Popen([self._pdfcpu_path, 'info', doc_path], stdout=subprocess.PIPE, stderr=DEVNULL,
                                       shell=False)
                 (stdout, _) = sp.communicate()
                 stdout = stdout.decode(self._decoder)
@@ -141,8 +135,8 @@ class PDFCPU(Tracer):
             else:
                 doc_path = self._doc
             try:
-                strict_cmd = '%s validate -c %s -m strict %s' % (self._pdfcpu_path, self._config_path, doc_path)
-                relaxed_cmd = '%s validate -c %s -m relaxed %s' % (self._pdfcpu_path, self._config_path, doc_path)
+                strict_cmd = '%s validate -m strict %s' % (self._pdfcpu_path, doc_path)
+                relaxed_cmd = '%s validate -m relaxed %s' % (self._pdfcpu_path, doc_path)
                 # if self._verbose:
                 #     cmd = cmd + ' -v'
                 strict_sp = subprocess.Popen(

@@ -1,7 +1,7 @@
 import os
 import sys
 import streamlit as st
-module_path = os.path.abspath('../../../sparclur/')
+module_path = os.path.abspath('../../')
 if module_path not in sys.path:
     sys.path.append(module_path)
 from sparclur.lit_sparclur._non_parser import NonParser
