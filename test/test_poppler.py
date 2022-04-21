@@ -1,6 +1,6 @@
 import unittest
 
-from src.sparclur import Poppler
+from sparclur.parsers import Poppler
 from test.parser_tests import ParserTestMixin, TracerTestMixin, RendererTestMixin, TextExtractorTestMixin, \
     FontExtractorTestMixin, ImageDataExtractorTestMixin, ReforgerTestMixin, TEST_PDF
 

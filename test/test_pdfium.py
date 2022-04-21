@@ -1,5 +1,5 @@
 import unittest
-from src.sparclur import PDFium
+from sparclur.parsers import PDFium
 from parser_tests import ParserTestMixin, RendererTestMixin, TEST_PDF
 
 

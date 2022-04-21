@@ -1,6 +1,6 @@
 import unittest
 
-from src.sparclur import QPDF
+from sparclur.parsers import QPDF
 from test.parser_tests import ParserTestMixin, TracerTestMixin, MetadataExtractorTestMixin, TEST_PDF
 
 

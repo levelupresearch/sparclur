@@ -1,5 +1,5 @@
 import unittest
-from src.sparclur import Ghostscript
+from sparclur.parsers import Ghostscript
 from parser_tests import ParserTestMixin, RendererTestMixin, ReforgerTestMixin, TEST_PDF
 
 

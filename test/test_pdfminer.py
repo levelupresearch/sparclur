@@ -1,5 +1,5 @@
 import unittest
-from src.sparclur import PDFMiner
+from sparclur.parsers import PDFMiner
 from parser_tests import ParserTestMixin, TextExtractorTestMixin, MetadataExtractorTestMixin, TEST_PDF
 
 

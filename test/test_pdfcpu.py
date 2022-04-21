@@ -1,6 +1,6 @@
 import unittest
 
-from src.sparclur import PDFCPU
+from sparclur.parsers import PDFCPU
 from test.parser_tests import ParserTestMixin, TracerTestMixin, TEST_PDF
 
 
