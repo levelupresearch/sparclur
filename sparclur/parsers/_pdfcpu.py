@@ -12,7 +12,7 @@ import yaml
 
 from sparclur._tracer import Tracer
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TRACER, TIMED_OUT
-from sparclur.utils._tools import _get_config_param, hash_file
+from sparclur.utils._tools import _get_config_param, hash_file, _load_config
 
 
 class PDFCPU(Tracer):
@@ -32,9 +32,7 @@ class PDFCPU(Tracer):
             If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
             specific versions of the binary.
         """
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         skip_check = _get_config_param(PDFCPU, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(PDFCPU, config, 'hash_exclude', hash_exclude, None)
         binary_path = _get_config_param(PDFCPU, config, 'binary_path', binary_path, None)

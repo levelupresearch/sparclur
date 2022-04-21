@@ -67,8 +67,8 @@ def _get_config_param(cls, config, key, value, default):
 def _load_config():
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     _cloned_path = os.path.realpath('../../sparclur.yaml')
-    _user_path = os.path.join(site.USER_BASE, 'etc', 'sparclur', 'resources', 'min_vi.pdf')
-    _env_path = os.path.join(sys.prefix, 'etc', 'sparclur', 'resources', 'min_vi.pdf')
+    _user_path = os.path.join(site.USER_BASE, 'etc', 'sparclur', 'sparclur.yaml')
+    _env_path = os.path.join(sys.prefix, 'etc', 'sparclur', 'sparclur.yaml')
     if os.path.isfile(_cloned_path):
         yaml_path = _cloned_path
     elif os.path.isfile(os.path.join(_user_path)):

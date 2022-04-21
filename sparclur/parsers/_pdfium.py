@@ -12,7 +12,7 @@ from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, RENDER, TIMED_OUT
 from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._renderer import _SUCCESS_WITH_WARNINGS as SUCCESS_WITH_WARNINGS
-from sparclur.utils._tools import _get_config_param
+from sparclur.utils._tools import _get_config_param, _load_config
 
 
 class PDFium(Renderer):
@@ -27,9 +27,7 @@ class PDFium(Renderer):
                  cache_renders: Union[bool, None] = None,
                  timeout: Union[int, None] = None):
 
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         skip_check = _get_config_param(PDFium, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(PDFium, config, 'hash_exclude', hash_exclude, None)
         temp_folders_dir = _get_config_param(PDFium, config, 'temp_folders_dir', temp_folders_dir, None)

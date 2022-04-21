@@ -23,7 +23,7 @@ from sparclur._text_extractor import TextExtractor
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, REJECTED, META, TEXT, TIMED_OUT
 from sparclur.utils import hash_file
-from sparclur.utils._tools import _get_config_param
+from sparclur.utils._tools import _get_config_param, _load_config
 
 
 class PDFMiner(TextExtractor, MetadataExtractor):
@@ -54,9 +54,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         suppress_warnings : bool
             EXPERIMENTAL: Tries to suppress the messages that PDFMiner displays during parsing.
         """
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         temp_folders_dir = _get_config_param(PDFMiner, config, 'temp_folders_dir', temp_folders_dir, None)
         skip_check = _get_config_param(PDFMiner, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(PDFMiner, config, 'hash_exclude', hash_exclude, None)

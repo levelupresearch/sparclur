@@ -15,7 +15,7 @@ from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS, _ocr_text
 from sparclur._font_extractor import FontExtractor
 from sparclur._image_data_extractor import ImageDataExtractor
 from sparclur.parsers._poppler_helpers import _parse_poppler_size, _pdftocairo_clean_message, _pdftoppm_clean_message
-from sparclur.utils._tools import fix_splits, hash_file, _get_config_param
+from sparclur.utils._tools import fix_splits, hash_file, _get_config_param, _load_config
 
 from typing import List, Dict, Any, Union
 import tempfile
@@ -64,9 +64,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             fix size for the document or for individual pages
         """
 
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         skip_check = _get_config_param(Poppler, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(Poppler, config, 'hash_exclude', hash_exclude, None)
         trace = _get_config_param(Poppler, config, 'trace', trace, 'pdftoppm')

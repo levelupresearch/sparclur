@@ -27,7 +27,7 @@ import fitz
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
 
-from sparclur.utils._tools import _get_config_param
+from sparclur.utils._tools import _get_config_param, _load_config
 
 
 class MuPDF(Tracer, Hybrid, Reforger):
@@ -55,9 +55,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
             If the mutool binary is not in the system PATH, add the path to the binary here. Can also be used to trace
             specific versions of the binary.
         """
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         skip_check = _get_config_param(MuPDF, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(MuPDF, config, 'hash_exclude', hash_exclude, None)
         parse_streams = _get_config_param(MuPDF, config, 'parse_streams', parse_streams, True)

@@ -19,7 +19,7 @@ from sparclur._renderer import Renderer
 from sparclur._renderer import _SUCCESSFUL_RENDER_MESSAGE as SUCCESS
 from sparclur._parser import VALID, REJECTED, REJECTED_AMBIG, RENDER, TIMED_OUT
 from sparclur.utils import hash_file
-from sparclur.utils._tools import _get_config_param
+from sparclur.utils._tools import _get_config_param, _load_config
 
 
 class Ghostscript(Renderer, Reforger):
@@ -40,9 +40,7 @@ class Ghostscript(Renderer, Reforger):
             fix size for the document or for individual pages
         """
 
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         skip_check = _get_config_param(Ghostscript, config, 'skip_check', skip_check, False)
         temp_folders_dir = _get_config_param(Ghostscript, config, 'temp_folders_dir', temp_folders_dir, None)
         dpi = _get_config_param(Ghostscript, config, 'dpi', dpi, 200)

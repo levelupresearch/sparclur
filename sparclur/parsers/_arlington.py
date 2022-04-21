@@ -5,7 +5,7 @@ import shlex
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TIMED_OUT, TRACER
 from sparclur._tracer import Tracer
 from sparclur.utils import hash_file
-from sparclur.utils._tools import _get_config_param
+from sparclur.utils._tools import _get_config_param, _load_config
 import yaml
 
 from typing import List, Dict, Any, Union
@@ -48,9 +48,7 @@ class Arlington(Tracer):
         version : float or str
             The PDF version to use for the DOM check. Default is 1.7, unless otherwise specified in the sparclur config.
         """
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        with open('../../sparclur.yaml', 'r') as yaml_in:
-            config = yaml.full_load(yaml_in)
+        config = _load_config()
         arlington_path = _get_config_param(Arlington, config, 'arlington_path', arlington_path, None)
         version = _get_config_param(Arlington, config, 'version', version, 1.7)
         skip_check = _get_config_param(Arlington, config, 'skip_check', skip_check, False)
