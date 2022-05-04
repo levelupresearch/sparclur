@@ -16,6 +16,8 @@ class Hybrid(TextExtractor, Renderer, metaclass=Meta):
                  skip_check,
                  timeout,
                  hash_exclude,
+                 page_hashes,
+                 validate_hash,
                  dpi,
                  cache_renders,
                  ocr,
@@ -34,6 +36,8 @@ class Hybrid(TextExtractor, Renderer, metaclass=Meta):
                          timeout=timeout,
                          temp_folders_dir=temp_folders_dir,
                          hash_exclude=hash_exclude,
+                         page_hashes=page_hashes,
+                         validate_hash=validate_hash,
                          *args,
                          **kwargs)
         hybrid_apis = {'compare_ocr': "Compares the OCR of the document with the text extraction"}

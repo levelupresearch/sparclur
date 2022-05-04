@@ -444,7 +444,7 @@ class Renderer(TextCompare, metaclass=Meta):
 
         Returns
         -------
-        PngImageFile
+        PngImageFile or Image
         """
         pass
 
@@ -455,7 +455,7 @@ class Renderer(TextCompare, metaclass=Meta):
 
         Returns
         -------
-        Dict[int, PngImageFile]
+        Dict[int, PngImageFile or Image]
         """
         pass
 
@@ -466,7 +466,7 @@ class Renderer(TextCompare, metaclass=Meta):
 
         Returns
         -------
-        Dict[int, PngImageFile]
+        Dict[int, PngImageFile or Image]
         """
         pass
 

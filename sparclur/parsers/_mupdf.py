@@ -596,7 +596,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 else:
                     doc_path = self._doc
                 doc = fitz.open(doc_path)
-                text = doc[page].getText()
+                text = doc[page].get_text()
                 doc.close()
                 self._text[page] = text
 
@@ -615,6 +615,6 @@ class MuPDF(Tracer, Hybrid, Reforger):
                     doc_path = self._doc
                 doc = fitz.open(doc_path)
                 for page in doc:
-                    self._text[page.number] = page.getText()
+                    self._text[page.number] = page.get_text()
                 doc.close()
             self._full_text_extracted = True
