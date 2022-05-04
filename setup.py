@@ -11,7 +11,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="sparclur",
-    version="2022.4.2",
+    version="2022.5.1",
     author="Shawn Davis",
     author_email="shawn@levelupresearch.com",
     description="Tools for analyzing PDF files and comparing PDF parsers",

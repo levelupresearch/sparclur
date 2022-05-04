@@ -68,9 +68,9 @@ class PRCSim:
     def ccorr_sim(self):
         return self._ccorr_sim
 
-    # @property
-    # def ccoeff_sim(self):
-    #     return self._ccoeff_sim
+    @property
+    def ccoeff_sim(self):
+        return self._ccoeff_sim
 
     @property
     def size_sim(self):

@@ -1,10 +1,9 @@
 from typing import Union, List, Tuple, Any
 import time
-import os
 import sys
 
-import yaml
 import pypdfium2 as pdfium
+from PIL.Image import Image
 from func_timeout import func_timeout, FunctionTimedOut
 from PIL.PngImagePlugin import PngImageFile
 
@@ -16,7 +15,7 @@ from sparclur.utils._config import _get_config_param, _load_config
 
 
 class PDFium(Renderer):
-    "PDFium renderer"
+    """PDFium renderer"""
     def __init__(self, doc: Union[str, bytes],
                  skip_check: Union[bool, None] = None,
                  hash_exclude: Union[str, List[str], None] = None,
@@ -112,9 +111,9 @@ class PDFium(Renderer):
                     'scale': self._dpi / 72
                 }
                 if self._timeout is None:
-                    pil_image: PngImageFile = pdfium.render_page(**kwargs)
+                    pil_image: Image = pdfium.render_page(**kwargs)
                 else:
-                    pil_image: PngImageFile = func_timeout(
+                    pil_image: Image = func_timeout(
                         self._timeout,
                         pdfium.render_page,
                         kwargs=kwargs
@@ -126,11 +125,11 @@ class PDFium(Renderer):
                 self._logs[page] = {'result': result, 'timing': timing}
                 self._file_timed_out = False
         except FunctionTimedOut:
-            pil_image: PngImageFile = None
+            pil_image: Image = None
             self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
             self._file_timed_out = True
         except Exception as e:
-            pil_image: PngImageFile = None
+            pil_image: Image = None
             timing = time.perf_counter() - start_time
             self._logs[page] = {'result': str(e), 'timing': timing}
             self._file_timed_out = False
