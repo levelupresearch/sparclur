@@ -45,11 +45,12 @@ jobs:
 
       - name: Publish distribution 📦 to Test PyPI
         if: github.event_name != 'pull_request'
-        uses: pypa/gh-action-pypi-publish@${{ github.ref_name }}
+        uses: pypa/gh-action-pypi-publish@main
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
+          skip_existing: true
 
       - name: Publish distribution 📦 to PyPI
         if: github.event.pull_request.merged == true
