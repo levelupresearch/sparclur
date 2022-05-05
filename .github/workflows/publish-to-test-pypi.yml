@@ -34,7 +34,7 @@ jobs:
 
       - name: Publish distribution 📦 to Test PyPI
           if: github.event_name != 'pull_request'
-          uses: pypa/gh-action-pypi-publish@${{github.ref_name}}
+          uses: pypa/gh-action-pypi-publish@${{ github.ref_name }}
           with:
             password: ${{ secrets.TEST_PYPI_API_TOKEN }}
             repository_url: https://test.pypi.org/legacy/
