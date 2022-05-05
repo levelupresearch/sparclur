@@ -4,10 +4,10 @@ from setuptools import setup
 import pathlib
 import os
 import sys
-module_path = os.path.abspath('.')
-if module_path not in sys.path:
-    sys.path.append(module_path)
-from sparclur import __version__
+# module_path = os.path.abspath('.')
+# if module_path not in sys.path:
+#     sys.path.append(module_path)
+# from sparclur import __version__
 
 # The directory containing this file
 HERE = pathlib.Path(__file__).parent
@@ -17,7 +17,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="sparclur",
-    version=__version__,
+    version='2022.5.3',
     author="Shawn Davis",
     author_email="shawn@levelupresearch.com",
     description="Tools for analyzing PDF files and comparing PDF parsers",
