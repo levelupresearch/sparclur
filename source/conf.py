@@ -15,7 +15,6 @@ import sys
 module_path = os.path.abspath('../')
 if module_path not in sys.path:
     sys.path.append(module_path)
-from sparclur import __version__
 
 
 # -- Project information -----------------------------------------------------
@@ -23,7 +22,7 @@ from sparclur import __version__
 project = 'SPARCLUR'
 copyright = '2022, Shawn Davis'
 author = 'Shawn Davis'
-release = __version__
+release = '2022.5.3'
 
 # -- General configuration ---------------------------------------------------
 

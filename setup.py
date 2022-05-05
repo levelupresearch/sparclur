@@ -4,10 +4,9 @@ from setuptools import setup
 import pathlib
 import os
 import sys
-# module_path = os.path.abspath('.')
-# if module_path not in sys.path:
-#     sys.path.append(module_path)
-# from sparclur import __version__
+module_path = os.path.abspath('.')
+if module_path not in sys.path:
+    sys.path.append(module_path)
 
 # The directory containing this file
 HERE = pathlib.Path(__file__).parent
