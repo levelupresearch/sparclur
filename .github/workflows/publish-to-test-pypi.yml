@@ -3,7 +3,8 @@ name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
 on:
   push:
   pull_request:
-    - closed
+    types:
+      - closed
 
 jobs:
   build-n-publish:
