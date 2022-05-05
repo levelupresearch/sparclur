@@ -12,7 +12,9 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../sparclur'))
+module_path = os.path.abspath('../')
+if module_path not in sys.path:
+    sys.path.append(module_path)
 from sparclur import __version__
 
 
