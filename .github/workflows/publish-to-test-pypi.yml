@@ -23,14 +23,14 @@ jobs:
             pip install
             build
             --user
-            - name: Build a binary wheel and a source tarball
-              run: >-
-                python -m
-                build
-                --sdist
-                --wheel
-                --outdir dist/
-                .
+      - name: Build a binary wheel and a source tarball
+        run: >-
+          python -m
+          build
+          --sdist
+          --wheel
+          --outdir dist/
+          .
 
       - name: Publish distribution 📦 to Test PyPI
           if: github.event_name != 'pull_request'
