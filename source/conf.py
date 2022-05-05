@@ -12,8 +12,8 @@
 #
 import os
 import sys
-from sparclur import __version__
 sys.path.insert(0, os.path.abspath('../sparclur'))
+from sparclur import __version__
 
 
 # -- Project information -----------------------------------------------------
