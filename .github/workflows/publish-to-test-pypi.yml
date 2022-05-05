@@ -45,7 +45,7 @@ jobs:
 
       - name: Publish distribution 📦 to Test PyPI
         if: github.event_name != 'pull_request'
-        uses: pypa/gh-action-pypi-publish@main
+        uses: pypa/gh-action-pypi-publish@master
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
@@ -54,7 +54,7 @@ jobs:
 
       - name: Publish distribution 📦 to PyPI
         if: github.event.pull_request.merged == true
-        uses: pypa/gh-action-pypi-publish@main
+        uses: pypa/gh-action-pypi-publish@master
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}

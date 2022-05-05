@@ -4,6 +4,8 @@ SPARCLUR (Sparclur) is a collection of various wrappers for extant PDF
 parsers and/or renderers along with accompanying tools for comparing and analyzing the outputs from
 these parsers. See it in action here: https://youtu.be/6I6E1N3CJzQ
 
+## GitHub Action Worked
+
 ## Installation
 
 ```buildoutcfg
