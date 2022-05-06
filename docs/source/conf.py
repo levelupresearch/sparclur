@@ -31,13 +31,6 @@ release = '2022.5.3'
 # ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon']
 
-autodoc_default_flags = ['members',
-                         'undoc-members',
-                         'private-members',
-                         'special-members',
-                         'inherited-members',
-                         'show-inheritance']
-
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
