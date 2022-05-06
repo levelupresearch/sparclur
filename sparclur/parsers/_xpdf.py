@@ -2,9 +2,6 @@ import locale
 import shlex
 import time
 
-# from func_timeout import func_timeout, FunctionTimedOut
-import yaml
-
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, TIMED_OUT
 from sparclur._hybrid import Hybrid
 from sparclur._tracer import Tracer
@@ -57,7 +54,6 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         size : int or tuple or Dict[int, int] or Dict[int, tuple]
             fix size for the document or for individual pages
         """
-
         config = _load_config()
         skip_check = _get_config_param(XPDF, config, 'skip_check', skip_check, False)
         hash_exclude = _get_config_param(XPDF, config, 'hash_exclude', hash_exclude, None)

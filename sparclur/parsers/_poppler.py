@@ -3,9 +3,6 @@ import shlex
 import time
 import warnings
 
-# from func_timeout import func_timeout, FunctionTimedOut
-import yaml
-
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, FONT, IMAGE, \
     TIMED_OUT
 from sparclur._hybrid import Hybrid
