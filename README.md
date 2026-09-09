@@ -24,10 +24,10 @@ python -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-The report and Streamlit interfaces are optional:
+The Streamlit interface is optional:
 
 ```bash
-.venv/bin/python -m pip install -e ".[reports,ui]"
+.venv/bin/python -m pip install -e ".[ui]"
 ```
 
 ## Contents

@@ -48,10 +48,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-reports = [
-    "ipython>=8.18",
-    "Pweave>=0.30",
-]
 ui = ["streamlit>=1.40"]
 dev = [
     "build>=1.2",
