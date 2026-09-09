@@ -25,13 +25,13 @@ import fitz
 from IPython.display import Image
 {sparclur_import}
 
-from sparclur.utils.tools import gen_flatten
+from sparclur.utils._tools import gen_flatten
 
 from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_renderers, \
     get_sparclur_tracers, \
     get_sparclur_parsers
-from sparclur.prc.viz import PRCViz
+from sparclur.prc._viz import PRCViz
 fitz.TOOLS.mupdf_display_errors(False);
 ```\n\n
     """.format(sparclur_import=sparclur_path_import)

@@ -812,8 +812,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 if len(lines) == 0 or len(lines) == 2:
                     self._images = []
                 else:
-                    header = re.split('\s+', lines[0])
-                    self._images = [dict(zip(header, re.split('\s+', line)[1:])) for line in lines[2:]]
+                    header = re.split(r'\s+', lines[0])
+                    self._images = [dict(zip(header, re.split(r'\s+', line)[1:])) for line in lines[2:]]
                 self._file_timed_out[IMAGE] = False
             except TimeoutError:
                 self._images = []

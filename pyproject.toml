@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sparclur"
+version = "2022.5.3"
+description = "Tools for analyzing PDF files and comparing PDF parsers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Shawn Davis", email = "shawn@levelupresearch.com" }]
+keywords = ["pdf", "parser", "renderer", "analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "docstring-inheritance>=2.2",
+    "dill>=0.3.8",
+    "func-timeout>=4.3.5",
+    "ImageHash>=4.3",
+    "matplotlib>=3.9",
+    "mmh3>=5.1",
+    "numpy>=2.0",
+    "opencv-python>=4.10",
+    "pandas>=2.2",
+    "Pebble>=5.1",
+    "Pillow>=10.4",
+    "plotly>=5.24",
+    "pypdfium2>=4.30",
+    "PyMuPDF>=1.24",
+    "pytesseract>=0.3.13",
+    "PyYAML>=6.0.2",
+    "scikit-image>=0.24",
+    "scikit-learn>=1.5",
+    "seaborn>=0.13",
+    "spacy>=3.8",
+    "tqdm>=4.66",
+    "pdfminer.six>=20240706",
+]
+
+[project.optional-dependencies]
+reports = [
+    "ipython>=8.18",
+    "Pweave>=0.30",
+]
+ui = ["streamlit>=1.40"]
+dev = [
+    "build>=1.2",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+]
+docs = ["sphinx>=7.4"]
+
+[project.urls]
+Documentation = "https://sparclur.readthedocs.io/"
+Repository = "https://github.com/shawn-davis/sparclur"
+Issues = "https://github.com/shawn-davis/sparclur/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["sparclur*"]
+
+[tool.setuptools.data-files]
+"etc/sparclur" = ["resources/sparclur.yaml"]
+"etc/sparclur/resources" = [
+    "resources/hello_world_hand_edit.pdf",
+    "resources/min_vi.pdf",
+    "resources/AH20210114-modified.pdf",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["test"]
