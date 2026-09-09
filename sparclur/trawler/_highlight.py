@@ -215,7 +215,7 @@ class Highlight:
         return self._progress_bar
 
     @progress_bar.setter
-    def set_progress_bar(self, p: bool):
+    def progress_bar(self, p: bool):
         self._progress_bar = p
 
     def spot_the_difference(self, file_set: str or List[str],

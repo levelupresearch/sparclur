@@ -385,7 +385,7 @@ class Astrotruther:
         return self._progress_bar
 
     @progress_bar.setter
-    def set_progress_bar(self, p: bool):
+    def progress_bar(self, p: bool):
         self._progress_bar = p
 
     def save(self, path):
