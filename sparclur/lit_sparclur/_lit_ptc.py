@@ -1,11 +1,7 @@
 #Streamlit page for viewing warning and error messages
 
-import os
-import sys
 import streamlit as st
-module_path = os.path.abspath('../../')
-if module_path not in sys.path:
-    sys.path.append(module_path)
+
 from sparclur.parsers.present_parsers import get_sparclur_tracers
 from sparclur.parsers import MuPDF
 

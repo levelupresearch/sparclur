@@ -323,7 +323,7 @@ def pil_to_hex_array(pil):
 
 
 def create_file_list(files, recurse=False, base_path=None, extension=None):
-    fitz.TOOLS.mupdf_display_errors(False);
+    fitz.TOOLS.mupdf_display_errors(False)
     try:
         if os.path.isfile(files):
             with open(files) as fp:
