@@ -54,7 +54,8 @@ def _find_all(a_str, sub):
     start = 0
     while True:
         start = a_str.find(sub, start)
-        if start == -1: return
+        if start == -1:
+            return
         yield start
         start += len(sub)
 
@@ -324,7 +325,6 @@ class RollBack:
                     ax.label_outer()
             plt.close(fig)
             return fig
-
 
 
 

@@ -1,12 +1,7 @@
 import streamlit as st
-import os
-import sys
 import itertools
 import pandas as pd
 
-module_path = os.path.abspath('../../')
-if module_path not in sys.path:
-    sys.path.append(module_path)
 from sparclur.parsers.present_parsers import get_sparclur_texters, get_sparclur_renderers
 
 TEXTERS = [texter.get_name() for texter in get_sparclur_texters(no_ocr=True)]
