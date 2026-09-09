@@ -49,7 +49,7 @@ def _parse_parsers(parsers):
 def _mapper(entry):
     path = entry['path']
     timeout = entry['timeout']
-    parser_args = entry['parser_args']
+    parser_args = dict(entry['parser_args'])
     parser_class = get_parser(entry['parser'])
     result = dict()
     if issubclass(parser_class, Renderer):
@@ -145,7 +145,9 @@ class DetectChaos:
 
         self._num_comparisons = num_comparisons
         self._parsers = _parse_parsers(parsers)
-        self._parser_args = {} if parser_args is None else parser_args
+        self._parser_args = {} if parser_args is None else {
+            name: dict(options) for name, options in parser_args.items()
+        }
         self._parser_timeout = parser_timeout
         self._overall_timeout = overall_timeout
         self._num_workers = num_workers
@@ -240,7 +242,7 @@ class DetectChaos:
                     {'path': path,
                      'parser': parser,
                      'timeout': self._parser_timeout,
-                     'parser_args': self._parser_args.get(parser, dict())}
+                     'parser_args': dict(self._parser_args.get(parser, {}))}
                     for parser in self._parsers
                 ]
                 for path in files
