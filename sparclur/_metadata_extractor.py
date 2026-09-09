@@ -117,7 +117,7 @@ class MetadataExtractor(Parser, metaclass=Meta):
                 hashes = dict()
                 for obj in meta.keys():
                     hashes[obj] = mmh3.hash128(stringify_dict(meta[obj]))
-            except:
+            except Exception:
                 hashes = dict()
             self._sparclur_hash._add_hash(META, hashes)
         return super().sparclur_hash

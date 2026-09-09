@@ -110,12 +110,12 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                 parser = PDFParser(file)
                 document = PDFDocument(parser)
                 self._num_pages = int(resolve1(document.catalog['Pages'])['Count'])
-            except:
+            except Exception:
                 self._num_pages = 0
             finally:
                 try:
                     file.close()
-                except:
+                except Exception:
                     pass
 
     @property

@@ -335,7 +335,7 @@ def create_file_list(files, recurse=False, base_path=None, extension=None):
             with open(files) as fp:
                 files = ''.join(line for line in fp)
                 files = files.split('\n')
-    except:
+    except Exception:
         pass
     if isinstance(files, list):
         if base_path is not None:
@@ -441,7 +441,7 @@ def scrape_pdfs(base_dir, extension=None):
                     pdf = fitz.open(sub_path)
                     pdf.close()
                     pdfs.append(sub_path)
-                except:
+                except Exception:
                     pass
         elif os.path.isdir(sub_path):
             sub_files = scrape_pdfs(sub_path)

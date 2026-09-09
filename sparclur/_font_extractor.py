@@ -148,7 +148,7 @@ class FontExtractor(Parser, metaclass=Meta):
                 for font in fonts:
                     _ = font.pop('object ID', None)
                     hashes[font['name']] = mmh3.hash128(stringify_dict(font))
-            except:
+            except Exception:
                 hashes = dict()
             self._sparclur_hash._add_hash(FONT, hashes)
         return super().sparclur_hash

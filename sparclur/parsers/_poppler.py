@@ -156,7 +156,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 stdout = stdout.decode(self._decoder)
                 self._num_pages = int([line.split(':')[1].strip() for line
                                        in stdout.split('\n') if line.startswith('Pages:')][0])
-            except:
+            except Exception:
                 self._num_pages = 0
 
     def _check_for_renderer(self) -> bool:

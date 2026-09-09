@@ -55,7 +55,7 @@ class TextExtractor(TextCompare, metaclass=Meta):
                     shingled_hashes = [mmh3.hash128(token_set) for token_set in shingled_tokens]
                     shingled_hashes.sort()
                     hashes[page] = set(shingled_hashes[0:200])
-            except:
+            except Exception:
                 hashes = dict()
             self._sparclur_hash._add_hash(TEXT, hashes)
         return super().sparclur_hash
