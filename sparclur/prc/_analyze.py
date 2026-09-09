@@ -35,7 +35,7 @@ def _prc_worker(entry):
     result = {'file': file, 'path': path}
     renders = dict()
     for (name, renderer) in renderers.items():
-        args = parser_args.get(name, dict())
+        args = dict(parser_args.get(name, {}))
         args['cache_renders'] = True
         args['timeout'] = timeout
         renders[name] = renderer(doc=path, skip_check=True, **args)
@@ -208,7 +208,9 @@ class Analyzer:
         renderers = get_sparclur_renderers() if renderers is None else renderers
         self._renderers = _parse_renderers(renderers)
         self._metrics = _set_metrics(metrics)
-        self._parser_args = {} if parser_args is None else parser_args
+        self._parser_args = {} if parser_args is None else {
+            name: dict(options) for name, options in parser_args.items()
+        }
         self._files = create_file_list(files, recurse=recurse, base_path=base_path)
         self._max_workers = max_workers
         self._timeout = timeout
