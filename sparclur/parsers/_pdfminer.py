@@ -215,8 +215,8 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def _extract_doc(self):
         text = self._pdfminer_text()
         if len(text) != 0:
-            for (page, text) in enumerate(text.split(self._page_delimiter)[0:-1]):
-                self._text[page] = text
+            for page, page_text in enumerate(text.split(self._page_delimiter)[0:-1]):
+                self._text[page] = page_text
         self._full_text_extracted = True
 
     def _extract_page(self, page: int):

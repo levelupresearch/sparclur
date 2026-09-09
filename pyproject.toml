@@ -91,4 +91,17 @@ markers = [
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
+select = ["B", "E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# These mixins use cooperative multiple-inheritance constructors and must
+# forward positional arguments after named parser options.
+"sparclur/_font_extractor.py" = ["B026"]
+"sparclur/_hybrid.py" = ["B026"]
+"sparclur/_image_data_extractor.py" = ["B026"]
+"sparclur/_metadata_extractor.py" = ["B026"]
+"sparclur/_reforge.py" = ["B026"]
+"sparclur/_renderer.py" = ["B026"]
+"sparclur/_text_compare.py" = ["B026"]
+"sparclur/_text_extractor.py" = ["B026"]
+"sparclur/_tracer.py" = ["B026"]

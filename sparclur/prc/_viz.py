@@ -102,7 +102,7 @@ class PRCViz:
                 colors = [to_rgb(color) for color in cmap]
             else:
                 if len(cmap) < len(self._sim_keys):
-                    warnings.warn("Not enough colors specified. Defaulting to tab10 cmap")
+                    warnings.warn("Not enough colors specified. Defaulting to tab10 cmap", stacklevel=2)
                     cmap = 'tab10'
                 scalar_mappable = ScalarMappable(cmap=cmap)
                 colors = scalar_mappable.to_rgba(range(len(self._sim_keys)), alpha=1.0).tolist()
