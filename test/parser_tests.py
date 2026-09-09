@@ -101,10 +101,8 @@ class ReforgerTestMixin:
     def test_reforge(self):
         try:
             _ = self.parser_instance.reforge
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class FontExtractorTestMixin:
@@ -118,10 +116,8 @@ class FontExtractorTestMixin:
     def test_fonts(self):
         try:
             _ = self.parser_instance.fonts
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class ImageDataExtractorTestMixin:
@@ -135,10 +131,8 @@ class ImageDataExtractorTestMixin:
     def test_image_data(self):
         try:
             _ = self.parser_instance.images
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class MetadataExtractorTestMixin:
@@ -152,10 +146,8 @@ class MetadataExtractorTestMixin:
     def test_metadata_extraction(self):
         try:
             _ = self.parser_instance.metadata
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class TextExtractorTestMixin:
