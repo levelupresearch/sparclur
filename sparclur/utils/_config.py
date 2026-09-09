@@ -1,11 +1,14 @@
-import os
 import site
 import sys
+from pathlib import Path
 from typing import List
 
-from sparclur.utils._tools import if_dir_not_exists
-
 import yaml
+
+
+_SOURCE_ROOT = Path(__file__).resolve().parents[2]
+_USER_CONFIG = Path(site.USER_BASE) / 'etc' / 'sparclur' / 'sparclur.yaml'
+_ENV_CONFIG = Path(sys.prefix) / 'etc' / 'sparclur' / 'sparclur.yaml'
 
 
 def _get_config_param(cls, config, key, value, default):
@@ -28,26 +31,18 @@ def _get_config_param(cls, config, key, value, default):
 
 
 def _get_yaml_path():
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    _cloned_path = os.path.realpath('../../sparclur.yaml')
-    _user_path = os.path.join(site.USER_BASE, 'etc', 'sparclur', 'sparclur.yaml')
-    _env_path = os.path.join(sys.prefix, 'etc', 'sparclur', 'sparclur.yaml')
-    if os.path.isfile(_cloned_path):
-        yaml_path = _cloned_path
-    elif os.path.isfile(os.path.join(_user_path)):
-        yaml_path = _user_path
-    elif os.path.isfile(_env_path):
-        yaml_path = _env_path
-    else:
-        yaml_path = None
-    return yaml_path
+    """Return the first existing configuration path without changing the CWD."""
+    for yaml_path in (_SOURCE_ROOT / 'sparclur.yaml', _USER_CONFIG, _ENV_CONFIG):
+        if yaml_path.is_file():
+            return yaml_path
+    return None
 
 def _load_config():
     yaml_path = _get_yaml_path()
     if yaml_path is None:
         return dict()
     else:
-        with open(yaml_path, 'r') as yaml_in:
+        with yaml_path.open('r') as yaml_in:
             config = yaml.full_load(yaml_in)
         return config or dict()
 
@@ -61,10 +56,10 @@ def update_config(updated_values: dict):
     yaml_path = _get_yaml_path()
     try:
         if yaml_path is None:
-            yaml_path = _user_path = os.path.join(site.USER_BASE, 'etc', 'sparclur', 'sparclur.yaml')
-            if_dir_not_exists(os.path.join(site.USER_BASE, 'etc', 'sparclur'))
+            yaml_path = _USER_CONFIG
+            yaml_path.parent.mkdir(parents=True, exist_ok=True)
         config.update(updated_values)
-        with open(yaml_path, 'w') as yaml_out:
+        with yaml_path.open('w') as yaml_out:
             yaml.dump(config, yaml_out)
     except Exception as e:
         print('Update failed: %s' % str(e))

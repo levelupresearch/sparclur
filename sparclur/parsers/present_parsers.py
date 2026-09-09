@@ -1,6 +1,6 @@
-import os
 import site
 import sys
+from pathlib import Path
 from inspect import isclass
 
 from sparclur._reforge import Reforger
@@ -30,18 +30,13 @@ _sparclur_parsers: Dict[str, Parser] = {
         #PDFBox.get_name(): PDFBox
     }
 
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
-_cloned_path = os.path.realpath('../../resources/min_vi.pdf')
-_user_path = os.path.join(site.USER_BASE, 'etc', 'sparclur', 'resources', 'min_vi.pdf')
-_env_path = os.path.join(sys.prefix, 'etc', 'sparclur', 'resources', 'min_vi.pdf')
-if os.path.isfile(_cloned_path):
-    min_pdf = _cloned_path
-elif os.path.isfile(_user_path):
-    min_pdf = _user_path
-elif os.path.isfile(_env_path):
-    min_pdf = _env_path
-else:
-    min_pdf = b''
+_SOURCE_ROOT = Path(__file__).resolve().parents[2]
+_RESOURCE_PATHS = (
+    _SOURCE_ROOT / 'resources' / 'min_vi.pdf',
+    Path(site.USER_BASE) / 'etc' / 'sparclur' / 'resources' / 'min_vi.pdf',
+    Path(sys.prefix) / 'etc' / 'sparclur' / 'resources' / 'min_vi.pdf',
+)
+min_pdf = next((str(path) for path in _RESOURCE_PATHS if path.is_file()), b'')
 
 def get_parser(parser):
     if isinstance(parser, str):
