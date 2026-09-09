@@ -85,9 +85,9 @@ def _worker(entry):
                                                 'page': page,
                                                 'prc_sim': sim.sim})
                                 break
-                    except:
+                    except Exception:
                         pass
-        except:
+        except Exception:
             pass
     return results
 

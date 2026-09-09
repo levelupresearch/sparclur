@@ -98,7 +98,7 @@ class PDFium(Renderer):
         finally:
             try:
                 doc.close()
-            except:
+            except Exception:
                 pass
 
     def _render_page(self, page):

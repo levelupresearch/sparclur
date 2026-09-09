@@ -316,7 +316,7 @@ class Renderer(TextCompare, metaclass=Meta):
                 hashes = dict()
                 for page, pil in renders.items():
                     hashes[page] = dhash(pil, hash_size=RENDER_HASH_SIZE)
-            except:
+            except Exception:
                 hashes = dict()
             self._sparclur_hash._add_hash(RENDER, hashes)
         return super().sparclur_hash

@@ -142,7 +142,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
             finally:
                 try:
                     doc.close()
-                except:
+                except Exception:
                     pass
 
     def _mudraw(self, page, mat):
@@ -330,7 +330,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 finally:
                     try:
                         doc.close()
-                    except:
+                    except Exception:
                         pass
                 if error is not None:
                     validity_results['valid'] = False

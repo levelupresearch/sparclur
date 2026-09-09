@@ -142,7 +142,7 @@ class QPDF(Tracer, MetadataExtractor):
                                       stderr=subprocess.PIPE, stdout=subprocess.PIPE)
                 (stdout, _) = sp.communicate(timeout=self._timeout or 600)
                 self._num_pages = int(stdout.decode(self._decoder).strip())
-            except:
+            except Exception:
                 self._num_pages = 0
 
     def _run_json(self):

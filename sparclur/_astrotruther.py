@@ -477,7 +477,7 @@ class Astrotruther:
                     messages = pickle.load(f)
             else:
                 raise Exception("Not a pickle")
-        except:
+        except Exception:
             if not isinstance(docs, pd.DataFrame):
                 if isinstance(docs, str):
                     if os.path.isfile(docs):
@@ -529,7 +529,7 @@ class Astrotruther:
                     messages = pickle.load(f)
             else:
                 raise Exception("Not a pickle")
-        except:
+        except Exception:
             if not isinstance(data, pd.DataFrame):
                 if is_file:
                     data = pd.read_csv(data, **data_args)

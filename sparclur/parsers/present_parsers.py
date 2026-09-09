@@ -47,7 +47,7 @@ def get_parser(parser):
             class_name = parser.get_name()
             assert class_name in _sparclur_parsers, 'Parser not found'
             result = parser
-        except:
+        except Exception:
             print('Parser not found')
             result = None
     elif isinstance(parser, Parser):
