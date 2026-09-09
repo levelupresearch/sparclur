@@ -1,3 +1,4 @@
+import os
 import unittest
 
 from sparclur.parsers import XPDF
@@ -10,7 +11,7 @@ class XPDFTestCase(unittest.TestCase, ParserTestMixin, TracerTestMixin, Renderer
 
     def setUp(self):
         self.parser = XPDF
-        self.parser_instance = XPDF(TEST_PDF)
+        self.parser_instance = XPDF(TEST_PDF, binary_path=os.environ["SPARCLUR_XPDF_BIN_DIR"])
 
 
 if __name__ == '__main__':
