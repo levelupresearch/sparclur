@@ -15,9 +15,9 @@ from sparclur._text_extractor import TextExtractor
 from sparclur._font_extractor import FontExtractor
 from sparclur._image_data_extractor import ImageDataExtractor
 
-from typing import List, Dict, Any
+from typing import Any
 
-_sparclur_parsers: Dict[str, Parser] = {
+_sparclur_parsers: dict[str, Parser] = {
         PDFMiner.get_name(): PDFMiner,
         Ghostscript.get_name(): Ghostscript,
         MuPDF.get_name(): MuPDF,
@@ -60,10 +60,10 @@ def get_parser(parser):
 
 
 def get_sparclur_parsers(check_parsers: bool = False,
-                         parser_args: Dict[str, Dict[str, Any]] | None = None):
+                         parser_args: dict[str, dict[str, Any]] | None = None):
     """Helper function that returns a list of all SPARCLUR Parsers"""
     parser_args = {} if parser_args is None else parser_args
-    present_parsers: List[Parser] = [parser for parser in _sparclur_parsers.values()]
+    present_parsers: list[Parser] = [parser for parser in _sparclur_parsers.values()]
     if check_parsers:
         good_to_go_parsers = []
         for parser in present_parsers:
@@ -106,48 +106,48 @@ def get_sparclur_parsers(check_parsers: bool = False,
 
 def get_sparclur_renderers():
     """Helper function that returns a list of all SPARCLUR Renderers"""
-    present_renderers: List[Renderer] = \
+    present_renderers: list[Renderer] = \
         [renderer for renderer in _sparclur_parsers.values() if issubclass(renderer, Renderer)]
     return present_renderers
 
 
 def get_sparclur_tracers():
     """Helper function that returns a list of all SPARCLUR Tracers"""
-    present_tracers: List[Tracer] = \
+    present_tracers: list[Tracer] = \
         [tracer for tracer in _sparclur_parsers.values() if issubclass(tracer, Tracer)]
     return present_tracers
 
 
 def get_sparclur_texters(no_ocr=False):
     """Helper function that returns a list of all SPARCLUR TextExtractors"""
-    present_texters: List[TextCompare] = \
+    present_texters: list[TextCompare] = \
         [texter for texter in _sparclur_parsers.values() if issubclass(texter, TextCompare)]
     if no_ocr:
-        present_texters: List[TextCompare] = \
+        present_texters: list[TextCompare] = \
             [texter for texter in present_texters if issubclass(texter, TextExtractor) or issubclass(texter, Hybrid)]
     return present_texters
 
 
 def get_sparclur_metadata():
     """Helper function that returns a list of all SPARCLUR MetadataExtractors"""
-    present_metadata: List[MetadataExtractor] = \
+    present_metadata: list[MetadataExtractor] = \
         [meta for meta in _sparclur_parsers.values() if issubclass(meta, MetadataExtractor)]
     return present_metadata
 
 
 def get_sparclur_fonts():
-    present_fonts: List[FontExtractor] = \
+    present_fonts: list[FontExtractor] = \
         [font for font in _sparclur_parsers.values() if issubclass(font, FontExtractor)]
     return present_fonts
 
 
 def get_sparclur_reforgers():
-    present_reforgers: List[Reforger] = \
+    present_reforgers: list[Reforger] = \
         [reforger for reforger in _sparclur_parsers.values() if issubclass(reforger, Reforger)]
     return present_reforgers
 
 
 def get_sparclur_imagers():
-    present_imagers: List[ImageDataExtractor] = \
+    present_imagers: list[ImageDataExtractor] = \
         [imager for imager in _sparclur_parsers.values() if issubclass(imager, ImageDataExtractor)]
     return present_imagers

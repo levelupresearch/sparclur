@@ -2,7 +2,7 @@ import abc
 
 import sys
 import random
-from typing import Dict, Any, Union, List
+from typing import Any
 from PIL.PngImagePlugin import PngImageFile
 from func_timeout import func_timeout, FunctionTimedOut
 from imagehash import dhash
@@ -251,7 +251,7 @@ class Renderer(TextCompare, metaclass=Meta):
                        'compare': 'Compare the renders for this object with the renders of another Renderer'}
         self._api.update(render_apis)
         self._full_doc_rendered = False
-        self._renders: Dict[int, PngImageFile] = dict()
+        self._renders: dict[int, PngImageFile] = dict()
         self._dpi = dpi
         self._caching = cache_renders
         self._logs = dict()
@@ -261,7 +261,7 @@ class Renderer(TextCompare, metaclass=Meta):
 
     @property
     @abc.abstractmethod
-    def validate_renderer(self) -> Dict[str, Any]:
+    def validate_renderer(self) -> dict[str, Any]:
         """
         Performs a validity check for this tracer.
 
@@ -410,7 +410,7 @@ class Renderer(TextCompare, metaclass=Meta):
         Clears any PIL's that have been retained in the renderer object.
         """
         self._full_doc_rendered = False
-        self._renders: Dict[int, PngImageFile] = dict()
+        self._renders: dict[int, PngImageFile] = dict()
 
     @property
     def dpi(self):
@@ -460,7 +460,7 @@ class Renderer(TextCompare, metaclass=Meta):
         pass
 
     @abc.abstractmethod
-    def _render_pages(self, pages: List[int]):
+    def _render_pages(self, pages: list[int]):
         """
         Renders specific collection of pages
 
@@ -470,7 +470,7 @@ class Renderer(TextCompare, metaclass=Meta):
         """
         pass
 
-    def get_renders(self, page: Union[int, List[int]] = None):
+    def get_renders(self, page: int | list[int] = None):
         """
         Return the renders of the object document. If page is None, return the entire rendered document. Otherwise
         returns the specified page only.

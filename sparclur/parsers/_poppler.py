@@ -15,13 +15,12 @@ from sparclur.parsers._poppler_helpers import _parse_poppler_size, _pdftocairo_c
 from sparclur.utils import fix_splits, hash_file
 from sparclur.utils._config import _get_config_param, _load_config
 
-from typing import List, Dict, Any, Union
+from typing import Any
 import tempfile
 import subprocess
 from subprocess import DEVNULL, TimeoutExpired
 import re
 import os
-from typing import Tuple
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
@@ -32,8 +31,8 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
 
     def __init__(self, doc: str or bytes,
                  skip_check: bool = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 page_hashes: Union[int, Tuple[Any], None] = None,
+                 hash_exclude: str | list[str] | None = None,
+                 page_hashes: int | tuple[Any] | None = None,
                  validate_hash: bool = False,
                  trace: str = None,
                  binary_path: str = None,
@@ -41,7 +40,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                  page_delimiter: str = None,
                  maintain_layout: bool = None,
                  dpi: int = None,
-                 size: Tuple[int] or int = None,
+                 size: tuple[int] or int = None,
                  cache_renders: bool = None,
                  timeout: int = None,
                  ocr: bool = None
@@ -223,7 +222,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 self._reforge_result = str(e)
 
     @property
-    def validate_tracer(self) -> Dict[str, Any]:
+    def validate_tracer(self) -> dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
             if self._messages is None:
@@ -258,7 +257,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         return self._validity[TRACER]
 
     @property
-    def validate_renderer(self) -> Dict[str, Any]:
+    def validate_renderer(self) -> dict[str, Any]:
         if RENDER not in self._validity:
             if self._trace != 'pdftoppm':
                 orig_trace = self._trace
@@ -283,7 +282,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         return self._validity[RENDER]
 
     @property
-    def validate_text(self) -> Dict[str, Any]:
+    def validate_text(self) -> dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
             if self._ocr:
@@ -474,7 +473,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
         if self._messages is None:
             self._parse_document()
         scrubbed_messages = [self._clean_message(err) for err in self._messages]
-        error_dict: Dict[str, int] = dict()
+        error_dict: dict[str, int] = dict()
         for (index, error) in enumerate(scrubbed_messages):
             if error.startswith('warning: ... repeated '):
                 repeated = re.sub(r'[^\d]', '', error)
@@ -552,14 +551,14 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
     #     return renders
 
     def _render_doc(self):
-        renders: Dict[int, PngImageFile] = self._poppler_render(pages=None)
+        renders: dict[int, PngImageFile] = self._poppler_render(pages=None)
         if self._caching:
             self._full_doc_rendered = True
             self._renders = renders
         return renders
 
     def _render_pages(self, pages):
-        renders: Dict[int, PngImageFile] = self._poppler_render(pages=pages)
+        renders: dict[int, PngImageFile] = self._poppler_render(pages=pages)
         if self._caching:
             self._renders.update(renders)
         return renders
@@ -613,7 +612,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                     self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
                     self._trace_exit_code = sp.returncode
                     self._file_timed_out[TRACER] = False
-                result: Dict[int, PngImageFile] = dict()
+                result: dict[int, PngImageFile] = dict()
                 for render in [file for file in os.listdir(temp_path) if file.endswith('.png')]:
                     page_index = int(re.sub('out-', '', re.sub('.png', '', render))) - 1
                     if pages is None or page_index in pages:
@@ -629,7 +628,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                     self._messages = error_arr
                     self._trace_exit_code = 0
                     self._file_timed_out[TRACER] = True
-                result: Dict[int, PngImageFile] = dict()
+                result: dict[int, PngImageFile] = dict()
                 self._logs[0] = {'result': 'Timed out', 'timing': (self._timeout or 600)}
             except Exception as e:
                 if page is None and self._messages is None and self._trace == 'pdftoppm':
@@ -637,7 +636,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                     self._messages = error_arr
                     self._trace_exit_code = 0
                     self._file_timed_out[TRACER] = False
-                result: Dict[int, PngImageFile] = dict()
+                result: dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
 

@@ -9,13 +9,12 @@ from sparclur._font_extractor import FontExtractor
 from sparclur.parsers._poppler_helpers import _pdftoppm_clean_message
 from sparclur.utils import fix_splits, hash_file
 
-from typing import List, Dict, Any, Union
+from typing import Any
 import tempfile
 import subprocess
 from subprocess import DEVNULL, TimeoutExpired
 import re
 import os
-from typing import Tuple
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
@@ -26,20 +25,20 @@ from sparclur.utils._config import _get_config_param, _load_config
 class XPDF(Tracer, Hybrid, FontExtractor):
     """XPDF wrapper for pdftoppm, and pdftotext"""
 
-    def __init__(self, doc: Union[str, bytes],
-                 skip_check: Union[bool, None] = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 page_hashes: Union[int, Tuple[Any], None] = None,
+    def __init__(self, doc: str | bytes,
+                 skip_check: bool | None = None,
+                 hash_exclude: str | list[str] | None = None,
+                 page_hashes: int | tuple[Any] | None = None,
                  validate_hash: bool = False,
-                 binary_path: Union[str, None] = None,
-                 temp_folders_dir: Union[str, None] = None,
-                 page_delimiter: Union[str, None] = None,
-                 maintain_layout: Union[bool, None] = None,
-                 dpi: Union[int, None] = None,
-                 size: Union[Tuple[int], int, None] = None,
-                 cache_renders: Union[bool, None] = None,
-                 timeout: Union[int, None] = None,
-                 ocr: Union[bool, None] = None
+                 binary_path: str | None = None,
+                 temp_folders_dir: str | None = None,
+                 page_delimiter: str | None = None,
+                 maintain_layout: bool | None = None,
+                 dpi: int | None = None,
+                 size: tuple[int] | int | None = None,
+                 cache_renders: bool | None = None,
+                 timeout: int | None = None,
+                 ocr: bool | None = None
                  ):
         """
         Parameters
@@ -140,7 +139,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         return self._can_extract_font
 
     @property
-    def validate_tracer(self) -> Dict[str, Any]:
+    def validate_tracer(self) -> dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
             if self._messages is None:
@@ -176,14 +175,14 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         return self._validity[TRACER]
 
     @property
-    def validate_renderer(self) -> Dict[str, Any]:
+    def validate_renderer(self) -> dict[str, Any]:
         if RENDER not in self._validity:
             validity_results = self.validate_tracer
             self._validity[RENDER] = validity_results
         return self._validity[RENDER]
 
     @property
-    def validate_text(self) -> Dict[str, Any]:
+    def validate_text(self) -> dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
             if self._ocr:
@@ -348,7 +347,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         if self._messages is None:
             self._parse_document()
         scrubbed_messages = [self._clean_message(err) for err in self._messages]
-        error_dict: Dict[str, int] = dict()
+        error_dict: dict[str, int] = dict()
         for (index, error) in enumerate(scrubbed_messages):
             if error.startswith('warning: ... repeated '):
                 repeated = re.sub(r'[^\d]', '', error)
@@ -393,14 +392,14 @@ class XPDF(Tracer, Hybrid, FontExtractor):
         return render
 
     def _render_doc(self):
-        renders: Dict[int, PngImageFile] = self._xpdf_render(pages=None)
+        renders: dict[int, PngImageFile] = self._xpdf_render(pages=None)
         if self._caching:
             self._full_doc_rendered = True
             self._renders = renders
         return renders
 
     def _render_pages(self, pages):
-        renders: Dict[int, PngImageFile] = self._xpdf_render(pages=pages)
+        renders: dict[int, PngImageFile] = self._xpdf_render(pages=pages)
         if self._caching:
             self._renders.update(renders)
         return renders
@@ -438,7 +437,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                     error_arr = [message for message in err.split('\n') if len(message) > 0]
                     self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
                     self._file_timed_out[TRACER] = False
-                result: Dict[int, PngImageFile] = dict()
+                result: dict[int, PngImageFile] = dict()
                 for render in [file for file in os.listdir(temp_path) if file.endswith('.ppm')]:
                     page_index = int(re.sub('out-', '', re.sub('.ppm', '', render))) - 1
                     if pages is None or page_index in pages:
@@ -454,7 +453,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                     self._messages = error_arr
                     self._trace_exit_code = 0
                     self._file_timed_out[TRACER] = True
-                result: Dict[int, PngImageFile] = dict()
+                result: dict[int, PngImageFile] = dict()
                 self._logs[0] = {'result': 'Timed out', 'timing': (self._timeout or 600)}
             except Exception as e:
                 if page is None and self._messages is None:
@@ -462,7 +461,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                     self._messages = error_arr
                     self._trace_exit_code = 0
                     self._file_timed_out[TRACER] = False
-                result: Dict[int, PngImageFile] = dict()
+                result: dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
 

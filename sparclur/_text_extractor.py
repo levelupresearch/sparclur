@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, Any
+from typing import Any
 
 import mmh3
 
@@ -28,7 +28,7 @@ class TextExtractor(TextCompare, metaclass=Meta):
 
     @property
     @abc.abstractmethod
-    def validate_text(self) -> Dict[str, Any]:
+    def validate_text(self) -> dict[str, Any]:
         """
         Performs a validity check for this text extractor.
 

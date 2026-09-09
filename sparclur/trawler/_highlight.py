@@ -1,5 +1,6 @@
 import multiprocessing
-from typing import List, Dict, Callable, Any
+from typing import Any
+from collections.abc import Callable
 from inspect import isclass
 
 import pandas as pd
@@ -60,7 +61,7 @@ def _worker(entry):
             args = parser_args.get(name, dict())
             orig: Renderer = parser(doc=orig_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
             mod: Renderer = parser(doc=mod_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
-            prc: Dict[int, PRCSim] = orig.compare(mod, full=True)
+            prc: dict[int, PRCSim] = orig.compare(mod, full=True)
             for (page, sim) in prc.items():
                 if sim.sim <= prc_threshold:
                     try:
@@ -129,8 +130,8 @@ def _parallel_highlight(data, overall_timeout, progress_bar, num_workers):
 class Highlight:
     """Compares two PDF's with the same provenance and highlights regions of difference between their renders."""
 
-    def __init__(self, renderers: List[Parser] or List[str] or str or Parser = None,
-                 parser_args: Dict[str, Dict[str, Any]] | None = None,
+    def __init__(self, renderers: list[Parser] or list[str] or str or Parser = None,
+                 parser_args: dict[str, dict[str, Any]] | None = None,
                  max_workers: int = 1,
                  timeout: int = None,
                  overall_timeout: int = None,
@@ -218,8 +219,8 @@ class Highlight:
     def progress_bar(self, p: bool):
         self._progress_bar = p
 
-    def spot_the_difference(self, file_set: str or List[str],
-                            matching_criteria: Dict[str, str] or Callable[[str], str],
+    def spot_the_difference(self, file_set: str or list[str],
+                            matching_criteria: dict[str, str] or Callable[[str], str],
                             dpi: int = 72,
                             min_region: int = 40,
                             prc_threshold: float = 1.0,

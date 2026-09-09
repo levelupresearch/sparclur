@@ -5,7 +5,7 @@ import mmh3
 
 from sparclur._metaclass import Meta
 from sparclur._parser import Parser, FONT
-from typing import Dict, Any, List
+from typing import Any
 
 from sparclur.utils import stringify_dict
 
@@ -39,7 +39,7 @@ class FontExtractor(Parser, metaclass=Meta):
                          *args,
                          **kwargs)
         self._non_embedded_fonts: bool = None
-        self._fonts: List[Dict[str, Any]] = None
+        self._fonts: list[dict[str, Any]] = None
         font_apis = {'can_extract_font': '(Property) Boolean for whether or not font extraction is present',
                      'non_embedded_fonts': '(Property) Returns true if the document is missing non-system fonts',
                      'fonts': '(Property) Returns the font information for the PDF',

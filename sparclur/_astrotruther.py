@@ -1,5 +1,6 @@
 import multiprocessing
-from typing import Callable, List, Dict, Any
+from typing import Any
+from collections.abc import Callable
 from inspect import isclass
 import os
 from collections.abc import Iterable
@@ -189,12 +190,12 @@ class Astrotruther:
                  label_col: str or int = 1,
                  base_path: str = None,
                  label_transform: Callable[[str], str] = None,
-                 parsers: List[Parser] or List[str] = None,
-                 parser_args: Dict[str, Dict[str, Any]] | None = None,
-                 exclude: str or List[str] = None,
+                 parsers: list[Parser] or list[str] = None,
+                 parser_args: dict[str, dict[str, Any]] | None = None,
+                 exclude: str or list[str] = None,
                  overall_timeout: int = None,
                  classifier: str = 'decTree',
-                 classifier_args: Dict[str, Any] | None = None,
+                 classifier_args: dict[str, Any] | None = None,
                  k_folds: int = 3,
                  max_workers: int = 1,
                  timeout: int = None,
@@ -252,7 +253,7 @@ class Astrotruther:
         self._progress_bar = progress_bar
         self._model = None
         self._metrics: float = None
-        self._warnings_map: Dict[str, int] = None
+        self._warnings_map: dict[str, int] = None
         self._k: int = None
 
     @property
@@ -308,7 +309,7 @@ class Astrotruther:
         return [parser.get_name() for parser in self._parsers]
 
     @parsers.setter
-    def parsers(self, parsers: List[str] or List[Parser]):
+    def parsers(self, parsers: list[str] or list[Parser]):
         self._parsers = _parse_parsers(parsers)
 
     @property
@@ -316,7 +317,7 @@ class Astrotruther:
         return self._parser_args
 
     @parser_args.setter
-    def parser_args(self, pa: Dict[str, Dict[str, Any]]):
+    def parser_args(self, pa: dict[str, dict[str, Any]]):
         self._parser_args = pa
 
     @parser_args.deleter
@@ -328,7 +329,7 @@ class Astrotruther:
         return self._exclude
 
     @exclude.setter
-    def exclude(self, e: str or List[str]):
+    def exclude(self, e: str or list[str]):
         self._exclude = e
 
     @exclude.deleter
@@ -349,7 +350,7 @@ class Astrotruther:
         return self._classifier_args
 
     @classifier_args.setter
-    def classifier_args(self, ca: Dict[str, Any]):
+    def classifier_args(self, ca: dict[str, Any]):
         self._classifier_args = ca
 
     @property

@@ -4,7 +4,7 @@ import mmh3
 
 from sparclur._metaclass import Meta
 from sparclur._parser import Parser, TRACER
-from typing import List, Dict, Any
+from typing import Any
 
 
 class Tracer(Parser, metaclass=Meta):
@@ -29,12 +29,12 @@ class Tracer(Parser, metaclass=Meta):
                       'messages': '(Property) The list of raw messages from the parser',
                       'cleaned': '(Property) A dictionary of normalized messages with their counts'}
         self._api.update(trace_apis)
-        self._messages: List[str] = None
-        self._cleaned: Dict[str, int] = None
+        self._messages: list[str] = None
+        self._cleaned: dict[str, int] = None
         self._can_trace: bool = None
 
     @abc.abstractmethod
-    def validate_tracer(self) -> Dict[str, Any]:
+    def validate_tracer(self) -> dict[str, Any]:
         """
         Performs a validity check for this tracer.
 

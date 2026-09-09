@@ -5,7 +5,6 @@ import site
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from typing import List
 
 import yaml
 from platformdirs import user_config_path
@@ -72,7 +71,7 @@ def _get_config_param(cls, config, key, value, default):
     if value is not None:
         return value
     try:
-        inheritance: List[type] = cls.mro()[0:-1]
+        inheritance: list[type] = cls.mro()[0:-1]
         for parent in inheritance:
             config_param = config.get(parent.__name__, {}).get(key)
             if config_param is not None:
