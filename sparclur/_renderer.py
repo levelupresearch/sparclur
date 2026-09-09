@@ -571,7 +571,7 @@ class Renderer(TextCompare, metaclass=Meta):
             except FunctionTimedOut:
                 result[k] = PRCSim(dict(), 'Comparison Timed Out', diff=None)
             except Exception as e:
-                result[k] = PRCSim(dict(), e.message, diff=None)
+                result[k] = PRCSim(dict(), str(e), diff=None)
         return result if page is None else result[page]
 
     def _extract_doc(self):
