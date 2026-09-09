@@ -25,3 +25,9 @@ jobs:
       - run: python -m pytest -q
       - run: python -m build
       - run: python -m twine check dist/*
+      - run: python -m pip install --force-reinstall --no-deps dist/*.whl
+      - name: Verify installed wheel resources
+        working-directory: /tmp
+        run: >-
+          python -c "from sparclur.parsers.present_parsers import min_pdf;
+          from sparclur.utils import get_config; assert min_pdf and get_config() == {}"
