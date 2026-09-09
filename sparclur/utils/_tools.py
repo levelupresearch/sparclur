@@ -13,6 +13,7 @@ from func_timeout import FunctionTimedOut
 from math import log, e, sqrt
 import cv2
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from sparclur._prc_sim import PRCSim
 
@@ -71,15 +72,15 @@ def _template_ssim(pil1, pil2, top_left):
     return ssim, diff
 
 
-def _pil_and_array(p: PngImageFile or np.array_like):
+def _pil_and_array(p: ImageType | np.ndarray):
     if isinstance(p, PngImageFile) or isinstance(p, ImageType):
         return p, np.array(p)
     else:
         return Image.fromarray(p), p
 
 
-def image_compare(p1: PngImageFile or np.array_like,
-                  p2: PngImageFile or np.array_like,
+def image_compare(p1: ImageType | np.ndarray,
+                  p2: ImageType | np.ndarray,
                   full: bool=False) -> PRCSim:
     """
         Function to compute the structural similarity of two pngs.
@@ -210,8 +211,8 @@ def _get_contours(min_region, diff: PngImageFile):
     return filtered_contours
 
 
-def image_highlight(p1: PngImageFile or np.array_like,
-                    p2: PngImageFile or np.array_like,
+def image_highlight(p1: ImageType | np.ndarray,
+                    p2: ImageType | np.ndarray,
                     min_region: int = 40,
                     prc: PRCSim = None,
                     info_loss: float = 1.0,
@@ -224,15 +225,13 @@ def image_highlight(p1: PngImageFile or np.array_like,
                     right_file: str = '',
                     right_label: str = '',
                     save_display: str = None,
-                    verbose: bool = True) -> (PngImageFile, PngImageFile) or PngImageFile:
+                    verbose: bool = True) -> tuple[ImageType | None, ImageType | None] | Figure | None:
 
     _, array1 = _pil_and_array(p1)
     _, array2 = _pil_and_array(p2)
 
 
-    if prc is None:
-        prc = image_compare(p1, p2, True)
-    elif prc.diff is None:
+    if prc is None or prc.diff is None:
         prc = image_compare(p1, p2, True)
     try:
         contours = _get_contours(min_region, prc.diff)
