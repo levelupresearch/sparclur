@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 from collections import defaultdict
+from pathlib import Path
 from typing import List, Union, Dict, Any, Tuple
 
 import numpy as np
@@ -36,6 +37,16 @@ def _merge_dict(d1, d2):
             return d2
         else:
             return d1
+
+
+def _copy_document(doc: str | os.PathLike | bytes | bytearray, destination: Path) -> None:
+    """Copy path-backed input or write in-memory PDF bytes to ``destination``."""
+    if isinstance(doc, (str, os.PathLike)):
+        shutil.copy2(doc, destination)
+    elif isinstance(doc, (bytes, bytearray)):
+        destination.write_bytes(doc)
+    else:
+        raise TypeError("doc must be a path or PDF bytes")
 
 
 def _mapper(entry):
@@ -516,15 +527,11 @@ class Spotlight:
         self._results = None
         self._progress_bar = progress_bar
 
-    def run(self, doc: str or bytes):
+    def run(self, doc: str | os.PathLike | bytes | bytearray):
         spotlight_path = tempfile.TemporaryDirectory(dir=self._temp_folders_dir)
         for parser in self._parsers:
             os.makedirs(os.path.join(spotlight_path.name, parser.get_name()))
-            if isinstance(doc, str):
-                shutil.copy2(doc, os.path.join(spotlight_path.name, parser.get_name(), 'original.pdf'))
-            else:
-                with open(os.path.join(spotlight_path.name, parser.get_name(), 'original.pdf'), 'rb') as orig_path:
-                    doc.write(orig_path)
+            _copy_document(doc, Path(spotlight_path.name, parser.get_name(), 'original.pdf'))
         for parser in present_parsers.get_sparclur_reforgers():
             sig = signature(parser.__init__)
             kwargs = {'doc': doc, 'timeout': 120, 'temp_folders_dir': self._temp_folders_dir}
@@ -608,4 +615,3 @@ class Spotlight:
 
         spotlight_path.cleanup()
         return full_spotlight
-
