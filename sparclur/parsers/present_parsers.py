@@ -59,13 +59,15 @@ def get_parser(parser):
     return result
 
 
-def get_sparclur_parsers(check_parsers: bool=False, parser_args: Dict[str, Dict[str, Any]]=dict()):
+def get_sparclur_parsers(check_parsers: bool = False,
+                         parser_args: Dict[str, Dict[str, Any]] | None = None):
     """Helper function that returns a list of all SPARCLUR Parsers"""
+    parser_args = {} if parser_args is None else parser_args
     present_parsers: List[Parser] = [parser for parser in _sparclur_parsers.values()]
     if check_parsers:
         good_to_go_parsers = []
         for parser in present_parsers:
-            args = parser_args.get(parser.get_name(), dict())
+            args = dict(parser_args.get(parser.get_name(), {}))
             args['skip_check'] = False
             p = parser(min_pdf, **args)
             if issubclass(parser, Renderer):
