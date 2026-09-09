@@ -112,7 +112,7 @@ def _parallel_highlight(data, overall_timeout, progress_bar, num_workers):
                 break
             except TimeoutError:
                 result = None
-            except Exception as e:
+            except Exception:
                 result = None
             finally:
                 if progress_bar:

@@ -402,9 +402,9 @@ class SpotlightResult:
 
         fig, ax = plt.subplots(figsize=(width, height))
         if not annotated:
-            ax = sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
+            sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
         else:
-            ax = sns.heatmap(df, vmin=.6, vmax=1, annot=True, fmt=".2f", cmap='RdBu')
+            sns.heatmap(df, vmin=.6, vmax=1, annot=True, fmt=".2f", cmap='RdBu')
         if save_display is not None:
             fig.savefig(save_display)
             plt.close(fig)

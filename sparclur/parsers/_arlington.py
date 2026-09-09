@@ -100,7 +100,7 @@ class Arlington(Tracer):
             try:
                 subprocess.check_output(shlex.split('%s -h' % self._test_grammar_path), shell=False)
                 tg_present = True
-            except Exception as e:
+            except Exception:
                 tg_present = False
             self._can_trace = tg_present
         return self._can_trace

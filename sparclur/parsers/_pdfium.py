@@ -5,7 +5,6 @@ import sys
 import pypdfium2 as pdfium
 from PIL.Image import Image
 from func_timeout import func_timeout, FunctionTimedOut
-from PIL.PngImagePlugin import PngImageFile
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, RENDER, TIMED_OUT
 from sparclur._renderer import Renderer

@@ -2,7 +2,6 @@ import locale
 import shlex
 from typing import List, Dict, Any, Union, Tuple
 
-import yaml
 from func_timeout import func_timeout, FunctionTimedOut
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, TIMED_OUT
@@ -351,7 +350,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
             try:
                 subprocess.check_output(shlex.split("mutool -v"), shell=False)
                 mutool_present = True
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError:
                 mutool_present = False
             self._can_trace = mutool_present
         return self._can_trace

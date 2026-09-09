@@ -1,6 +1,5 @@
 """Regression tests for path handling in installed and source checkouts."""
 
-import os
 import subprocess
 import sys
 

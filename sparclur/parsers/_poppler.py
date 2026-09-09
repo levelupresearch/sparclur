@@ -190,7 +190,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                 try:
                     subprocess.check_output(shlex.split(cmd), shell=False)
                     cairo_present = True
-                except subprocess.CalledProcessError as e:
+                except subprocess.CalledProcessError:
                     cairo_present = False
                 self._can_reforge = cairo_present
         return self._can_reforge

@@ -292,7 +292,7 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                 stdout = stdout.decode(self._decoder)
                 self._num_pages = int([line.split(':')[1].strip() for line
                                        in stdout.split('\n') if line.startswith('Pages:')][0])
-            except Exception as e:
+            except Exception:
                 self._num_pages = 0
 
     def _parse_document(self):
@@ -580,7 +580,6 @@ class XPDF(Tracer, Hybrid, FontExtractor):
                               range(len(field_lengths))]
                     before_yes_nos_header = header[0:header.index('emb')]
                     yes_nos_header = header[header.index('emb'):header.index('uni') + 1]
-                    after_yes_nos_header = header[header.index('uni') + 1:]
                     font_results = []
                     for line in lines[2:]:
                         yes_nos = ''.join(re.findall(r'(yes\s|no\s\s)', line))
