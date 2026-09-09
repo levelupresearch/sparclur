@@ -69,7 +69,12 @@ def get_sparclur_parsers(check_parsers: bool = False,
         for parser in present_parsers:
             args = dict(parser_args.get(parser.get_name(), {}))
             args['skip_check'] = False
-            p = parser(min_pdf, **args)
+            try:
+                p = parser(min_pdf, **args)
+            except Exception:
+                # Optional adapters can require an externally configured path
+                # before their own capability properties are available.
+                continue
             if issubclass(parser, Renderer):
                 renderer_present = p.can_render
                 if not renderer_present:
