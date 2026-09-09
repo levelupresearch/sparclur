@@ -14,6 +14,22 @@ See it in action here: https://youtu.be/6I6E1N3CJzQ
 pip install sparclur
 ```
 
+SPARCLUR supports Python 3.10 and newer. The parser wrappers may additionally
+need their respective command-line tools installed; see [Parsers](#parsers).
+
+For local development, create an environment and install the development extra:
+
+```bash
+python -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+```
+
+The report and Streamlit interfaces are optional:
+
+```bash
+.venv/bin/python -m pip install -e ".[reports,ui]"
+```
+
 ## Contents
 - [Parsers](#parsers)
   - [Arlington DOM Checker](#arlington-dom-checker)
