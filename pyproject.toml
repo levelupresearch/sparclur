@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sparclur"
-version = "2022.5.3"
+version = "2026.9.9"
 description = "Tools for analyzing PDF files and comparing PDF parsers"
 readme = "README.md"
 requires-python = ">=3.10"
