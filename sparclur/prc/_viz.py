@@ -22,8 +22,8 @@ class PRCViz:
     """
 
     def __init__(self, doc_path,
-                 renderers=get_sparclur_renderers(),
-                 parser_args=dict(),
+                 renderers=None,
+                 parser_args=None,
                  dpi=200,
                  verbose=False):
         """
@@ -38,6 +38,8 @@ class PRCViz:
             A dictionary of dictionaries containing any optional parameters to pass into the renderers. See each
             renderer for it's possible parameters.
         """
+        renderers = get_sparclur_renderers() if renderers is None else renderers
+        parser_args = {} if parser_args is None else parser_args
         self._doc_path = doc_path
         self._doc = doc_path.split('/')[-1]
         self._renderers = _parse_viz_renderers(renderers)

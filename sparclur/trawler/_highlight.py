@@ -129,8 +129,8 @@ def _parallel_highlight(data, overall_timeout, progress_bar, num_workers):
 class Highlight:
     """Compares two PDF's with the same provenance and highlights regions of difference between their renders."""
 
-    def __init__(self, renderers: List[Parser] or List[str] or str or Parser = get_sparclur_renderers(),
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
+    def __init__(self, renderers: List[Parser] or List[str] or str or Parser = None,
+                 parser_args: Dict[str, Dict[str, Any]] | None = None,
                  max_workers: int = 1,
                  timeout: int = None,
                  overall_timeout: int = None,
@@ -153,8 +153,9 @@ class Highlight:
             Whether or not a progress bar should be displayed during message gathering.
         """
 
+        renderers = get_sparclur_renderers() if renderers is None else renderers
         self._renderers = _parse_renderers(renderers)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else parser_args
         self._num_workers = max_workers
         self._timeout = timeout
         self._overall_timeout = overall_timeout

@@ -122,7 +122,7 @@ class RollBack:
         with open(save_path, 'wb') as file_out:
             file_out.write(raw)
 
-    def compare_text(self, parser='Poppler', parser_args=dict(), display_width=10, display_height=10):
+    def compare_text(self, parser='Poppler', parser_args=None, display_width=10, display_height=10):
         """
         Compares the extracted text tokens between subsequent versions and plots the number of additions and
         subtractions in stacked bars. The Parser needs to support text extraction.
@@ -142,6 +142,7 @@ class RollBack:
         -------
         PyPlot figure
         """
+        parser_args = {} if parser_args is None else parser_args
         assert self.contains_updates, "No incremental updates detected."
         assert parser in [p.get_name() for p in get_sparclur_texters()], '%s does not support text extraction' % parser
         tokens = dict()
@@ -164,7 +165,7 @@ class RollBack:
         return fig
 
     def compare_renders(self, parser='Poppler',
-                        parser_args=dict(),
+                        parser_args=None,
                         num_workers=1,
                         versions=None,
                         progress_bar=True,
@@ -205,6 +206,7 @@ class RollBack:
         -------
         PyPlot figure
         """
+        parser_args = {} if parser_args is None else parser_args
         assert self.contains_updates, "No incremental updates detected."
         assert parser in [p.get_name() for p in get_sparclur_texters()], '%s does not support text extraction' % parser
         if isinstance(versions, str):
@@ -322,7 +324,6 @@ class RollBack:
                     ax.label_outer()
             plt.close(fig)
             return fig
-
 
 
 

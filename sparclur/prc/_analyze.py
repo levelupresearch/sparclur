@@ -165,9 +165,9 @@ class Analyzer:
     """Runs pairwise comparisons for the defined renderers over each page of the specified document list or directory"""
 
     def __init__(self, files,
-                 renderers=get_sparclur_renderers(),
+                 renderers=None,
                  metrics='sim',
-                 parser_args=dict(),
+                 parser_args=None,
                  max_workers=1,
                  timeout=None,
                  overall_timeout=None,
@@ -205,9 +205,10 @@ class Analyzer:
         save_path: str
             If specified, will save a csv of the run results to save_path
         """
+        renderers = get_sparclur_renderers() if renderers is None else renderers
         self._renderers = _parse_renderers(renderers)
         self._metrics = _set_metrics(metrics)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else parser_args
         self._files = create_file_list(files, recurse=recurse, base_path=base_path)
         self._max_workers = max_workers
         self._timeout = timeout

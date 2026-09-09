@@ -120,7 +120,7 @@ class DetectChaos:
     """
     def __init__(self, parsers: str or List[Parser] or List[str],
                  num_comparisons: int = 5,
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
+                 parser_args: Dict[str, Dict[str, Any]] | None = None,
                  parser_timeout: int = 120,
                  overall_timeout: int = 600,
                  num_workers: int = 1,
@@ -145,7 +145,7 @@ class DetectChaos:
 
         self._num_comparisons = num_comparisons
         self._parsers = _parse_parsers(parsers)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else parser_args
         self._parser_timeout = parser_timeout
         self._overall_timeout = overall_timeout
         self._num_workers = num_workers

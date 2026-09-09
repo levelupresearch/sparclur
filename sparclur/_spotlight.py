@@ -471,7 +471,7 @@ class Spotlight:
                  dpi: int = 72,
                  page_hashes: Union[int, Tuple, None] = None,
                  parsers: Union[List[str], None] = None,
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
+                 parser_args: Dict[str, Dict[str, Any]] | None = None,
                  timeout: int = None,
                  progress_bar: bool = True):
         """
@@ -497,6 +497,7 @@ class Spotlight:
         progress_bar: bool, default=True
             Flag for displaying a progress bar
         """
+        parser_args = {} if parser_args is None else parser_args
         self._dpi = dpi
         self._page_hashes = page_hashes
         self._num_workers = num_workers
@@ -607,5 +608,4 @@ class Spotlight:
 
         spotlight_path.cleanup()
         return full_spotlight
-
 
