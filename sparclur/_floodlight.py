@@ -263,7 +263,9 @@ class FloodLight:
                  temp_folders_dir: str = None,
                  progress_bar: bool = True):
 
-        parser_args = {} if parser_args is None else parser_args
+        parser_args = {} if parser_args is None else {
+            name: dict(options) for name, options in parser_args.items()
+        }
         self._gather_traces = gather_traces
         self._dpi = dpi
         self._page_hashes = page_hashes
@@ -299,7 +301,7 @@ class FloodLight:
 
         for parser in self._parsers:
             params = signature(parser.__init__).parameters
-            kwargs = self._parser_args.get(parser.get_name(), dict())
+            kwargs = dict(self._parser_args.get(parser.get_name(), {}))
             kwargs['timeout'] = self._timeout
             kwargs['temp_folders_dir'] = self._temp_folders_dir
             kwargs['skip_check'] = True
@@ -309,7 +311,7 @@ class FloodLight:
                 kwargs['page_hashes'] = self._page_hashes
             if 'validate_hash' in params:
                 kwargs['validate_hash'] = self._validate_hash
-            self._parser_args[parser] = kwargs
+            self._parser_args[parser.get_name()] = kwargs
 
         data = [{'path': doc,
                  'parsers': self._parsers,
