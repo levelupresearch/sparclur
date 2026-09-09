@@ -82,3 +82,6 @@ include = ["sparclur*"]
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["test"]
+markers = [
+    "cli: tests that require an external command-line PDF tool",
+]
