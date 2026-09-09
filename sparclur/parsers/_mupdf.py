@@ -22,7 +22,7 @@ from subprocess import TimeoutExpired, DEVNULL
 import tempfile
 import time
 
-import fitz
+import pymupdf as fitz
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
@@ -135,7 +135,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 doc_path = self._doc
             try:
                 doc = fitz.open(doc_path)
-                self._num_pages = doc.pageCount
+                self._num_pages = doc.page_count
             except Exception as e:
                 print(e)
                 self._num_pages = 0
@@ -208,7 +208,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
             try:
                 mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
                 doc = fitz.open(doc_path)
-                num_pages = doc.pageCount
+                num_pages = doc.page_count
                 if num_pages == 0 and pages is not None:
                     num_pages = max(pages) + 1
                 if pages is None:
@@ -317,7 +317,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 try:
                     doc = fitz.open(doc_path)
                     for page in doc:
-                        text = page.getText()
+                        text = page.get_text()
                         if not self._ocr and page.number not in self._text:
                             self._text[page.number] = text
                     if not self._ocr:
