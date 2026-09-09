@@ -63,8 +63,8 @@ docs = [
 
 [project.urls]
 Documentation = "https://sparclur.readthedocs.io/"
-Repository = "https://github.com/shawn-davis/sparclur"
-Issues = "https://github.com/shawn-davis/sparclur/issues"
+Repository = "https://github.com/levelupresearch/sparclur"
+Issues = "https://github.com/levelupresearch/sparclur/issues"
 
 [tool.setuptools]
 include-package-data = true
