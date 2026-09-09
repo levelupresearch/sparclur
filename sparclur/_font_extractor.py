@@ -103,8 +103,8 @@ class FontExtractor(Parser, metaclass=Meta):
         Extracts the detected fonts from the PDF file.
 
         Returns
-            Dict[str, Any]
         -------
+        List[Dict[str, Any]]
         """
         if self._fonts is None:
             _ = self._get_fonts()
@@ -152,4 +152,3 @@ class FontExtractor(Parser, metaclass=Meta):
                 hashes = dict()
             self._sparclur_hash._add_hash(FONT, hashes)
         return super().sparclur_hash
-

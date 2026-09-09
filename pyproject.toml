@@ -57,8 +57,12 @@ dev = [
     "build>=1.2",
     "pytest>=8.3",
     "pytest-cov>=6.0",
+    "twine>=6.0",
 ]
-docs = ["sphinx>=7.4"]
+docs = [
+    "sphinx>=7.4",
+    "sphinx-rtd-theme>=3.0",
+]
 
 [project.urls]
 Documentation = "https://sparclur.readthedocs.io/"

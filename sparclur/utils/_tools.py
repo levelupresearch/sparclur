@@ -4,7 +4,7 @@ import site
 import sys
 from typing import Dict, List
 
-import fitz
+import pymupdf as fitz
 import re
 import numpy as np
 import yaml

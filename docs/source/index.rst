@@ -11,10 +11,6 @@ Welcome to SPARCLUR's documentation!
    :caption: Contents:
 
    modules
-   sparclur.parsers
-   sparclur.prc
-   sparclur.trawler
-   sparclur.utils
 
 Indices and tables
 ==================
