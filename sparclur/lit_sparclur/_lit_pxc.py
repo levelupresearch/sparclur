@@ -48,7 +48,7 @@ def app(parsers, **kwargs):
         st.write("Jaccard Similarity")
         st.dataframe(df)
 
-        cols = st.beta_columns(2)
+        cols = st.columns(2)
 
         for idx, col in enumerate(cols):
             texter_selected = col.selectbox('Text', list(texters.keys()), index=idx, key='tx_%s' % str(idx))
