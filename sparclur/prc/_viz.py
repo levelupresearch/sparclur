@@ -59,7 +59,7 @@ class PRCViz:
                 self._renders[name] = renderer
                 self._renders[name].caching = True
             else:
-                args = parser_args.get(name, dict())
+                args = dict(parser_args.get(name, {}))
                 args['cache_renders'] = True
                 args['dpi'] = dpi
                 self._renders[name] = renderer(doc=doc_path, **args)
