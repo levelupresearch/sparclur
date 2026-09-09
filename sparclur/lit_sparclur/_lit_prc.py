@@ -11,7 +11,6 @@ from sparclur.parsers.present_parsers import get_sparclur_renderers
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
-# @st.cache
 # def get_viz(renderers):
 #     filename = [renderer for renderer in renderers.values()][0].doc
 #     return PRCViz(doc=filename, renderers=[renderer for renderer in renderers.values()])

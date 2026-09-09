@@ -20,7 +20,7 @@ def app(parsers, **kwargs):
     if len(tracers) == 0:
         st.write("Please select at least one of [%s]" % ', '.join(TRACERS))
     else:
-        cols = st.beta_columns(min(len(tracers), 3))
+        cols = st.columns(min(len(tracers), 3))
 
         for idx, col in enumerate(cols):
             trace_selected = col.selectbox('Trace', [key for key in list(tracers.keys()) if key != MuPDF.get_name()+'-s'], index=idx, key='ts_%s' % str(idx))

@@ -1,9 +1,4 @@
 import os
-import sys
-
-module_path = os.path.abspath('../../')
-if module_path not in sys.path:
-    sys.path.append(module_path)
 
 from sparclur.parsers import MuPDF, PDFMiner
 from sparclur.lit_sparclur import _lit_prc, _lit_pxc
@@ -58,13 +53,13 @@ base_dir_input = st.sidebar.text_input('path', '.', key='d')
 recurse = st.sidebar.checkbox('Recurse into base directory', key='f')
 
 
-@st.cache
+@st.cache_resource
 def parse_document(selected_parser_kwargs):
     p = dict()
 
     for name, kwa in selected_parser_kwargs.items():
         if name == NonParser.get_name():
-            p[name] = NonParser(**kwargs)
+            p[name] = NonParser(**kwa)
         elif name == MuPDF.get_name() + '-s':
             p[name] = MuPDF(**kwa)
             _ = p[name].cleaned
