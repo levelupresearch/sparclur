@@ -94,7 +94,7 @@ else:
 
         num_files = len(file_list)
 
-    except Exception as e:
+    except Exception:
         file_list = []
         num_files = 0
     if len(file_list) > 50 or len(file_list) == 0:

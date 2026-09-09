@@ -12,7 +12,6 @@ from typing import Dict, Tuple, List, Union, Any
 #import ghostscript as external_gs
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
-import yaml
 
 from sparclur._reforge import Reforger
 from sparclur._renderer import Renderer
@@ -99,11 +98,11 @@ class Ghostscript(Renderer, Reforger):
             try:
                 subprocess.check_output(shlex.split("gs -v"), shell=False)
                 gs_present = True
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError:
                 gs_present = False
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 gs_present = False
-            except Exception as e:
+            except Exception:
                 gs_present = False
             self._can_reforge = gs_present
         return self._can_reforge
@@ -292,7 +291,7 @@ class Ghostscript(Renderer, Reforger):
                         i = int(re.sub('.png', '', re.sub('page-', '', png))) - 1
                         pil = Image.open(os.path.join(tmpdir, png))
                         pils[i] = pil
-                    except Exception as e:
+                    except Exception:
                        pass
                 if self._caching:
                     self._full_doc_rendered = True

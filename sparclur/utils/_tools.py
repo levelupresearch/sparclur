@@ -1,15 +1,10 @@
 import hashlib
 import os
-import site
-import sys
-from typing import Dict, List
 
 import pymupdf as fitz
 import re
 import numpy as np
-import yaml
 from skimage.metrics import structural_similarity
-from inspect import signature
 from imagehash import average_hash, phash, dhash, whash
 from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
@@ -21,7 +16,6 @@ import matplotlib.pyplot as plt
 
 from sparclur._prc_sim import PRCSim
 
-import configparser
 
 
 class InputError(Exception):
@@ -366,7 +360,7 @@ def shingler(s, shingle_size):
     try:
         _ = iter(s)
         is_iterable = True
-    except TypeError as e:
+    except TypeError:
         is_iterable = False
     assert is_iterable, "Object must be iterable to be shingled."
     if shingle_size >= len(s):
@@ -472,7 +466,7 @@ def is_pdf(file):
         pdf = fitz.open(file)
         pdf.close()
         _is_pdf = True
-    except Exception as e:
+    except Exception:
         _is_pdf = False
     return _is_pdf
 

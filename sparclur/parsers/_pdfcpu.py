@@ -8,7 +8,6 @@ import tempfile
 import subprocess
 from subprocess import DEVNULL, TimeoutExpired
 
-import yaml
 
 from sparclur._tracer import Tracer
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TRACER, TIMED_OUT
@@ -55,7 +54,7 @@ class PDFCPU(Tracer):
             try:
                 subprocess.check_output(shlex.split(self._pdfcpu_path + " version"), shell=False)
                 pc_present = True
-            except Exception as e:
+            except Exception:
                 pc_present = False
             self._can_trace = pc_present
         return self._can_trace

@@ -4,7 +4,6 @@ import shlex
 import tempfile
 from typing import Dict, Any, List
 
-import yaml
 
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, META, TRACER, TIMED_OUT

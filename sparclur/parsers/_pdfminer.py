@@ -6,7 +6,6 @@ import tempfile
 from typing import Dict, Any, List
 import warnings
 
-import yaml
 from func_timeout import func_timeout, FunctionTimedOut
 from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
