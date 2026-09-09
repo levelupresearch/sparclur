@@ -175,11 +175,11 @@ class DetectChaos:
     def parser_timeout(self):
         return self._parser_timeout
 
-    @overall_timeout.setter
+    @parser_timeout.setter
     def parser_timeout(self, pt):
         self._parser_timeout = pt
 
-    @overall_timeout.deleter
+    @parser_timeout.deleter
     def parser_timeout(self):
         self._parser_timeout = None
 

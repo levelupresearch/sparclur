@@ -232,11 +232,11 @@ class Analyzer:
         return self._overall_timeout
 
     @overall_timeout.setter
-    def compare_timeout(self, t):
+    def overall_timeout(self, t):
         """Set a new timeout parameter"""
         self._overall_timeout = t
 
-    @compare_timeout.deleter
+    @overall_timeout.deleter
     def overall_timeout(self):
         self._overall_timeout = None
 
@@ -246,11 +246,11 @@ class Analyzer:
         return self._timeout
 
     @timeout.setter
-    def parser_timeout(self, t):
+    def timeout(self, t):
         """Set a new timeout parameter"""
         self._timeout = t
 
-    @parser_timeout.deleter
+    @timeout.deleter
     def timeout(self):
         self._timeout = None
 
