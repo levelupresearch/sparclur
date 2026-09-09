@@ -269,7 +269,7 @@ class SpotlightResult:
     def sim_sunburst(self, compare_orig: bool = True,
                      full: bool = False,
                      color: str = 'RdBu',
-                     color_range: List[float] = [.6, 1]):
+                     color_range: List[float] | None = None):
         """
         Create an interactive sunburst for exploring the similarities between the documents for the Spotlight parsers
 
@@ -292,6 +292,8 @@ class SpotlightResult:
         Plotly Sunburst
         """
         df = self._sunburst_data(compare_orig, full)
+        if color_range is None:
+            color_range = [.6, 1]
         fig = px.sunburst(df,
                           path=['Parser', 'inner', 'outer'],
                           values='sim',
@@ -327,7 +329,7 @@ class SpotlightResult:
                 columns.append((parser, report))
             else:
                 all_compares = set()
-                for v, results in versions.items():
+                for results in versions.values():
                     for compares in results['comparisons'].values():
                         score_names = [sn for sn in compares.keys() if 'sim' in sn and sn != 'sim']
                         all_compares.update(score_names)

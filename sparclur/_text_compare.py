@@ -156,8 +156,8 @@ class TextCompare(Parser, metaclass=Meta):
             tokens = self._tokens[page]
         else:
             if not self._document_tokenized:
-                for (page, text) in text.items():
-                    tokenized = [str(token) for token in tokenizer(text)]
+                for page, page_text in text.items():
+                    tokenized = [str(token) for token in tokenizer(page_text)]
                     remove_white_space_tokens = [t for t in [re.sub(r'\s+', '', token) for token in tokenized] if
                                                  t != '']
                     self._tokens[page] = remove_white_space_tokens

@@ -575,7 +575,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
             if pages is None or isinstance(pages, list):
                 warnings.warn("""Poppler does not support page specific sizing when rendering more than one page of 
                     the entire document. If you want to size each page individually render each page individually. The 
-                    first size will be selected from the dictionary for this rendering attempt.""")
+                    first size will be selected from the dictionary for this rendering attempt.""", stacklevel=2)
                 sizes = [self._size.values()]
                 size = sizes[0] if len(sizes) > 0 else None
             else:
@@ -813,7 +813,7 @@ class Poppler(Tracer, Hybrid, FontExtractor, ImageDataExtractor, Reforger):
                     self._images = []
                 else:
                     header = re.split(r'\s+', lines[0])
-                    self._images = [dict(zip(header, re.split(r'\s+', line)[1:])) for line in lines[2:]]
+                    self._images = [dict(zip(header, re.split(r'\s+', line)[1:], strict=False)) for line in lines[2:]]
                 self._file_timed_out[IMAGE] = False
             except TimeoutError:
                 self._images = []
