@@ -1,4 +1,4 @@
-from typing import Union, List, Tuple, Any
+from typing import Any
 import time
 import sys
 
@@ -15,15 +15,15 @@ from sparclur.utils._config import _get_config_param, _load_config
 
 class PDFium(Renderer):
     """PDFium renderer"""
-    def __init__(self, doc: Union[str, bytes],
-                 skip_check: Union[bool, None] = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 page_hashes: Union[int, Tuple[Any], None] = None,
+    def __init__(self, doc: str | bytes,
+                 skip_check: bool | None = None,
+                 hash_exclude: str | list[str] | None = None,
+                 page_hashes: int | tuple[Any] | None = None,
                  validate_hash: bool = False,
-                 temp_folders_dir: Union[str, None] = None,
-                 dpi: Union[int, None] = None,
-                 cache_renders: Union[bool, None] = None,
-                 timeout: Union[int, None] = None):
+                 temp_folders_dir: str | None = None,
+                 dpi: int | None = None,
+                 cache_renders: bool | None = None,
+                 timeout: int | None = None):
 
         config = _load_config()
         skip_check = _get_config_param(PDFium, config, 'skip_check', skip_check, False)
@@ -148,7 +148,7 @@ class PDFium(Renderer):
         finally:
             pdf.close()
 
-    def _render_pages(self, pages: Union[List[int], None]):
+    def _render_pages(self, pages: list[int] | None):
         num_pages = self.num_pages
         start_time = time.perf_counter()
         try:

@@ -1,6 +1,5 @@
 import multiprocessing
 from math import ceil
-from typing import Union, List
 
 from func_timeout import func_timeout
 
@@ -26,7 +25,7 @@ def _render_compare_worker(entry):
     return '%i->%i' % (left_version, right_version), {page: prc.sim for (page, prc) in page_sims.items()}
 
 
-def _find_updates(doc: Union[str, bytes]) -> List[int]:
+def _find_updates(doc: str | bytes) -> list[int]:
     if isinstance(doc, str):
         with open(doc, 'rb') as file_in:
             raw = file_in.read()
@@ -64,7 +63,7 @@ class RollBack:
     """Checks for incremental updates and if present analyzes the differences between the versions."""
 
     def __init__(self,
-                 doc: Union[str, bytes]
+                 doc: str | bytes
                  ):
         """
         Parameters

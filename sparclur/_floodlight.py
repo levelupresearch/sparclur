@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import multiprocessing
-from typing import List, Union, Tuple
 
 from tqdm import tqdm
 from pebble import ProcessPool
@@ -258,8 +257,8 @@ class FloodLight:
                  overall_timeout: int = 300,
                  timeout: int = 45,
                  dpi: int = 72,
-                 page_hashes: Union[int, Tuple, None] = ('first', 5),
-                 validate_hash: Union[bool, None] = True,
+                 page_hashes: int | tuple | None = ('first', 5),
+                 validate_hash: bool | None = True,
                  temp_folders_dir: str = None,
                  progress_bar: bool = True):
 
@@ -274,21 +273,21 @@ class FloodLight:
         self._overall_timeout = overall_timeout
         self._temp_folders_dir = temp_folders_dir
         if parsers is not None:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)
                                            if parser.get_name() in parsers]
         else:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)]
         if translators is not None:
-            self._translators: List[Parser] = [parser for parser in
+            self._translators: list[Parser] = [parser for parser in
                                                present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                     parser_args=parser_args)
                                                if issubclass(parser, Reforger) and parser.get_name() in translators]
         else:
-            self._translators: List[Parser] = [parser for parser in
+            self._translators: list[Parser] = [parser for parser in
                                                present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                     parser_args=parser_args)
                                                if issubclass(parser, Reforger)]

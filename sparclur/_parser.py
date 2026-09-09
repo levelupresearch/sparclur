@@ -1,6 +1,6 @@
 from __future__ import annotations
 import abc
-from typing import Dict, Any, List, Union
+from typing import Any
 
 from imagehash import ImageHash
 
@@ -80,7 +80,7 @@ class SparclurHash:
     tools).
     """
     def __init__(self, doc: str,
-                 exclude: str or List[str] = None):
+                 exclude: str or list[str] = None):
         """
         Parameters
         ----------
@@ -203,11 +203,11 @@ class Parser(metaclass=Meta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc: Union[str, bytes],
-                 temp_folders_dir: Union[str, None],
-                 skip_check: Union[bool, None],
-                 timeout: Union[int, None],
-                 hash_exclude: Union[str, List[str], None],
+    def __init__(self, doc: str | bytes,
+                 temp_folders_dir: str | None,
+                 skip_check: bool | None,
+                 timeout: int | None,
+                 hash_exclude: str | list[str] | None,
                  *args,
                  **kwargs):
         """
@@ -230,8 +230,8 @@ class Parser(metaclass=Meta):
         self._skip_check = skip_check
         self._timeout = timeout
         self._hash_exclude = hash_exclude
-        self._validity: Dict[str, Dict[str, Any]] = dict()
-        self._api: Dict[str, str] = {'num_pages': '(Property) Returns number of pages in the document'}
+        self._validity: dict[str, dict[str, Any]] = dict()
+        self._api: dict[str, str] = {'num_pages': '(Property) Returns number of pages in the document'}
         self._num_pages = None
         self._sparclur_hash = SparclurHash(doc, hash_exclude)
         self._file_timed_out = dict()

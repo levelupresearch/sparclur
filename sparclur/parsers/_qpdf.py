@@ -2,7 +2,7 @@ import locale
 import os
 import shlex
 import tempfile
-from typing import Dict, Any, List
+from typing import Any
 
 
 from sparclur._metadata_extractor import MetadataExtractor, METADATA_SUCCESS
@@ -22,7 +22,7 @@ class QPDF(Tracer, MetadataExtractor):
     def __init__(self, doc: str or bytes,
                  temp_folders_dir: str = None,
                  skip_check: bool = None,
-                 hash_exclude: str or List[str] = None,
+                 hash_exclude: str or list[str] = None,
                  binary_path: str = None,
                  timeout: int = None
                  ):
@@ -72,7 +72,7 @@ class QPDF(Tracer, MetadataExtractor):
         return self._can_trace
 
     @property
-    def validate_tracer(self) -> Dict[str, Any]:
+    def validate_tracer(self) -> dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
             if self._messages is None:
@@ -118,7 +118,7 @@ class QPDF(Tracer, MetadataExtractor):
         return self._can_meta_extract
 
     @property
-    def validate_metadata(self) -> Dict[str, Any]:
+    def validate_metadata(self) -> dict[str, Any]:
         if META not in self._validity:
             _ = self.validate_tracer
         return self._validity[META]
@@ -238,7 +238,7 @@ class QPDF(Tracer, MetadataExtractor):
         if self._messages is None:
             self._parse_document()
         scrubbed_messages = [self._clean_message(err) for err in self._messages if err != 'qpdf: operation succeeded with warnings']
-        error_dict: Dict[str, int] = dict()
+        error_dict: dict[str, int] = dict()
         for (index, error) in enumerate(scrubbed_messages):
             if error.startswith('warning: ... repeated '):
                 repeated = re.sub(r'[^\d]', '', error)

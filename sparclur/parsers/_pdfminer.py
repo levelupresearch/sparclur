@@ -3,7 +3,7 @@ import os
 import sys
 import tempfile
 
-from typing import Dict, Any, List
+from typing import Any
 import warnings
 
 from func_timeout import func_timeout, FunctionTimedOut
@@ -31,7 +31,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def __init__(self, doc: str or bytes,
                  temp_folders_dir: str = None,
                  skip_check: bool = None,
-                 hash_exclude: str or List[str] = None,
+                 hash_exclude: str or list[str] = None,
                  timeout: int = None,
                  page_delimiter: str = None,
                  detect_vertical: bool = None,
@@ -118,7 +118,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                     pass
 
     @property
-    def validate_text(self) -> Dict[str, Any]:
+    def validate_text(self) -> dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
             if self._file_timed_out.get(TEXT, False):
@@ -153,7 +153,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         return self._can_meta_extract
 
     @property
-    def validate_metadata(self) -> Dict[str, Any]:
+    def validate_metadata(self) -> dict[str, Any]:
         if META not in self._validity:
             validity_results = dict()
             if self._metadata is None:

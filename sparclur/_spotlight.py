@@ -6,7 +6,7 @@ import shutil
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Union, Dict, Any, Tuple
+from typing import Any
 
 import numpy as np
 from tqdm import tqdm
@@ -105,7 +105,7 @@ class SpotlightResult:
 
     def __repr__(self):
         overall_validity = self.overall_validity()
-        rep = 'PDF Validity: {validity}'.format(validity=overall_validity)
+        rep = f'PDF Validity: {overall_validity}'
         if overall_validity != VALID:
             rep = rep + '\n%s' % self.recoverable()
         return rep
@@ -269,7 +269,7 @@ class SpotlightResult:
     def sim_sunburst(self, compare_orig: bool = True,
                      full: bool = False,
                      color: str = 'RdBu',
-                     color_range: List[float] | None = None):
+                     color_range: list[float] | None = None):
         """
         Create an interactive sunburst for exploring the similarities between the documents for the Spotlight parsers
 
@@ -361,7 +361,7 @@ class SpotlightResult:
 
         return d, columns, comparisons
 
-    def sim_heatmap(self, parsers: str or List[str] = None,
+    def sim_heatmap(self, parsers: str or list[str] = None,
                     report: str = 'sim',
                     annotated: bool = True,
                     detailed: bool = False,
@@ -460,7 +460,7 @@ class SpotlightResult:
                     parser = parser.replace(' sim', '')
                     for comparison, score in comparisons.items():
                         if score <= sim_threshold:
-                            s = s + '\t{parser}: {compare} - {score:.2f}'.format(parser=parser, compare=comparison, score=score)
+                            s = s + f'\t{parser}: {comparison} - {score:.2f}'
                             ambiguities = ambiguities + 1
                 if ambiguities > 0:
                     return s
@@ -481,9 +481,9 @@ class Spotlight:
     def __init__(self, num_workers: int = 1,
                  temp_folders_dir: str = None,
                  dpi: int = 72,
-                 page_hashes: Union[int, Tuple, None] = None,
-                 parsers: Union[List[str], None] = None,
-                 parser_args: Dict[str, Dict[str, Any]] | None = None,
+                 page_hashes: int | tuple | None = None,
+                 parsers: list[str] | None = None,
+                 parser_args: dict[str, dict[str, Any]] | None = None,
                  timeout: int = None,
                  progress_bar: bool = True):
         """
@@ -515,12 +515,12 @@ class Spotlight:
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
         if parsers is not None and len(parsers) > 0:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)
                                            if parser.get_name() in parsers]
         else:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)]
         self._parser_args = parser_args
