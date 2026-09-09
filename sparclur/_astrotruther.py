@@ -189,12 +189,12 @@ class Astrotruther:
                  label_col: str or int = 1,
                  base_path: str = None,
                  label_transform: Callable[[str], str] = None,
-                 parsers: List[Parser] or List[str] = get_sparclur_parsers(),
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
+                 parsers: List[Parser] or List[str] = None,
+                 parser_args: Dict[str, Dict[str, Any]] | None = None,
                  exclude: str or List[str] = None,
                  overall_timeout: int = None,
                  classifier: str = 'decTree',
-                 classifier_args: Dict[str, Any] = dict(),
+                 classifier_args: Dict[str, Any] | None = None,
                  k_folds: int = 3,
                  max_workers: int = 1,
                  timeout: int = None,
@@ -235,15 +235,16 @@ class Astrotruther:
         assert classifier in POSSIBLE_CLASSIFIERS, "Please select one or more of: [%s]" % ', '.join(
             POSSIBLE_CLASSIFIERS)
 
+        parsers = get_sparclur_parsers() if parsers is None else parsers
         self._file_col = file_col
         self._label_col = label_col
         self._base_path = base_path
         self._label_transform = label_transform
         self._parsers = _parse_parsers(parsers)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else parser_args
         self._exclude = exclude
         self._classifier = classifier
-        self._classifier_args = classifier_args
+        self._classifier_args = {} if classifier_args is None else classifier_args
         self._k_folds = k_folds
         self._num_workers = max_workers
         self._timeout = timeout
@@ -414,10 +415,11 @@ class Astrotruther:
             astro = pickle.load(f)
         return astro
 
-    def fit(self, docs, doc_loading_args=dict(), save_training_data=None):
+    def fit(self, docs, doc_loading_args=None, save_training_data=None):
         """
         Fits the model to the training data.
         """
+        doc_loading_args = {} if doc_loading_args is None else doc_loading_args
         X, Y = self._transform_training_data(docs, doc_loading_args, save_training_data=save_training_data)
         clf = _MODEL_SWITCHER[self._classifier](**self._classifier_args)
         self._model = clf.fit(X, Y)
@@ -427,7 +429,7 @@ class Astrotruther:
 
     def predict(self, docs,
                 file_col=None,
-                doc_loading_args=dict(),
+                doc_loading_args=None,
                 unseen_ignore=None,
                 unseen_message_default='Not enough info',
                 prediction_column='astrotruth',
@@ -440,6 +442,7 @@ class Astrotruther:
         DataFrame
             DataFrame of the classification results
         """
+        doc_loading_args = {} if doc_loading_args is None else doc_loading_args
         assert self._model is not None, "Model has not been generated"
         file_col = self._file_col if file_col is None else file_col
         X = self._load_prediction_data(docs, file_col, doc_loading_args, save_eval_data)

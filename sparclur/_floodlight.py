@@ -252,7 +252,7 @@ class FloodLight:
 
     def __init__(self, parsers=None,
                  translators=None,
-                 parser_args=dict(),
+                 parser_args=None,
                  gather_traces: bool = True,
                  num_workers: int = 1,
                  overall_timeout: int = 300,
@@ -263,6 +263,7 @@ class FloodLight:
                  temp_folders_dir: str = None,
                  progress_bar: bool = True):
 
+        parser_args = {} if parser_args is None else parser_args
         self._gather_traces = gather_traces
         self._dpi = dpi
         self._page_hashes = page_hashes
