@@ -53,8 +53,7 @@ def _mapper(entry):
     base_path = entry['base_path']
     parser = entry['parser']
     version = entry['version']
-    args = entry.get('args',
-                     dict())
+    args = dict(entry.get('args', {}))
 
     args['doc'] = os.path.join(base_path, parser.get_name(), version + '.pdf')
     p = parser(**args)
@@ -547,12 +546,12 @@ class Spotlight:
                 print('%s reforge failed: %s' % (p.get_name(), str(e)))
         data = []
         for parser in self._parsers:
-            kwargs = self._parser_args.get(parser.get_name(), dict())
+            kwargs = dict(self._parser_args.get(parser.get_name(), {}))
             kwargs['timeout'] = self._timeout
             kwargs['hash_exclude'] = [META, FONT]
             kwargs['temp_folders_dir'] = self._temp_folders_dir
             for file in os.listdir(os.path.join(spotlight_path.name, parser.get_name())):
-                entry = {'base_path': spotlight_path.name, 'args': kwargs}
+                entry = {'base_path': spotlight_path.name, 'args': dict(kwargs)}
                 version = file.split('.')[0]
                 entry['parser'] = parser
                 entry['version'] = version
