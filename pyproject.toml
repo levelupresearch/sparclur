@@ -39,6 +39,7 @@ dependencies = [
     "PyMuPDF>=1.24",
     "pytesseract>=0.3.13",
     "PyYAML>=6.0.2",
+    "platformdirs>=4.3",
     "scikit-image>=0.24",
     "scikit-learn>=1.5",
     "seaborn>=0.13",
@@ -72,7 +73,6 @@ include-package-data = true
 include = ["sparclur*"]
 
 [tool.setuptools.data-files]
-"etc/sparclur" = ["resources/sparclur.yaml"]
 "etc/sparclur/resources" = [
     "resources/hello_world_hand_edit.pdf",
     "resources/min_vi.pdf",
