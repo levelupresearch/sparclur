@@ -82,7 +82,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
 
     def _check_for_renderer(self) -> bool:
         if self._can_render is None:
-            self._can_render = 'fitz' in sys.modules.keys()
+            self._can_render = 'pymupdf' in sys.modules
         return self._can_render
 
     @property
@@ -298,7 +298,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 self._can_extract = 'pytesseract' in sys.modules.keys() and self._can_render
         else:
             if self._can_extract is None:
-                self._can_extract = 'fitz' in sys.modules.keys()
+                self._can_extract = 'pymupdf' in sys.modules
         return self._can_extract
 
     @property
