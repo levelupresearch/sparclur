@@ -20,3 +20,17 @@ def test_capability_probe_does_not_mutate_parser_arguments(monkeypatch):
     assert present_parsers.get_sparclur_parsers(check_parsers=True, parser_args=parser_args) == [ProbeParser]
     assert calls == [(present_parsers.min_pdf, {"timeout": 30, "skip_check": False})]
     assert parser_args == {"Probe": {"timeout": 30}}
+
+
+def test_capability_probe_skips_adapters_that_cannot_be_configured(monkeypatch):
+    class UnavailableParser:
+        @staticmethod
+        def get_name():
+            return "Unavailable"
+
+        def __init__(self, doc, **kwargs):
+            raise AssertionError("optional tool path is not configured")
+
+    monkeypatch.setattr(present_parsers, "_sparclur_parsers", {"Unavailable": UnavailableParser})
+
+    assert present_parsers.get_sparclur_parsers(check_parsers=True) == []
