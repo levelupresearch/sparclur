@@ -1,5 +1,5 @@
 import shutil
-from typing import List, Dict, Any, Union
+from typing import Any
 import os
 import re
 import locale
@@ -8,7 +8,6 @@ import tempfile
 import subprocess
 from subprocess import DEVNULL, TimeoutExpired
 
-import yaml
 
 from sparclur._tracer import Tracer
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, TRACER, TIMED_OUT
@@ -19,12 +18,12 @@ from sparclur.utils._config import _get_config_param, _load_config
 class PDFCPU(Tracer):
     """Wrapper for PDFCPU (https://pdfcpu.io/)"""
 
-    def __init__(self, doc: Union[str, bytes],
-                 skip_check: Union[bool, None] = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 binary_path: Union[str, None] = None,
-                 temp_folders_dir: Union[str, None] = None,
-                 timeout: Union[int, None] = None
+    def __init__(self, doc: str | bytes,
+                 skip_check: bool | None = None,
+                 hash_exclude: str | list[str] | None = None,
+                 binary_path: str | None = None,
+                 temp_folders_dir: str | None = None,
+                 timeout: int | None = None
                  ):
         """
         Parameters
@@ -55,13 +54,13 @@ class PDFCPU(Tracer):
             try:
                 subprocess.check_output(shlex.split(self._pdfcpu_path + " version"), shell=False)
                 pc_present = True
-            except Exception as e:
+            except Exception:
                 pc_present = False
             self._can_trace = pc_present
         return self._can_trace
 
     @property
-    def validate_tracer(self) -> Dict[str, Any]:
+    def validate_tracer(self) -> dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
             if self._cleaned is None:
@@ -118,7 +117,7 @@ class PDFCPU(Tracer):
                 stdout = stdout.decode(self._decoder)
                 self._num_pages = [int(line.split(':')[1].strip())
                                    for line in stdout.split('\n') if 'Page count:' in line][0]
-            except:
+            except Exception:
                 self._num_pages = 0
 
     def _parse_document(self):
@@ -186,7 +185,7 @@ class PDFCPU(Tracer):
         if self._messages is None:
             self._parse_document()
         scrubbed_messages = [self._clean_message(err) for err in self._messages]
-        error_dict: Dict[str, int] = dict()
+        error_dict: dict[str, int] = dict()
         for error in scrubbed_messages:
             error_dict[error] = error_dict.get(error, 0) + 1
         self._cleaned = error_dict

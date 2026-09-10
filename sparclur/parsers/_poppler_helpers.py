@@ -74,7 +74,7 @@ def _pdftoppm_clean_message(err):
                      'Syntax Error: Unknown DCT marker <x>', cleaned)
     cleaned = re.sub(r'Could not find [.]* CMap file for [.]* collection',
                      'Could not find <x> CMap file for <x> collection', cleaned)
-    cleaend = re.sub(r'Unknown CMap [.]* for character collection [.]*',
+    cleaned = re.sub(r'Unknown CMap [.]* for character collection [.]*',
                      'Unknown CMap <x> for character collection <x>', cleaned)
     cleaned: str = re.sub(r'Syntax Warning: Could not parse ligature component \"[^"]+\" of \"[^"]+\" in parseCharName',
                           'Syntax Warning: Could not parse ligature component in parseCharName', cleaned)

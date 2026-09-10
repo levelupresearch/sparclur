@@ -1,16 +1,8 @@
 import streamlit as st
-import os
-import sys
 import itertools
 import pandas as pd
 
-module_path = os.path.abspath('../../')
-if module_path not in sys.path:
-    sys.path.append(module_path)
-from sparclur.parsers.present_parsers import get_sparclur_texters, get_sparclur_renderers
-
-TEXTERS = [texter.get_name() for texter in get_sparclur_texters(no_ocr=True)]
-RENDERERS = [renderer.get_name() for renderer in get_sparclur_renderers()]
+from sparclur._text_compare import TextCompare
 
 
 def app(parsers, **kwargs):
@@ -20,11 +12,13 @@ def app(parsers, **kwargs):
 
     texters = dict()
 
-    for p_name, parser in parsers.items():
-        if p_name in TEXTERS:
-            texters[p_name] = parser
+    for name, parser in parsers.items():
+        if isinstance(parser, TextCompare) and parser.can_extract_text:
+            texters[name] = parser
 
-    if len(texters) == 1:
+    if not texters:
+        st.info("Enable a text extractor or OCR-capable renderer to use PXC.")
+    elif len(texters) == 1:
         texter = [txtr for txtr in texters.values()][0]
         st.write(texter.get_name())
         text = texter.get_text()
@@ -48,7 +42,7 @@ def app(parsers, **kwargs):
         st.write("Jaccard Similarity")
         st.dataframe(df)
 
-        cols = st.beta_columns(2)
+        cols = st.columns(2)
 
         for idx, col in enumerate(cols):
             texter_selected = col.selectbox('Text', list(texters.keys()), index=idx, key='tx_%s' % str(idx))

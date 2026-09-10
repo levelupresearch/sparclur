@@ -1,0 +1,117 @@
+[build-system]
+requires = ["setuptools>=78.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sparclur"
+version = "2026.9.9"
+description = "Tools for analyzing PDF files and comparing PDF parsers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Shawn Davis", email = "shawn@levelupresearch.com" }]
+keywords = ["pdf", "parser", "renderer", "analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "docstring-inheritance>=2.2",
+    "dill>=0.3.8",
+    "func-timeout>=4.3.5",
+    "ImageHash>=4.3",
+    "matplotlib>=3.9",
+    "mmh3>=5.1",
+    "numpy>=2.0",
+    "opencv-python>=4.10",
+    "pandas>=2.2",
+    "Pebble>=5.1",
+    "Pillow>=10.4",
+    "plotly>=5.24",
+    "pytesseract>=0.3.13",
+    "PyYAML>=6.0.2",
+    "platformdirs>=4.3",
+    "scikit-image>=0.24",
+    "scikit-learn>=1.5",
+    "seaborn>=0.13",
+    "spacy>=3.8",
+    "tqdm>=4.66.3",
+]
+
+[project.optional-dependencies]
+reports = ["weasyprint>=70"]
+ui = ["streamlit>=1.40"]
+mupdf = ["PyMuPDF>=1.24"]
+pdfium = ["pypdfium2>=5.0"]
+pdfminer = ["pdfminer.six>=20240706"]
+dev = [
+    "build>=1.2",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "pip-audit>=2.10",
+    "ruff>=0.14",
+    "twine>=6.0",
+    "weasyprint>=70",
+    "streamlit>=1.40",
+    "PyMuPDF>=1.24",
+    "pypdfium2>=5.0",
+    "pdfminer.six>=20240706",
+]
+docs = [
+    "sphinx>=7.4",
+    "sphinx-rtd-theme>=3.0",
+]
+
+[project.scripts]
+sparclur-ui = "sparclur.lit_sparclur._cli:main"
+
+[project.urls]
+Documentation = "https://sparclur.readthedocs.io/"
+Repository = "https://github.com/levelupresearch/sparclur"
+Issues = "https://github.com/levelupresearch/sparclur/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["sparclur*"]
+
+[tool.setuptools.data-files]
+"etc/sparclur/resources" = [
+    "resources/hello_world_hand_edit.pdf",
+    "resources/min_vi.pdf",
+    "resources/AH20210114-modified.pdf",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["test"]
+markers = [
+    "cli: tests that require an external command-line PDF tool",
+]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "UP006", "UP007", "UP032", "UP035"]
+
+[tool.ruff.lint.per-file-ignores]
+# These mixins use cooperative multiple-inheritance constructors and must
+# forward positional arguments after named parser options.
+"sparclur/_font_extractor.py" = ["B026"]
+"sparclur/_hybrid.py" = ["B026"]
+"sparclur/_image_data_extractor.py" = ["B026"]
+"sparclur/_metadata_extractor.py" = ["B026"]
+"sparclur/_reforge.py" = ["B026"]
+"sparclur/_renderer.py" = ["B026"]
+"sparclur/_text_compare.py" = ["B026"]
+"sparclur/_text_extractor.py" = ["B026"]
+"sparclur/_tracer.py" = ["B026"]

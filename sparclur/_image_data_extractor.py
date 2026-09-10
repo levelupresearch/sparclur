@@ -2,7 +2,7 @@ import abc
 
 from sparclur._metaclass import Meta
 from sparclur._parser import Parser, IMAGE
-from typing import Dict, Any, List
+from typing import Any
 
 
 class ImageDataExtractor(Parser, metaclass=Meta):
@@ -28,7 +28,7 @@ class ImageDataExtractor(Parser, metaclass=Meta):
         self._api.update(image_apis)
         self._contains_jpeg: bool = None
         self._contains_images: bool = None
-        self._images: List[Dict[str, Any]] = None
+        self._images: list[dict[str, Any]] = None
         self._can_extract_image_data: bool = None
 
     @property

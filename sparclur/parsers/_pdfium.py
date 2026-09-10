@@ -1,11 +1,10 @@
-from typing import Union, List, Tuple, Any
+from typing import Any
 import time
 import sys
 
 import pypdfium2 as pdfium
 from PIL.Image import Image
 from func_timeout import func_timeout, FunctionTimedOut
-from PIL.PngImagePlugin import PngImageFile
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, RENDER, TIMED_OUT
 from sparclur._renderer import Renderer
@@ -16,15 +15,15 @@ from sparclur.utils._config import _get_config_param, _load_config
 
 class PDFium(Renderer):
     """PDFium renderer"""
-    def __init__(self, doc: Union[str, bytes],
-                 skip_check: Union[bool, None] = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 page_hashes: Union[int, Tuple[Any], None] = None,
+    def __init__(self, doc: str | bytes,
+                 skip_check: bool | None = None,
+                 hash_exclude: str | list[str] | None = None,
+                 page_hashes: int | tuple[Any] | None = None,
                  validate_hash: bool = False,
-                 temp_folders_dir: Union[str, None] = None,
-                 dpi: Union[int, None] = None,
-                 cache_renders: Union[bool, None] = None,
-                 timeout: Union[int, None] = None):
+                 temp_folders_dir: str | None = None,
+                 dpi: int | None = None,
+                 cache_renders: bool | None = None,
+                 timeout: int | None = None):
 
         config = _load_config()
         skip_check = _get_config_param(PDFium, config, 'skip_check', skip_check, False)
@@ -91,57 +90,65 @@ class PDFium(Renderer):
 
     def _get_num_pages(self):
         try:
-            doc = pdfium.FPDF_LoadDocument(self._doc, None)
-            self._num_pages = pdfium.FPDF_GetPageCount(doc)
-        except Exception as e:
+            doc = pdfium.PdfDocument(self._doc)
+            self._num_pages = len(doc)
+        except Exception:
             self._num_pages = 0
         finally:
             try:
-                pdfium.FPDF_CloseDocument(doc)
-            except:
+                doc.close()
+            except Exception:
                 pass
 
     def _render_page(self, page):
         start_time = time.perf_counter()
         try:
-            with pdfium.PdfContext(self._doc) as pdf:
-                kwargs = {
-                    'pdf': pdf,
-                    'page_index': page,
-                    'scale': self._dpi / 72
-                }
-                if self._timeout is None:
-                    pil_image: Image = pdfium.render_page(**kwargs)
-                else:
-                    pil_image: Image = func_timeout(
-                        self._timeout,
-                        pdfium.render_page,
-                        kwargs=kwargs
-                    )
-                if self._caching:
-                    self._renders[page] = pil_image
-                timing = time.perf_counter() - start_time
-                result = SUCCESS
-                self._logs[page] = {'result': result, 'timing': timing}
-                self._file_timed_out = False
+            if self._timeout is None:
+                pil_image = self._pdfium_render_pdf([page])[page]
+            else:
+                pil_image = func_timeout(
+                    self._timeout,
+                    self._pdfium_render_pdf,
+                    kwargs={'page_indices': [page]}
+                )[page]
+            if self._caching:
+                self._renders[page] = pil_image
+            timing = time.perf_counter() - start_time
+            self._logs[page] = {'result': SUCCESS, 'timing': timing}
+            self._file_timed_out[RENDER] = False
         except FunctionTimedOut:
             pil_image: Image = None
             self._logs[page] = {'result': 'Timed out', 'timing': self._timeout}
-            self._file_timed_out = True
+            self._file_timed_out[RENDER] = True
         except Exception as e:
             pil_image: Image = None
             timing = time.perf_counter() - start_time
             self._logs[page] = {'result': str(e), 'timing': timing}
-            self._file_timed_out = False
+            self._file_timed_out[RENDER] = False
         return pil_image
 
     def _pdfium_render_pdf(self, page_indices):
-        result = dict()
-        for image, suffix in pdfium.render_pdf(self._doc, page_indices=page_indices, scale=self._dpi/72):
-            result[int(suffix) - 1] = image
-        return result
+        """Render selected pages using the current pypdfium2 object API."""
+        pdf = pdfium.PdfDocument(self._doc)
+        try:
+            pages = range(len(pdf)) if page_indices is None else page_indices
+            result = dict()
+            for page_index in pages:
+                page = pdf[page_index]
+                bitmap = None
+                try:
+                    bitmap = page.render(scale=self._dpi / 72)
+                    # Copy before closing the backing bitmap.
+                    result[page_index] = bitmap.to_pil().copy()
+                finally:
+                    if bitmap is not None:
+                        bitmap.close()
+                    page.close()
+            return result
+        finally:
+            pdf.close()
 
-    def _render_pages(self, pages: Union[List[int], None]):
+    def _render_pages(self, pages: list[int] | None):
         num_pages = self.num_pages
         start_time = time.perf_counter()
         try:

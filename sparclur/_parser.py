@@ -1,6 +1,6 @@
 from __future__ import annotations
 import abc
-from typing import Dict, Any, List, Union
+from typing import Any
 
 from imagehash import ImageHash
 
@@ -80,7 +80,7 @@ class SparclurHash:
     tools).
     """
     def __init__(self, doc: str,
-                 exclude: str or List[str] = None):
+                 exclude: str or list[str] = None):
         """
         Parameters
         ----------
@@ -157,7 +157,7 @@ class SparclurHash:
         for key in set().union(this.keyset()).union(that.keyset()):
             if key == RENDER:
                 render_compare = _compare_render_hash(this.get(RENDER, dict()), that.get(RENDER, dict()))
-                render_sim = min(list(render_compare.values())) if len(list(render_compare.values())) > 0 else 0.0
+                render_sim = min(render_compare.values()) if render_compare else 1.0
                 sim = sim + render_sim
                 num_compares = num_compares + 1
                 results[RENDER] = render_compare
@@ -169,26 +169,26 @@ class SparclurHash:
                 results[TRACER+' sim'] = trace_compare
             if key == TEXT:
                 text_compare = _compare_text_hash(this.get(TEXT, dict()), that.get(TEXT, dict()))
-                text_sim = min(text_compare.values()) if len(list(text_compare.values())) > 0 else 0.0
+                text_sim = min(text_compare.values()) if text_compare else 1.0
                 sim = sim + text_sim
                 num_compares = num_compares + 1
                 results[TEXT] = text_compare
                 results[TEXT+' sim'] = text_sim
             if key == META:
                 meta_compare = _compare_metadata_hash(this.get(META, dict()), that.get(META, dict()))
-                meta_sim = sum(meta_compare.values()) / len(meta_compare)
+                meta_sim = sum(meta_compare.values()) / len(meta_compare) if meta_compare else 1.0
                 sim = sim + meta_sim
                 num_compares = num_compares + 1
                 results[META] = meta_compare
                 results[META+' sim'] = meta_sim
             if key == FONT:
                 font_compare = _compare_font_hash(this.get(FONT, dict()), that.get(FONT, dict()))
-                font_sim = sum(font_compare.values()) / len(font_compare) if len(font_compare) > 0 else 0.0
+                font_sim = sum(font_compare.values()) / len(font_compare) if font_compare else 1.0
                 sim = sim + font_sim
                 num_compares = num_compares + 1
                 results[FONT] = font_compare
                 results[FONT+' sim'] = font_sim
-        overall_sim = sim / num_compares
+        overall_sim = sim / num_compares if num_compares else 1.0
         dist = 1 - overall_sim
         results['sim'] = overall_sim
         results['dist'] = dist
@@ -203,11 +203,11 @@ class Parser(metaclass=Meta):
     """
 
     @abc.abstractmethod
-    def __init__(self, doc: Union[str, bytes],
-                 temp_folders_dir: Union[str, None],
-                 skip_check: Union[bool, None],
-                 timeout: Union[int, None],
-                 hash_exclude: Union[str, List[str], None],
+    def __init__(self, doc: str | bytes,
+                 temp_folders_dir: str | None,
+                 skip_check: bool | None,
+                 timeout: int | None,
+                 hash_exclude: str | list[str] | None,
                  *args,
                  **kwargs):
         """
@@ -230,8 +230,8 @@ class Parser(metaclass=Meta):
         self._skip_check = skip_check
         self._timeout = timeout
         self._hash_exclude = hash_exclude
-        self._validity: Dict[str, Dict[str, Any]] = dict()
-        self._api: Dict[str, str] = {'num_pages': '(Property) Returns number of pages in the document'}
+        self._validity: dict[str, dict[str, Any]] = dict()
+        self._api: dict[str, str] = {'num_pages': '(Property) Returns number of pages in the document'}
         self._num_pages = None
         self._sparclur_hash = SparclurHash(doc, hash_exclude)
         self._file_timed_out = dict()

@@ -7,12 +7,11 @@ import shlex
 import tempfile
 import time
 import warnings
-from typing import Dict, Tuple, List, Union, Any
+from typing import Any
 
 #import ghostscript as external_gs
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
-import yaml
 
 from sparclur._reforge import Reforger
 from sparclur._renderer import Renderer
@@ -27,11 +26,11 @@ class Ghostscript(Renderer, Reforger):
                  skip_check: bool = None,
                  temp_folders_dir: str = None,
                  dpi: int = None,
-                 size: Union[Tuple[int], int, None] = None,
+                 size: tuple[int] | int | None = None,
                  cache_renders: bool = None,
                  timeout: int = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 page_hashes: Union[int, Tuple[Any], None] = None,
+                 hash_exclude: str | list[str] | None = None,
+                 page_hashes: int | tuple[Any] | None = None,
                  validate_hash: bool = False):
         """
         Parameters
@@ -99,11 +98,11 @@ class Ghostscript(Renderer, Reforger):
             try:
                 subprocess.check_output(shlex.split("gs -v"), shell=False)
                 gs_present = True
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError:
                 gs_present = False
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 gs_present = False
-            except Exception as e:
+            except Exception:
                 gs_present = False
             self._can_reforge = gs_present
         return self._can_reforge
@@ -270,7 +269,7 @@ class Ghostscript(Renderer, Reforger):
                 if isinstance(self._size, dict):
                     warnings.warn("""Ghostscript does not support page specific sizing when rendering the entire 
                         document. If you want to size each page individually render each page individually. The 
-                        first size will be selected from the dictionary for this rendering attempt.""")
+                        first size will be selected from the dictionary for this rendering attempt.""", stacklevel=2)
                     sizes = [self._size.values()]
                     size = sizes[0] if len(sizes) > 0 else None
                 else:
@@ -286,13 +285,13 @@ class Ghostscript(Renderer, Reforger):
                 args.append(doc_path)
                 subprocess.run(args, timeout=self._timeout or 600, shell=False)
 
-                pils: Dict[int, PngImageFile] = dict()
+                pils: dict[int, PngImageFile] = dict()
                 for png in [file for file in os.listdir(tmpdir) if file.endswith('.png')]:
                     try:
                         i = int(re.sub('.png', '', re.sub('page-', '', png))) - 1
                         pil = Image.open(os.path.join(tmpdir, png))
                         pils[i] = pil
-                    except Exception as e:
+                    except Exception:
                        pass
                 if self._caching:
                     self._full_doc_rendered = True
@@ -303,11 +302,11 @@ class Ghostscript(Renderer, Reforger):
                     self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
                 self._file_timed_out[RENDER] = False
             except TimeoutExpired:
-                pils: Dict[int, PngImageFile] = dict()
+                pils: dict[int, PngImageFile] = dict()
                 self._logs[0] = {'result': 'Timed out', 'timing': self._timeout}
                 self._file_timed_out[RENDER] = True
             except Exception as e:
-                pils: Dict[int, PngImageFile] = dict()
+                pils: dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
                 self._file_timed_out[RENDER] = False

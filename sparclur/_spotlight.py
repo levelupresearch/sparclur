@@ -5,7 +5,8 @@ import os
 import shutil
 import tempfile
 from collections import defaultdict
-from typing import List, Union, Dict, Any, Tuple
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 from tqdm import tqdm
@@ -38,12 +39,21 @@ def _merge_dict(d1, d2):
             return d1
 
 
+def _copy_document(doc: str | os.PathLike | bytes | bytearray, destination: Path) -> None:
+    """Copy path-backed input or write in-memory PDF bytes to ``destination``."""
+    if isinstance(doc, (str, os.PathLike)):
+        shutil.copy2(doc, destination)
+    elif isinstance(doc, (bytes, bytearray)):
+        destination.write_bytes(doc)
+    else:
+        raise TypeError("doc must be a path or PDF bytes")
+
+
 def _mapper(entry):
     base_path = entry['base_path']
     parser = entry['parser']
     version = entry['version']
-    args = entry.get('args',
-                     dict())
+    args = dict(entry.get('args', {}))
 
     args['doc'] = os.path.join(base_path, parser.get_name(), version + '.pdf')
     p = parser(**args)
@@ -95,7 +105,7 @@ class SpotlightResult:
 
     def __repr__(self):
         overall_validity = self.overall_validity()
-        rep = 'PDF Validity: {validity}'.format(validity=overall_validity)
+        rep = f'PDF Validity: {overall_validity}'
         if overall_validity != VALID:
             rep = rep + '\n%s' % self.recoverable()
         return rep
@@ -259,7 +269,7 @@ class SpotlightResult:
     def sim_sunburst(self, compare_orig: bool = True,
                      full: bool = False,
                      color: str = 'RdBu',
-                     color_range: List[float] = [.6, 1]):
+                     color_range: list[float] | None = None):
         """
         Create an interactive sunburst for exploring the similarities between the documents for the Spotlight parsers
 
@@ -282,6 +292,8 @@ class SpotlightResult:
         Plotly Sunburst
         """
         df = self._sunburst_data(compare_orig, full)
+        if color_range is None:
+            color_range = [.6, 1]
         fig = px.sunburst(df,
                           path=['Parser', 'inner', 'outer'],
                           values='sim',
@@ -317,7 +329,7 @@ class SpotlightResult:
                 columns.append((parser, report))
             else:
                 all_compares = set()
-                for v, results in versions.items():
+                for results in versions.values():
                     for compares in results['comparisons'].values():
                         score_names = [sn for sn in compares.keys() if 'sim' in sn and sn != 'sim']
                         all_compares.update(score_names)
@@ -349,7 +361,7 @@ class SpotlightResult:
 
         return d, columns, comparisons
 
-    def sim_heatmap(self, parsers: str or List[str] = None,
+    def sim_heatmap(self, parsers: str or list[str] = None,
                     report: str = 'sim',
                     annotated: bool = True,
                     detailed: bool = False,
@@ -390,11 +402,11 @@ class SpotlightResult:
 
         df = pd.DataFrame(d, columns=columns, index=['%s/%s' % (v1, v2) for v1, v2 in comparisons])
 
-        fig, ax = plt.subplots(figsize=(width, height))
+        fig, ax = plt.subplots(figsize=(width, height), layout='constrained')
         if not annotated:
-            ax = sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
+            sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
         else:
-            ax = sns.heatmap(df, vmin=.6, vmax=1, annot=True, fmt=".2f", cmap='RdBu')
+            sns.heatmap(df, vmin=.6, vmax=1, annot=True, fmt=".2f", cmap='RdBu')
         if save_display is not None:
             fig.savefig(save_display)
             plt.close(fig)
@@ -448,7 +460,7 @@ class SpotlightResult:
                     parser = parser.replace(' sim', '')
                     for comparison, score in comparisons.items():
                         if score <= sim_threshold:
-                            s = s + '\t{parser}: {compare} - {score:.2f}'.format(parser=parser, compare=comparison, score=score)
+                            s = s + f'\t{parser}: {comparison} - {score:.2f}'
                             ambiguities = ambiguities + 1
                 if ambiguities > 0:
                     return s
@@ -469,9 +481,9 @@ class Spotlight:
     def __init__(self, num_workers: int = 1,
                  temp_folders_dir: str = None,
                  dpi: int = 72,
-                 page_hashes: Union[int, Tuple, None] = None,
-                 parsers: Union[List[str], None] = None,
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
+                 page_hashes: int | tuple | None = None,
+                 parsers: list[str] | None = None,
+                 parser_args: dict[str, dict[str, Any]] | None = None,
                  timeout: int = None,
                  progress_bar: bool = True):
         """
@@ -497,17 +509,18 @@ class Spotlight:
         progress_bar: bool, default=True
             Flag for displaying a progress bar
         """
+        parser_args = {} if parser_args is None else parser_args
         self._dpi = dpi
         self._page_hashes = page_hashes
         self._num_workers = num_workers
         self._temp_folders_dir = temp_folders_dir
         if parsers is not None and len(parsers) > 0:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)
                                            if parser.get_name() in parsers]
         else:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)]
         self._parser_args = parser_args
@@ -515,15 +528,11 @@ class Spotlight:
         self._results = None
         self._progress_bar = progress_bar
 
-    def run(self, doc: str or bytes):
+    def run(self, doc: str | os.PathLike | bytes | bytearray):
         spotlight_path = tempfile.TemporaryDirectory(dir=self._temp_folders_dir)
         for parser in self._parsers:
             os.makedirs(os.path.join(spotlight_path.name, parser.get_name()))
-            if isinstance(doc, str):
-                shutil.copy2(doc, os.path.join(spotlight_path.name, parser.get_name(), 'original.pdf'))
-            else:
-                with open(os.path.join(spotlight_path.name, parser.get_name(), 'original.pdf'), 'rb') as orig_path:
-                    doc.write(orig_path)
+            _copy_document(doc, Path(spotlight_path.name, parser.get_name(), 'original.pdf'))
         for parser in present_parsers.get_sparclur_reforgers():
             sig = signature(parser.__init__)
             kwargs = {'doc': doc, 'timeout': 120, 'temp_folders_dir': self._temp_folders_dir}
@@ -539,12 +548,12 @@ class Spotlight:
                 print('%s reforge failed: %s' % (p.get_name(), str(e)))
         data = []
         for parser in self._parsers:
-            kwargs = self._parser_args.get(parser.get_name(), dict())
+            kwargs = dict(self._parser_args.get(parser.get_name(), {}))
             kwargs['timeout'] = self._timeout
             kwargs['hash_exclude'] = [META, FONT]
             kwargs['temp_folders_dir'] = self._temp_folders_dir
             for file in os.listdir(os.path.join(spotlight_path.name, parser.get_name())):
-                entry = {'base_path': spotlight_path.name, 'args': kwargs}
+                entry = {'base_path': spotlight_path.name, 'args': dict(kwargs)}
                 version = file.split('.')[0]
                 entry['parser'] = parser
                 entry['version'] = version
@@ -607,5 +616,3 @@ class Spotlight:
 
         spotlight_path.cleanup()
         return full_spotlight
-
-

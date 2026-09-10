@@ -1,8 +1,7 @@
 import locale
 import shlex
-from typing import List, Dict, Any, Union, Tuple
+from typing import Any
 
-import yaml
 from func_timeout import func_timeout, FunctionTimedOut
 
 from sparclur._parser import VALID, VALID_WARNINGS, REJECTED, REJECTED_AMBIG, RENDER, TRACER, TEXT, TIMED_OUT
@@ -22,7 +21,7 @@ from subprocess import TimeoutExpired, DEVNULL
 import tempfile
 import time
 
-import fitz
+import pymupdf as fitz
 
 from PIL import Image
 from PIL.PngImagePlugin import PngImageFile
@@ -32,18 +31,18 @@ from sparclur.utils._config import _get_config_param, _load_config
 
 class MuPDF(Tracer, Hybrid, Reforger):
     """MuPDF parser"""
-    def __init__(self, doc: Union[str, bytes],
-                 skip_check: Union[bool, None] = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 page_hashes: Union[int, Tuple[Any], None] = None,
+    def __init__(self, doc: str | bytes,
+                 skip_check: bool | None = None,
+                 hash_exclude: str | list[str] | None = None,
+                 page_hashes: int | tuple[Any] | None = None,
                  validate_hash: bool = False,
-                 parse_streams: Union[bool, None] = None,
-                 binary_path: Union[str, None] = None,
-                 temp_folders_dir: Union[str, None] = None,
-                 dpi: Union[int, None] = None,
-                 cache_renders: Union[bool, None] = None,
-                 timeout: Union[int, None] = None,
-                 ocr: Union[bool, None] = None
+                 parse_streams: bool | None = None,
+                 binary_path: str | None = None,
+                 temp_folders_dir: str | None = None,
+                 dpi: int | None = None,
+                 cache_renders: bool | None = None,
+                 timeout: int | None = None,
+                 ocr: bool | None = None
                  ):
         """
         Parameters
@@ -82,7 +81,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
 
     def _check_for_renderer(self) -> bool:
         if self._can_render is None:
-            self._can_render = 'fitz' in sys.modules.keys()
+            self._can_render = 'pymupdf' in sys.modules
         return self._can_render
 
     @property
@@ -135,14 +134,14 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 doc_path = self._doc
             try:
                 doc = fitz.open(doc_path)
-                self._num_pages = doc.pageCount
+                self._num_pages = doc.page_count
             except Exception as e:
                 print(e)
                 self._num_pages = 0
             finally:
                 try:
                     doc.close()
-                except:
+                except Exception:
                     pass
 
     def _mudraw(self, page, mat):
@@ -208,7 +207,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
             try:
                 mat = fitz.Matrix(self._dpi / 72, self._dpi / 72)
                 doc = fitz.open(doc_path)
-                num_pages = doc.pageCount
+                num_pages = doc.page_count
                 if num_pages == 0 and pages is not None:
                     num_pages = max(pages) + 1
                 if pages is None:
@@ -218,7 +217,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 if len(doc) == 0:
                     doc.close()
                     raise Exception('Document failed to load')
-                pils: Dict[int, PngImageFile] = dict()
+                pils: dict[int, PngImageFile] = dict()
                 for page in page_range:
                     fitz.TOOLS.reset_mupdf_warnings()
                     page_start = time.perf_counter()
@@ -255,13 +254,13 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 # for page in pils.keys():
                 #     self._logs[page] = {'result': SUCCESS, 'timing': timing / num_pages}
             except Exception as e:
-                pils: Dict[int, PngImageFile] = dict()
+                pils: dict[int, PngImageFile] = dict()
                 timing = time.perf_counter() - start_time
                 self._logs[0] = {'result': str(e), 'timing': timing}
                 self._file_timed_out[RENDER] = False
             return pils
 
-    def _render_pages(self, pages: List[int]):
+    def _render_pages(self, pages: list[int]):
         return self._render_doc(pages)
 
 # class MuPDF(Tracer, TextCompare):
@@ -298,11 +297,11 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 self._can_extract = 'pytesseract' in sys.modules.keys() and self._can_render
         else:
             if self._can_extract is None:
-                self._can_extract = 'fitz' in sys.modules.keys()
+                self._can_extract = 'pymupdf' in sys.modules
         return self._can_extract
 
     @property
-    def validate_text(self) -> Dict[str, Any]:
+    def validate_text(self) -> dict[str, Any]:
         if TEXT not in self._validity:
             fitz.TOOLS.reset_mupdf_warnings()
             validity_results = dict()
@@ -317,7 +316,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 try:
                     doc = fitz.open(doc_path)
                     for page in doc:
-                        text = page.getText()
+                        text = page.get_text()
                         if not self._ocr and page.number not in self._text:
                             self._text[page.number] = text
                     if not self._ocr:
@@ -330,7 +329,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
                 finally:
                     try:
                         doc.close()
-                    except:
+                    except Exception:
                         pass
                 if error is not None:
                     validity_results['valid'] = False
@@ -351,7 +350,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
             try:
                 subprocess.check_output(shlex.split("mutool -v"), shell=False)
                 mutool_present = True
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError:
                 mutool_present = False
             self._can_trace = mutool_present
         return self._can_trace
@@ -406,7 +405,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
         self._messages = ['No warnings'] if len(error_arr) == 0 else error_arr
 
     @property
-    def validate_tracer(self) -> Dict[str, Any]:
+    def validate_tracer(self) -> dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
             if self._messages is None:
@@ -567,7 +566,7 @@ class MuPDF(Tracer, Hybrid, Reforger):
 
     def _mupdf_scrub(self, messages):
         scrubbed_messages = [self._clean_message(err) for err in messages]
-        error_dict: Dict[str, int] = dict()
+        error_dict: dict[str, int] = dict()
         for (index, error) in enumerate(scrubbed_messages):
             if '... repeated ' in error:
                 repeated = re.sub(r'[^\d]', '', error)

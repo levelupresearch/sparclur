@@ -1,17 +1,39 @@
 # SPARCLUR - Some PDF Analyzers and Renderer Comparators: LevelUp Research
 
-SPARCLUR (Sparclur) is a collection of various wrappers for extant PDF 
-parsers and/or renderers along with accompanying tools for comparing and analyzing the outputs from
-these parsers. 
+SPARCLUR is a collection of wrappers around PDF parsers and renderers, plus
+tools for comparing and analyzing their output. It is useful for inspecting
+validity, rendering, text extraction, parser traces, incremental updates, and
+parser repeatability.
 
-Read the full documentation at [Read the Docs](https://sparclur.readthedocs.io/).
+API documentation is published at [Read the Docs](https://sparclur.readthedocs.io/).
+The notebooks in [`examples`](examples) provide runnable, end-to-end examples.
 
 See it in action here: https://youtu.be/6I6E1N3CJzQ
 
 ## Installation
 
-```buildoutcfg
+```bash
 pip install sparclur
+```
+
+SPARCLUR supports Python 3.10 and newer. The parser wrappers may additionally
+need their respective command-line tools installed; see [Parsers](#parsers).
+
+The Python-backed parser adapters and Streamlit interface are intentionally
+optional. Install only what you plan to use:
+
+```bash
+pip install "sparclur[mupdf]"             # PyMuPDF adapter
+pip install "sparclur[pdfium]"            # PDFium adapter
+pip install "sparclur[pdfminer]"          # PDFMiner adapter
+pip install "sparclur[ui,mupdf,pdfium]"   # UI plus common renderers
+```
+
+For local development, create an environment and install the development extra:
+
+```bash
+python -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
 ```
 
 ## Contents
@@ -34,90 +56,115 @@ pip install sparclur
   - [Spotlight](#spotlight)
   - [Roll Back](#roll-back)
   - [Detect Chaos](#detect-chaos)
-  - [Highlight](#hightlight)
+  - [Highlight](#highlight)
+  - [Floodlight](#floodlight)
   - [Astrotruther](#astrotruther)
+- [Report generation](#report-generation)
 - [Streamlit Interface](#streamlit-interface)
 - [Acknowledgements](#acknowledgements)
 
 
 ## Parsers
-The following parsers need to either be installed or the binaries need to be built and accessible to fully leverage Sparclur.
+Parser availability is discovered at runtime. A parser can be made available by
+installing its Python extra, putting its command-line tool on `PATH`, or setting
+its binary location in [configuration](#config). The interface selects only
+parsers that are currently available by default.
 
 ### Arlington DOM Checker
-The repo should be cloned and instructions for building the TestGrammar tool should be followed. SPARCLUR needs to be
-pointed to the top-level directory of the cloned repo to access the DOM files and the TestGrammar tool.
+Clone the repository and build its `TestGrammar` tool. Point SPARCLUR at the
+top-level clone directory so it can locate both the DOM files and executable.
 
 https://github.com/pdf-association/arlington-pdf-model
 
 ### Ghostscript
-Ghostscript needs to be installed using your preferred package manager with the `gs` command linked in your `PATH`, or 
-the binary can be built and referenced at run-time within SPARCLUR.
+Install Ghostscript with your preferred package manager and expose `gs` on
+`PATH`, or configure its executable path.
 
 https://www.ghostscript.com/
 
 ### MuPDF
-MuPDF requires the binary installed or built as well as the Python wrapper package PyMuPDF.
+Install the PyMuPDF-backed adapter with `pip install "sparclur[mupdf]"`. The `mutool` binary is additionally required
+for MuPDF trace collection and reforging; simple rendering and text extraction
+only require the optional Python package.
 
 https://mupdf.com/
 
 https://pymupdf.readthedocs.io/en/latest/
 
 ### PDFCPU
-PDFCPU is a Go based PDF processor. So both Go and PDFCPU will need to be installed/built. Binary can go into the `PATH`,
-config, or entered at run-time.
+PDFCPU is a Go-based PDF processor. Install or build PDFCPU and make its binary
+available through `PATH`, configuration, or parser construction.
 
 https://pdfcpu.io/
 
 ### PDFium
-Google's PDF rendering software. This is accessed using the pypdfium2 package.
+Google's PDF rendering software. Install its adapter with `pip install "sparclur[pdfium]"`.
 
 https://pdfium.googlesource.com/pdfium/
 
 https://github.com/pypdfium2-team/pypdfium2
 
 ### PDFMiner
-PDFMiner is a Python based parser. The package needs to be installed into the working environment.
+PDFMiner is a Python-based parser. Install its adapter with `pip install "sparclur[pdfminer]"`.
 
 https://pdfminersix.readthedocs.io/en/latest/
 
 ### Poppler
-Poppler and XPDF have binary name collisions, so only one can be referenced in `PATH`. The binary can be set in the
-SPARCLUR config or at class instantiation.
+Poppler and XPDF can have binary-name collisions. Configure the selected tool's
+path explicitly if both are installed.
 
 https://poppler.freedesktop.org/
 
 ### QPDF
-QPDF needs to be built/installed and the binary can be added to `PATH` or can be set in the config or
-at run-time.
+Install QPDF and add its binary to `PATH`, configure it, or supply it at
+construction time.
 
 https://qpdf.sourceforge.io/
 
 ### XPDF
-Poppler and XPDF have binary name collisions, so only one can be referenced in `PATH`. The binary can be set in the
-SPARCLUR config or at class instantiation.
+Poppler and XPDF can have binary-name collisions. Configure the selected tool's
+path explicitly if both are installed.
 
 https://www.xpdfreader.com/
 
 ## Config
-A sparclur.yaml file can be set in the top-level SPARCLUR folder if you are running the code cloned from GitHub. Parameters for the various parser classes can
-be set, such as binary paths and other default values. See the `examples` directory for an example yaml file. If Sparclur
-has been installed from PyPi, the `get_config` and `update_config` methods in the `utils` directory can be used to
-view and update the current global config. The `update_config` just takes a dictionary of the values to be updated. The yaml can also be directly edited in either the system/virtual environment `etc` folder
-or the users `.local` folder if installed at the user level.
+SPARCLUR reads YAML defaults for parser classes, such as binary paths, timeouts,
+and render settings. Use [`examples/sparclur.yaml`](examples/sparclur.yaml) as a
+reference. The normal editable file is available from Python:
+
+```python
+from sparclur.utils import get_config, get_config_path, update_config
+
+print(get_config_path())
+update_config({"Poppler": {"binary_path": "/path/to/poppler/bin"}})
+print(get_config())
+```
+
+`update_config()` always writes to this user-owned file. It uses the platform-standard per-user configuration directory
+(`~/Library/Application Support/sparclur/sparclur.yaml` on macOS) and creates parent directories as needed. Set
+`SPARCLUR_CONFIG=/path/to/sparclur.yaml` to use an explicit file instead.
+
+Configuration is layered from an environment/virtual-environment file, a checkout-local `sparclur.yaml`, legacy user
+configuration, then the user-owned file. Later layers override earlier values without discarding unrelated parser
+settings. The packaged YAML remains a template so its example paths are never applied automatically. Malformed YAML
+produces a clear configuration error instead of silently falling back to defaults.
+
+For a project-specific or shared configuration file, set `SPARCLUR_CONFIG` to
+its path before starting Python or the UI. Use `update_config()` for personal
+settings; it safely merges just the values supplied into the user-owned YAML.
 
 ## Tools
-See the `examples` directory for Jupyter noteboooks showcasing the following tools.
+See the [`examples`](examples) directory for Jupyter notebooks that showcase
+the following tools.
 
 ### Parser Wrappers
-SPARCLUR's extensible parser wrapper API's provide methods for:
-* Document Rendering
-* Text Extraction
+SPARCLUR's extensible parser wrapper APIs support:
+
+* Document rendering
+* Text extraction
 * Trace message collection and normalization
-* Document reforging for document cleaning and recovery
-* Information extraction 
-  * Font information
-  * Object keys and values
-  * Image data
+* Document reforging for cleaning and recovery
+* Font, object, and image-data extraction
 
 ### Parser Trace Comparator (PTC)
 Gather and normalize warning and error messages from extant parsers.
@@ -127,33 +174,97 @@ The PRC compares different renderers over the same documents and can also be use
 to visualize the differences and produce a similarity metric.
 
 ### PDF Text Comparator (PXC)
-API's for extracting and comparing text between parsers.
+APIs for extracting and comparing text between parsers.
 
 ### Spotlight
-Runs all available API's for a parser and creates the reforges of the document. Signatures are generated for the
-reforges and the original and compared to produce a similarity score between documents over each parser.
-All of these results are collected for analysis.
+Runs selected available capabilities for each parser and creates document
+reforges. It records validity classifications and similarities across the
+original and reforged versions, with tabular, heatmap, and interactive sunburst
+reports.
 
 ### Roll Back
-An incremental update tool, that detects incremental updates and provides an API to pass a specific update
-into SPARCLUR parsers or save it to disk. It also does some text and rendering comparisons between consecutive versions
-and returns plots of these metrics.
+Detects incremental updates and exposes or saves any specific version. It also
+compares text and rendered output between consecutive versions and returns
+plots of those metrics.
 
 ### Detect Chaos
-Check documents for non-deterministic behavior within the SPARCLUR-wrapped parsers.
+Repeats parser operations and reports evidence of nondeterministic behavior.
+It is a screen rather than a proof: a clean run means no difference was
+observed in the requested comparisons.
 
 ### Highlight
-This tool has a very specific use case by analyzing explicitly modified PDF's with their original file in
-order to find rendering differentials introduced by the modification.
+Analyzes explicitly modified PDFs alongside their known originals to find
+rendering differences introduced by the modification. It requires a genuine
+original-to-modified mapping.
+
+### Floodlight
+Runs a collection of parsers over PDFs and produces a flat, analysis-ready
+record of their parser-level results.
 
 ### Astrotruther
-Another specialized tool. This trains models for classifying the validity of PDF's using the 
-trace messages from the parsers. This requires a labeled training set.
+Trains models to classify PDF validity from normalized parser traces. It
+requires a labeled training set.
+
+## Report generation
+
+Native report generation creates a readable HTML dossier together with an
+evidence bundle containing CSV and JSON tables, image evidence, and a manifest
+of the source document and analysis options. It does not require Pweave or an
+IPython kernel.
+
+```python
+from sparclur import DocumentReport
+
+report = DocumentReport(
+    "sample.pdf",
+    parsers=["Ghostscript", "MuPDF", "Poppler", "PDFium"],
+)
+report.write_bundle("out/sample-report")
+report.write_pdf("out/sample-report.pdf")  # requires sparclur[reports]
+```
+
+The dossier includes parser validity, normalized traces (PTC), text-comparison
+data (PXC), renderer-comparison data and figures (PRC), and an extracted
+predecessor when incremental updates are present. Use `BatchReport` to produce
+a triage index with one evidence dossier per PDF. `SparclurReport` remains as a
+compatibility facade; its `generate_report()` method now creates the native
+HTML bundle. Install `pip install "sparclur[reports]"` for PDF renditions;
+this uses WeasyPrint and may require its platform libraries (Pango) as
+documented by the [WeasyPrint installation guide](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html).
 
 ## Streamlit Interface
 
-Running light_the_sparclur.sh will launch a Streamlit web app that will provide an interface for 
-exploring PDF's using the PTC and PRC.
+### PyPI installation
+
+Install the optional UI dependencies and run the packaged command:
+
+```bash
+pip install "sparclur[ui]"
+sparclur-ui
+```
+
+Add a parser adapter as needed, for example `pip install "sparclur[ui,mupdf,pdfium]"`.
+
+The command launches a Streamlit web app for exploring uploaded PDFs with the
+PTC, PRC, PXC, Metadata, and Raw views. It accepts standard Streamlit options,
+such as `sparclur-ui --server.port 8501`. In PRC, choose renderer pairs and
+press **Refresh comparison** when ready; pair-selection changes do not rerun
+the comparison immediately.
+
+### Source checkout
+
+Clone the repository, create and activate a virtual environment, then install the UI extra:
+
+```bash
+git clone https://github.com/levelupresearch/sparclur.git
+cd sparclur
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[ui]"
+./light_the_sparclur.sh
+```
+
+The checkout launcher starts the same Streamlit interface using the activated environment.
 ![](./images/lit_sparclur_ptc_no_warnings.png)
 ![](./images/lit_sparclur_prc_2.png)
 ![](./images/lit_sparclur_ptc_warnings.png)

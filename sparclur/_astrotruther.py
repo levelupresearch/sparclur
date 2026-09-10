@@ -1,5 +1,6 @@
 import multiprocessing
-from typing import Callable, List, Dict, Any
+from typing import Any
+from collections.abc import Callable
 from inspect import isclass
 import os
 from collections.abc import Iterable
@@ -189,12 +190,12 @@ class Astrotruther:
                  label_col: str or int = 1,
                  base_path: str = None,
                  label_transform: Callable[[str], str] = None,
-                 parsers: List[Parser] or List[str] = get_sparclur_parsers(),
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
-                 exclude: str or List[str] = None,
+                 parsers: list[Parser] or list[str] = None,
+                 parser_args: dict[str, dict[str, Any]] | None = None,
+                 exclude: str or list[str] = None,
                  overall_timeout: int = None,
                  classifier: str = 'decTree',
-                 classifier_args: Dict[str, Any] = dict(),
+                 classifier_args: dict[str, Any] | None = None,
                  k_folds: int = 3,
                  max_workers: int = 1,
                  timeout: int = None,
@@ -235,15 +236,16 @@ class Astrotruther:
         assert classifier in POSSIBLE_CLASSIFIERS, "Please select one or more of: [%s]" % ', '.join(
             POSSIBLE_CLASSIFIERS)
 
+        parsers = get_sparclur_parsers() if parsers is None else parsers
         self._file_col = file_col
         self._label_col = label_col
         self._base_path = base_path
         self._label_transform = label_transform
         self._parsers = _parse_parsers(parsers)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else parser_args
         self._exclude = exclude
         self._classifier = classifier
-        self._classifier_args = classifier_args
+        self._classifier_args = {} if classifier_args is None else classifier_args
         self._k_folds = k_folds
         self._num_workers = max_workers
         self._timeout = timeout
@@ -251,7 +253,7 @@ class Astrotruther:
         self._progress_bar = progress_bar
         self._model = None
         self._metrics: float = None
-        self._warnings_map: Dict[str, int] = None
+        self._warnings_map: dict[str, int] = None
         self._k: int = None
 
     @property
@@ -307,7 +309,7 @@ class Astrotruther:
         return [parser.get_name() for parser in self._parsers]
 
     @parsers.setter
-    def parsers(self, parsers: List[str] or List[Parser]):
+    def parsers(self, parsers: list[str] or list[Parser]):
         self._parsers = _parse_parsers(parsers)
 
     @property
@@ -315,7 +317,7 @@ class Astrotruther:
         return self._parser_args
 
     @parser_args.setter
-    def parser_args(self, pa: Dict[str, Dict[str, Any]]):
+    def parser_args(self, pa: dict[str, dict[str, Any]]):
         self._parser_args = pa
 
     @parser_args.deleter
@@ -327,7 +329,7 @@ class Astrotruther:
         return self._exclude
 
     @exclude.setter
-    def exclude(self, e: str or List[str]):
+    def exclude(self, e: str or list[str]):
         self._exclude = e
 
     @exclude.deleter
@@ -348,7 +350,7 @@ class Astrotruther:
         return self._classifier_args
 
     @classifier_args.setter
-    def classifier_args(self, ca: Dict[str, Any]):
+    def classifier_args(self, ca: dict[str, Any]):
         self._classifier_args = ca
 
     @property
@@ -384,7 +386,7 @@ class Astrotruther:
         return self._progress_bar
 
     @progress_bar.setter
-    def set_progress_bar(self, p: bool):
+    def progress_bar(self, p: bool):
         self._progress_bar = p
 
     def save(self, path):
@@ -414,10 +416,11 @@ class Astrotruther:
             astro = pickle.load(f)
         return astro
 
-    def fit(self, docs, doc_loading_args=dict(), save_training_data=None):
+    def fit(self, docs, doc_loading_args=None, save_training_data=None):
         """
         Fits the model to the training data.
         """
+        doc_loading_args = {} if doc_loading_args is None else doc_loading_args
         X, Y = self._transform_training_data(docs, doc_loading_args, save_training_data=save_training_data)
         clf = _MODEL_SWITCHER[self._classifier](**self._classifier_args)
         self._model = clf.fit(X, Y)
@@ -427,7 +430,7 @@ class Astrotruther:
 
     def predict(self, docs,
                 file_col=None,
-                doc_loading_args=dict(),
+                doc_loading_args=None,
                 unseen_ignore=None,
                 unseen_message_default='Not enough info',
                 prediction_column='astrotruth',
@@ -440,6 +443,7 @@ class Astrotruther:
         DataFrame
             DataFrame of the classification results
         """
+        doc_loading_args = {} if doc_loading_args is None else doc_loading_args
         assert self._model is not None, "Model has not been generated"
         file_col = self._file_col if file_col is None else file_col
         X = self._load_prediction_data(docs, file_col, doc_loading_args, save_eval_data)
@@ -474,7 +478,7 @@ class Astrotruther:
                     messages = pickle.load(f)
             else:
                 raise Exception("Not a pickle")
-        except:
+        except Exception:
             if not isinstance(docs, pd.DataFrame):
                 if isinstance(docs, str):
                     if os.path.isfile(docs):
@@ -526,7 +530,7 @@ class Astrotruther:
                     messages = pickle.load(f)
             else:
                 raise Exception("Not a pickle")
-        except:
+        except Exception:
             if not isinstance(data, pd.DataFrame):
                 if is_file:
                     data = pd.read_csv(data, **data_args)

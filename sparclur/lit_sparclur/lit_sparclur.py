@@ -1,17 +1,9 @@
-import os
-import sys
-
-module_path = os.path.abspath('../../')
-if module_path not in sys.path:
-    sys.path.append(module_path)
-
-from sparclur.parsers import MuPDF, PDFMiner
 from sparclur.lit_sparclur import _lit_prc, _lit_pxc
 from sparclur.lit_sparclur import _lit_meta
 from sparclur.lit_sparclur import _lit_ptc, _lit_raw
 from sparclur.lit_sparclur._non_parser import NonParser
 from sparclur.lit_sparclur._lit_helper import parse_init
-from sparclur.utils._tools import create_file_list, is_pdf
+from sparclur.utils._tools import is_pdf
 
 from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_renderers, \
@@ -20,11 +12,14 @@ from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_metadata
 
 import streamlit as st
-from func_timeout import func_timeout
+
+MUPDF_NAME = "MuPDF"
+PDFMINER_NAME = "PDFMiner"
 
 PARSERS = {parser.get_name(): parser for parser in get_sparclur_parsers()}
+DEFAULT_PARSERS = [parser.get_name() for parser in get_sparclur_parsers(check_parsers=True)]
 
-TEXTERS = [texter.get_name() for texter in get_sparclur_texters(no_ocr=True)]
+TEXTERS = [texter.get_name() for texter in get_sparclur_texters()]
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
@@ -32,12 +27,9 @@ TRACERS = [tracer.get_name() for tracer in get_sparclur_tracers()]
 
 METAS = [metas.get_name() for metas in get_sparclur_metadata()]
 
-st.set_option('deprecation.showPyplotGlobalUse', False)
-
 st.title('Lit Sparclur')
 
 PAGES = {
-    # "Select Parsers": "select",
     "PTC": _lit_ptc,
     "PRC": _lit_prc,
     "PXC": _lit_pxc,
@@ -45,31 +37,31 @@ PAGES = {
     "Raw": _lit_raw
 }
 
-# def get_file_list(dir, recurse, base):
-#     return create_file_list(files=dir, recurse=recurse, base_path=base)
-
-
 st.sidebar.title("Navigation")
 selection = st.sidebar.radio("Go to", list(PAGES.keys()), key='c')
 page = PAGES[selection]
 
-st.sidebar.write("File Selection")
-base_dir_input = st.sidebar.text_input('path', '.', key='d')
-recurse = st.sidebar.checkbox('Recurse into base directory', key='f')
+uploaded_file = st.sidebar.file_uploader("Choose a PDF", type=["pdf"])
+if uploaded_file is None:
+    st.info("Choose a PDF from the sidebar to begin.")
+    st.stop()
+
+document = uploaded_file.getvalue()
+st.sidebar.caption(f"{uploaded_file.name} · {len(document):,} bytes")
 
 
-@st.cache
+@st.cache_resource
 def parse_document(selected_parser_kwargs):
     p = dict()
 
     for name, kwa in selected_parser_kwargs.items():
         if name == NonParser.get_name():
-            p[name] = NonParser(**kwargs)
-        elif name == MuPDF.get_name() + '-s':
-            p[name] = MuPDF(**kwa)
+            p[name] = NonParser(**kwa)
+        elif name == MUPDF_NAME + '-s':
+            p[name] = PARSERS[MUPDF_NAME](**kwa)
             _ = p[name].cleaned
-        elif name == PDFMiner.get_name() + '-text':
-            p[name] = PDFMiner(**kwa)
+        elif name == PDFMINER_NAME + '-text':
+            p[name] = PARSERS[PDFMINER_NAME](**kwa)
             _ = p[name].metadata
         else:
             p[name] = PARSERS[name](**kwa)
@@ -85,49 +77,28 @@ def parse_document(selected_parser_kwargs):
     return p
 
 
-if os.path.isfile(base_dir_input):
-    filepath = base_dir_input
-else:
-    try:
-        file_list = func_timeout(
-            45,
-            create_file_list,
-            kwargs={
-                'files': base_dir_input,
-                'recurse': recurse
-            })
-
-        num_files = len(file_list)
-
-    except Exception as e:
-        file_list = []
-        num_files = 0
-    if len(file_list) > 50 or len(file_list) == 0:
-        filename = st.sidebar.text_input('File', '', key='a')
-        filepath = os.path.join(base_dir_input, filename)
-    else:
-        file_dict = {file.split('/')[-1]: file for file in file_list}
-        filepath = st.sidebar.selectbox('Select a file', list(file_dict.keys()), key='b')
-        filepath = file_dict[filepath]
-
 parser_kwargs = dict()
-parser_kwargs[NonParser.get_name()] = {'doc': filepath}
+parser_kwargs[NonParser.get_name()] = {'doc': document}
 st.sidebar.markdown('___')
-ocr = st.sidebar.checkbox('OCR', value=False, key='ocr')
-#render_cache = st.sidebar.checkbox('Cache Renders', value=False, key='render_cache')
 dpi = st.sidebar.number_input('DPI', min_value=72, max_value=400, value=72,
                               key='dpi')
 st.sidebar.markdown('___')
-for p_name, parser in PARSERS.items():
-    use_parser = st.sidebar.checkbox(p_name, value=True, key='%s_cb' % p_name)
 
-    if use_parser:
+selected_parsers = st.sidebar.multiselect(
+    'Enabled parsers',
+    options=list(PARSERS),
+    default=DEFAULT_PARSERS,
+    help='Available adapters are selected by default. Choose additional configured adapters as needed.',
+)
+
+for p_name in selected_parsers:
+    parser = PARSERS[p_name]
+    with st.sidebar.expander(f'{p_name} settings', expanded=False):
         params = parse_init(parser)
         kwargs = dict()
         for key, values in params.items():
             default = values['default']
             param_type = values['param_type']
-            print(key, default, param_type)
             if key == 'cache_renders':
                 val = True
             elif key == 'temp_folders_dir':
@@ -137,10 +108,10 @@ for p_name, parser in PARSERS.items():
             elif key == 'dpi':
                 val = dpi
             elif param_type == 'bool':
-                val = st.sidebar.checkbox(key, value=True if default == 'True' else False, key='%s_%s' % (p_name, key))
+                val = st.checkbox(key, value=bool(default), key='%s_%s' % (p_name, key))
             elif param_type == 'Tuple[int]':
-                width = st.sidebar.number_input("Width", min_value=0, value=0, key='%s_%s_width' % (p_name, key))
-                height = st.sidebar.number_input("Height", min_value=0, value=0, key='%s_%s_height' % (p_name, key))
+                width = st.number_input("Width", min_value=0, value=0, key='%s_%s_width' % (p_name, key))
+                height = st.number_input("Height", min_value=0, value=0, key='%s_%s_height' % (p_name, key))
                 if width == 0 and height != 0:
                     val = height
                 elif height == 0 and width != 0:
@@ -150,24 +121,23 @@ for p_name, parser in PARSERS.items():
                 else:
                     val = None
             elif param_type == 'int':
-                val = st.sidebar.number_input(key, min_value=72, max_value=400, value=int(default),
-                                              key='%s_%s' % (p_name, key))
+                val = st.number_input(key, min_value=0, value=0 if default is None else int(default),
+                                      key='%s_%s' % (p_name, key))
             else:
-                val = st.sidebar.text_input(key, value=default, key='%s_%s' % (p_name, key))
+                val = st.text_input(key, value='' if default is None else str(default), key='%s_%s' % (p_name, key))
                 if not val or val == 'None':
                     val = None
                 if val == "\\x0c":
                     val = "\x0c"
             kwargs[key] = val
-            kwargs['doc'] = filepath
-        print(p_name, kwargs)
-        if p_name == MuPDF.get_name():
+            kwargs['doc'] = document
+        if p_name == MUPDF_NAME:
             ps_kwargs = {key: value for (key, value) in kwargs.items()}
             ps_kwargs['parse_streams'] = True
             kwargs['parse_streams'] = False
             parser_kwargs[p_name + '-s'] = ps_kwargs
             parser_kwargs[p_name] = kwargs
-        elif p_name == PDFMiner.get_name():
+        elif p_name == PDFMINER_NAME:
             so_kwargs = {key: value for (key, value) in kwargs.items()}
             so_kwargs['stream_output'] = 'text'
             kwargs['stream_output'] = None
@@ -175,18 +145,9 @@ for p_name, parser in PARSERS.items():
             parser_kwargs[p_name] = kwargs
         else:
             parser_kwargs[p_name] = kwargs
-    st.sidebar.markdown('___')
 
-if not is_pdf(filepath):
-    st.write("Please select a PDF")
+if not is_pdf(document):
+    st.error("The selected file is not a readable PDF.")
 else:
     parsers = parse_document(parser_kwargs)
-    page.app(parsers, ocr = False)
-    # if isinstance(page, str):
-    #     st.subheader("Select Parsers")
-    #     parsers = parser_select(filepath)
-    # else:
-    #     if parsers is None:
-    #         st.write("Please select parsers")
-    #     else:
-    #         page.app(parsers)
+    page.app(parsers, document_name=uploaded_file.name)

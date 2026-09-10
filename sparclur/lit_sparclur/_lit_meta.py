@@ -1,13 +1,8 @@
-import os
-import sys
 import streamlit as st
-module_path = os.path.abspath('../../')
-if module_path not in sys.path:
-    sys.path.append(module_path)
-from sparclur.parsers.present_parsers import get_sparclur_metadata
-from sparclur.parsers import PDFMiner
 
+from sparclur.parsers.present_parsers import get_sparclur_metadata
 METAS = [metas.get_name() for metas in get_sparclur_metadata()]
+PDFMINER_NAME = "PDFMiner"
 
 
 def sort_transform(obj):
@@ -20,7 +15,7 @@ def sort_transform(obj):
 def app(parsers, **kwargs):
     st.subheader("Parser Text Comparator")
 
-    metas = {p_name: parser for (p_name, parser) in parsers.items() if p_name in METAS or p_name == PDFMiner.get_name()+'-text'}
+    metas = {p_name: parser for (p_name, parser) in parsers.items() if p_name in METAS or p_name == PDFMINER_NAME+'-text'}
 
     if len(metas) == 0:
         st.write("No metadata extractors selected")
@@ -29,13 +24,13 @@ def app(parsers, **kwargs):
             meta_selected = [m for m in metas.keys()][0]
             st.write(meta_selected)
         else:
-            meta_selected = st.selectbox('Metadata Extractors', [key for key in list(metas.keys()) if key !=PDFMiner.get_name()+'-text'], key='me_select')
-            if meta_selected == PDFMiner.get_name():
+            meta_selected = st.selectbox('Metadata Extractors', [key for key in list(metas.keys()) if key !=PDFMINER_NAME+'-text'], key='me_select')
+            if meta_selected == PDFMINER_NAME:
                 pdfm_stream = st.checkbox('Show data streams', key='me_pdfm_stream')
                 if pdfm_stream:
-                    meta_selected = PDFMiner.get_name()+'-text'
+                    meta_selected = PDFMINER_NAME+'-text'
                 else:
-                    meta_selected = PDFMiner.get_name()
+                    meta_selected = PDFMINER_NAME
                 print(meta_selected)
                 print(metas[meta_selected].stream_output)
         meta = metas[meta_selected]

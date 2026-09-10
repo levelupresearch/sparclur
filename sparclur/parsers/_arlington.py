@@ -7,7 +7,7 @@ from sparclur._tracer import Tracer
 from sparclur.utils import hash_file
 from sparclur.utils._config import _get_config_param, _load_config
 
-from typing import List, Dict, Any, Union
+from typing import Any
 import tempfile
 import subprocess
 from subprocess import TimeoutExpired
@@ -29,13 +29,13 @@ def _binary_path():
 class Arlington(Tracer):
     """Wrapper for the Arlington DOM TestGrammar (https://github.com/pdf-association/arlington-pdf-model)"""
 
-    def __init__(self, doc: Union[str, bytes],
-                 arlington_path: Union[str, None] = None,
-                 version: Union[float, str] = None,
-                 skip_check: Union[bool, None] = None,
-                 hash_exclude: Union[str, List[str], None] = None,
-                 temp_folders_dir: Union[str, None] = None,
-                 timeout: Union[int, None] = None
+    def __init__(self, doc: str | bytes,
+                 arlington_path: str | None = None,
+                 version: float | str = None,
+                 skip_check: bool | None = None,
+                 hash_exclude: str | list[str] | None = None,
+                 temp_folders_dir: str | None = None,
+                 timeout: int | None = None
                  ):
         """
         Parameters
@@ -100,13 +100,13 @@ class Arlington(Tracer):
             try:
                 subprocess.check_output(shlex.split('%s -h' % self._test_grammar_path), shell=False)
                 tg_present = True
-            except Exception as e:
+            except Exception:
                 tg_present = False
             self._can_trace = tg_present
         return self._can_trace
 
     @property
-    def validate_tracer(self) -> Dict[str, Any]:
+    def validate_tracer(self) -> dict[str, Any]:
         if TRACER not in self._validity:
             validity_results = dict()
             if self._cleaned is None:

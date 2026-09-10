@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import multiprocessing
-from typing import List, Union, Tuple
 
 from tqdm import tqdm
 from pebble import ProcessPool
@@ -252,17 +251,20 @@ class FloodLight:
 
     def __init__(self, parsers=None,
                  translators=None,
-                 parser_args=dict(),
+                 parser_args=None,
                  gather_traces: bool = True,
                  num_workers: int = 1,
                  overall_timeout: int = 300,
                  timeout: int = 45,
                  dpi: int = 72,
-                 page_hashes: Union[int, Tuple, None] = ('first', 5),
-                 validate_hash: Union[bool, None] = True,
+                 page_hashes: int | tuple | None = ('first', 5),
+                 validate_hash: bool | None = True,
                  temp_folders_dir: str = None,
                  progress_bar: bool = True):
 
+        parser_args = {} if parser_args is None else {
+            name: dict(options) for name, options in parser_args.items()
+        }
         self._gather_traces = gather_traces
         self._dpi = dpi
         self._page_hashes = page_hashes
@@ -271,21 +273,21 @@ class FloodLight:
         self._overall_timeout = overall_timeout
         self._temp_folders_dir = temp_folders_dir
         if parsers is not None:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)
                                            if parser.get_name() in parsers]
         else:
-            self._parsers: List[Parser] = [parser for parser in
+            self._parsers: list[Parser] = [parser for parser in
                                            present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                 parser_args=parser_args)]
         if translators is not None:
-            self._translators: List[Parser] = [parser for parser in
+            self._translators: list[Parser] = [parser for parser in
                                                present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                     parser_args=parser_args)
                                                if issubclass(parser, Reforger) and parser.get_name() in translators]
         else:
-            self._translators: List[Parser] = [parser for parser in
+            self._translators: list[Parser] = [parser for parser in
                                                present_parsers.get_sparclur_parsers(check_parsers=True,
                                                                                     parser_args=parser_args)
                                                if issubclass(parser, Reforger)]
@@ -298,7 +300,7 @@ class FloodLight:
 
         for parser in self._parsers:
             params = signature(parser.__init__).parameters
-            kwargs = self._parser_args.get(parser.get_name(), dict())
+            kwargs = dict(self._parser_args.get(parser.get_name(), {}))
             kwargs['timeout'] = self._timeout
             kwargs['temp_folders_dir'] = self._temp_folders_dir
             kwargs['skip_check'] = True
@@ -308,7 +310,7 @@ class FloodLight:
                 kwargs['page_hashes'] = self._page_hashes
             if 'validate_hash' in params:
                 kwargs['validate_hash'] = self._validate_hash
-            self._parser_args[parser] = kwargs
+            self._parser_args[parser.get_name()] = kwargs
 
         data = [{'path': doc,
                  'parsers': self._parsers,

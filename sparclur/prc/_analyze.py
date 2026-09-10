@@ -35,7 +35,7 @@ def _prc_worker(entry):
     result = {'file': file, 'path': path}
     renders = dict()
     for (name, renderer) in renderers.items():
-        args = parser_args.get(name, dict())
+        args = dict(parser_args.get(name, {}))
         args['cache_renders'] = True
         args['timeout'] = timeout
         renders[name] = renderer(doc=path, skip_check=True, **args)
@@ -165,9 +165,9 @@ class Analyzer:
     """Runs pairwise comparisons for the defined renderers over each page of the specified document list or directory"""
 
     def __init__(self, files,
-                 renderers=get_sparclur_renderers(),
+                 renderers=None,
                  metrics='sim',
-                 parser_args=dict(),
+                 parser_args=None,
                  max_workers=1,
                  timeout=None,
                  overall_timeout=None,
@@ -205,9 +205,12 @@ class Analyzer:
         save_path: str
             If specified, will save a csv of the run results to save_path
         """
+        renderers = get_sparclur_renderers() if renderers is None else renderers
         self._renderers = _parse_renderers(renderers)
         self._metrics = _set_metrics(metrics)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else {
+            name: dict(options) for name, options in parser_args.items()
+        }
         self._files = create_file_list(files, recurse=recurse, base_path=base_path)
         self._max_workers = max_workers
         self._timeout = timeout
@@ -231,11 +234,11 @@ class Analyzer:
         return self._overall_timeout
 
     @overall_timeout.setter
-    def compare_timeout(self, t):
+    def overall_timeout(self, t):
         """Set a new timeout parameter"""
         self._overall_timeout = t
 
-    @compare_timeout.deleter
+    @overall_timeout.deleter
     def overall_timeout(self):
         self._overall_timeout = None
 
@@ -245,11 +248,11 @@ class Analyzer:
         return self._timeout
 
     @timeout.setter
-    def parser_timeout(self, t):
+    def timeout(self, t):
         """Set a new timeout parameter"""
         self._timeout = t
 
-    @parser_timeout.deleter
+    @timeout.deleter
     def timeout(self):
         self._timeout = None
 

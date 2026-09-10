@@ -1,5 +1,6 @@
 import multiprocessing
-from typing import List, Dict, Callable, Any
+from typing import Any
+from collections.abc import Callable
 from inspect import isclass
 
 import pandas as pd
@@ -60,7 +61,7 @@ def _worker(entry):
             args = parser_args.get(name, dict())
             orig: Renderer = parser(doc=orig_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
             mod: Renderer = parser(doc=mod_file, dpi=dpi, timeout=timeout, cache_renders=True, **args)
-            prc: Dict[int, PRCSim] = orig.compare(mod, full=True)
+            prc: dict[int, PRCSim] = orig.compare(mod, full=True)
             for (page, sim) in prc.items():
                 if sim.sim <= prc_threshold:
                     try:
@@ -85,9 +86,9 @@ def _worker(entry):
                                                 'page': page,
                                                 'prc_sim': sim.sim})
                                 break
-                    except:
+                    except Exception:
                         pass
-        except:
+        except Exception:
             pass
     return results
 
@@ -112,7 +113,7 @@ def _parallel_highlight(data, overall_timeout, progress_bar, num_workers):
                 break
             except TimeoutError:
                 result = None
-            except Exception as e:
+            except Exception:
                 result = None
             finally:
                 if progress_bar:
@@ -129,8 +130,8 @@ def _parallel_highlight(data, overall_timeout, progress_bar, num_workers):
 class Highlight:
     """Compares two PDF's with the same provenance and highlights regions of difference between their renders."""
 
-    def __init__(self, renderers: List[Parser] or List[str] or str or Parser = get_sparclur_renderers(),
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
+    def __init__(self, renderers: list[Parser] or list[str] or str or Parser = None,
+                 parser_args: dict[str, dict[str, Any]] | None = None,
                  max_workers: int = 1,
                  timeout: int = None,
                  overall_timeout: int = None,
@@ -153,8 +154,9 @@ class Highlight:
             Whether or not a progress bar should be displayed during message gathering.
         """
 
+        renderers = get_sparclur_renderers() if renderers is None else renderers
         self._renderers = _parse_renderers(renderers)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else parser_args
         self._num_workers = max_workers
         self._timeout = timeout
         self._overall_timeout = overall_timeout
@@ -214,11 +216,11 @@ class Highlight:
         return self._progress_bar
 
     @progress_bar.setter
-    def set_progress_bar(self, p: bool):
+    def progress_bar(self, p: bool):
         self._progress_bar = p
 
-    def spot_the_difference(self, file_set: str or List[str],
-                            matching_criteria: Dict[str, str] or Callable[[str], str],
+    def spot_the_difference(self, file_set: str or list[str],
+                            matching_criteria: dict[str, str] or Callable[[str], str],
                             dpi: int = 72,
                             min_region: int = 40,
                             prc_threshold: float = 1.0,

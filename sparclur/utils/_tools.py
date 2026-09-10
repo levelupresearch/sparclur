@@ -1,15 +1,9 @@
 import hashlib
 import os
-import site
-import sys
-from typing import Dict, List
 
-import fitz
 import re
 import numpy as np
-import yaml
 from skimage.metrics import structural_similarity
-from inspect import signature
 from imagehash import average_hash, phash, dhash, whash
 from PIL.PngImagePlugin import PngImageFile
 from PIL import Image
@@ -18,10 +12,15 @@ from func_timeout import FunctionTimedOut
 from math import log, e, sqrt
 import cv2
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from sparclur._prc_sim import PRCSim
 
-import configparser
+try:
+    import pymupdf as fitz
+except ModuleNotFoundError:
+    fitz = None
+
 
 
 class InputError(Exception):
@@ -77,15 +76,15 @@ def _template_ssim(pil1, pil2, top_left):
     return ssim, diff
 
 
-def _pil_and_array(p: PngImageFile or np.array_like):
+def _pil_and_array(p: ImageType | np.ndarray):
     if isinstance(p, PngImageFile) or isinstance(p, ImageType):
         return p, np.array(p)
     else:
         return Image.fromarray(p), p
 
 
-def image_compare(p1: PngImageFile or np.array_like,
-                  p2: PngImageFile or np.array_like,
+def image_compare(p1: ImageType | np.ndarray,
+                  p2: ImageType | np.ndarray,
                   full: bool=False) -> PRCSim:
     """
         Function to compute the structural similarity of two pngs.
@@ -216,8 +215,8 @@ def _get_contours(min_region, diff: PngImageFile):
     return filtered_contours
 
 
-def image_highlight(p1: PngImageFile or np.array_like,
-                    p2: PngImageFile or np.array_like,
+def image_highlight(p1: ImageType | np.ndarray,
+                    p2: ImageType | np.ndarray,
                     min_region: int = 40,
                     prc: PRCSim = None,
                     info_loss: float = 1.0,
@@ -230,15 +229,13 @@ def image_highlight(p1: PngImageFile or np.array_like,
                     right_file: str = '',
                     right_label: str = '',
                     save_display: str = None,
-                    verbose: bool = True) -> (PngImageFile, PngImageFile) or PngImageFile:
+                    verbose: bool = True) -> tuple[ImageType | None, ImageType | None] | Figure | None:
 
     _, array1 = _pil_and_array(p1)
     _, array2 = _pil_and_array(p2)
 
 
-    if prc is None:
-        prc = image_compare(p1, p2, True)
-    elif prc.diff is None:
+    if prc is None or prc.diff is None:
         prc = image_compare(p1, p2, True)
     try:
         contours = _get_contours(min_region, prc.diff)
@@ -329,13 +326,14 @@ def pil_to_hex_array(pil):
 
 
 def create_file_list(files, recurse=False, base_path=None, extension=None):
-    fitz.TOOLS.mupdf_display_errors(False);
+    if fitz is not None:
+        fitz.TOOLS.mupdf_display_errors(False)
     try:
         if os.path.isfile(files):
             with open(files) as fp:
                 files = ''.join(line for line in fp)
                 files = files.split('\n')
-    except:
+    except Exception:
         pass
     if isinstance(files, list):
         if base_path is not None:
@@ -366,7 +364,7 @@ def shingler(s, shingle_size):
     try:
         _ = iter(s)
         is_iterable = True
-    except TypeError as e:
+    except TypeError:
         is_iterable = False
     assert is_iterable, "Object must be iterable to be shingled."
     if shingle_size >= len(s):
@@ -438,10 +436,9 @@ def scrape_pdfs(base_dir, extension=None):
                     pdfs.append(sub_path)
             else:
                 try:
-                    pdf = fitz.open(sub_path)
-                    pdf.close()
-                    pdfs.append(sub_path)
-                except:
+                    if is_pdf(sub_path):
+                        pdfs.append(sub_path)
+                except Exception:
                     pass
         elif os.path.isdir(sub_path):
             sub_files = scrape_pdfs(sub_path)
@@ -450,6 +447,8 @@ def scrape_pdfs(base_dir, extension=None):
 
 
 def get_num_pages(doc_path, verbose=False):
+    if fitz is None:
+        return 0
     try:
         pdf = fitz.open(doc_path)
         num_pages: int = len(pdf)
@@ -468,11 +467,22 @@ def fix_splits(message):
 
 
 def is_pdf(file):
+    if fitz is None:
+        try:
+            if isinstance(file, (bytes, bytearray, memoryview)):
+                return bytes(file).startswith(b"%PDF-")
+            with open(file, "rb") as pdf:
+                return pdf.read(5) == b"%PDF-"
+        except (OSError, TypeError):
+            return False
     try:
-        pdf = fitz.open(file)
+        if isinstance(file, (bytes, bytearray, memoryview)):
+            pdf = fitz.open(stream=file, filetype="pdf")
+        else:
+            pdf = fitz.open(file)
         pdf.close()
         _is_pdf = True
-    except Exception as e:
+    except Exception:
         _is_pdf = False
     return _is_pdf
 

@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, Any
+from typing import Any
 
 import mmh3
 
@@ -28,7 +28,7 @@ class TextExtractor(TextCompare, metaclass=Meta):
 
     @property
     @abc.abstractmethod
-    def validate_text(self) -> Dict[str, Any]:
+    def validate_text(self) -> dict[str, Any]:
         """
         Performs a validity check for this text extractor.
 
@@ -55,7 +55,7 @@ class TextExtractor(TextCompare, metaclass=Meta):
                     shingled_hashes = [mmh3.hash128(token_set) for token_set in shingled_tokens]
                     shingled_hashes.sort()
                     hashes[page] = set(shingled_hashes[0:200])
-            except:
+            except Exception:
                 hashes = dict()
             self._sparclur_hash._add_hash(TEXT, hashes)
         return super().sparclur_hash

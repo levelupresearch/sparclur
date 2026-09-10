@@ -1,6 +1,6 @@
 from collections import defaultdict
 import random
-from typing import List, Dict, Any
+from typing import Any
 from inspect import isclass
 from imagehash import dhash
 import pandas as pd
@@ -49,7 +49,7 @@ def _parse_parsers(parsers):
 def _mapper(entry):
     path = entry['path']
     timeout = entry['timeout']
-    parser_args = entry['parser_args']
+    parser_args = dict(entry['parser_args'])
     parser_class = get_parser(entry['parser'])
     result = dict()
     if issubclass(parser_class, Renderer):
@@ -118,9 +118,9 @@ class DetectChaos:
     """
     Looks for evidence of non-determinism in PDF parsers.
     """
-    def __init__(self, parsers: str or List[Parser] or List[str],
+    def __init__(self, parsers: str or list[Parser] or list[str],
                  num_comparisons: int = 5,
-                 parser_args: Dict[str, Dict[str, Any]] = dict(),
+                 parser_args: dict[str, dict[str, Any]] | None = None,
                  parser_timeout: int = 120,
                  overall_timeout: int = 600,
                  num_workers: int = 1,
@@ -145,7 +145,9 @@ class DetectChaos:
 
         self._num_comparisons = num_comparisons
         self._parsers = _parse_parsers(parsers)
-        self._parser_args = parser_args
+        self._parser_args = {} if parser_args is None else {
+            name: dict(options) for name, options in parser_args.items()
+        }
         self._parser_timeout = parser_timeout
         self._overall_timeout = overall_timeout
         self._num_workers = num_workers
@@ -175,11 +177,11 @@ class DetectChaos:
     def parser_timeout(self):
         return self._parser_timeout
 
-    @overall_timeout.setter
+    @parser_timeout.setter
     def parser_timeout(self, pt):
         self._parser_timeout = pt
 
-    @overall_timeout.deleter
+    @parser_timeout.deleter
     def parser_timeout(self):
         self._parser_timeout = None
 
@@ -188,7 +190,7 @@ class DetectChaos:
         return [parser.get_name() for parser in self._parsers]
 
     @parsers.setter
-    def parsers(self, parsers: List[str] or List[Parser]):
+    def parsers(self, parsers: list[str] or list[Parser]):
         self._parsers = _parse_parsers(parsers)
 
     @property
@@ -196,7 +198,7 @@ class DetectChaos:
         return self._parser_args
 
     @parser_args.setter
-    def parser_args(self, pa: Dict[str, Dict[str, Any]]):
+    def parser_args(self, pa: dict[str, dict[str, Any]]):
         self._parser_args = pa
 
     @parser_args.deleter
@@ -240,7 +242,7 @@ class DetectChaos:
                     {'path': path,
                      'parser': parser,
                      'timeout': self._parser_timeout,
-                     'parser_args': self._parser_args.get(parser, dict())}
+                     'parser_args': dict(self._parser_args.get(parser, {}))}
                     for parser in self._parsers
                 ]
                 for path in files

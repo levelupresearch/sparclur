@@ -1,12 +1,9 @@
-from PIL.PngImagePlugin import PngImageFile
-
 from sparclur.parsers.present_parsers import get_sparclur_renderers
 from sparclur._renderer import Renderer
 import itertools
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import to_rgb
-import warnings
 import numpy as np
 import os
 from sparclur.prc._prc import _parse_viz_renderers
@@ -22,8 +19,8 @@ class PRCViz:
     """
 
     def __init__(self, doc_path,
-                 renderers=get_sparclur_renderers(),
-                 parser_args=dict(),
+                 renderers=None,
+                 parser_args=None,
                  dpi=200,
                  verbose=False):
         """
@@ -38,6 +35,8 @@ class PRCViz:
             A dictionary of dictionaries containing any optional parameters to pass into the renderers. See each
             renderer for it's possible parameters.
         """
+        renderers = get_sparclur_renderers() if renderers is None else renderers
+        parser_args = {} if parser_args is None else parser_args
         self._doc_path = doc_path
         self._doc = doc_path.split('/')[-1]
         self._renderers = _parse_viz_renderers(renderers)
@@ -57,7 +56,7 @@ class PRCViz:
                 self._renders[name] = renderer
                 self._renders[name].caching = True
             else:
-                args = parser_args.get(name, dict())
+                args = dict(parser_args.get(name, {}))
                 args['cache_renders'] = True
                 args['dpi'] = dpi
                 self._renders[name] = renderer(doc=doc_path, **args)
@@ -99,9 +98,6 @@ class PRCViz:
             if isinstance(cmap, list) and len(cmap) >= len(self._sim_keys):
                 colors = [to_rgb(color) for color in cmap]
             else:
-                if len(cmap) < len(self._sim_keys):
-                    warnings.warn("Not enough colors specified. Defaulting to tab10 cmap")
-                    cmap = 'tab10'
                 scalar_mappable = ScalarMappable(cmap=cmap)
                 colors = scalar_mappable.to_rgba(range(len(self._sim_keys)), alpha=1.0).tolist()
 
@@ -123,7 +119,7 @@ class PRCViz:
             self._ssims_fig = fig
         return self._ssims_fig
 
-    def display(self, page, renderers=None, width=10, height=10, save_path=None):
+    def display(self, page, renderers=None, width=12, height=5, save_path=None):
         """
         Show the comparison between the specified renderers and the visual difference between them.
 
@@ -135,9 +131,9 @@ class PRCViz:
             If None, then visualizes all the combinations. Otherwise specify a list of combinations or just one single
             combination.
         width: int
-            The width of each subplot
+            The width of the comparison figure.
         height: int
-            The height of each subplot
+            The height allocated to each selected renderer pair.
         save_path: str or None
             If None returns the figure for display, otherwise saves the figure to the specified file path.
 
@@ -148,37 +144,31 @@ class PRCViz:
             renderers = [renderers]
         nrows = len(renderers)
 
-        fig, axes = plt.subplots(nrows=nrows, ncols=3, figsize=(width, height))
+        fig, axes = plt.subplots(
+            nrows=nrows,
+            ncols=3,
+            figsize=(width, height * nrows),
+            squeeze=False,
+            layout='constrained',
+        )
 
         fig.suptitle('Comparisons for %s\nPage: %s' % (self._doc, page))
 
         for (row, combo) in enumerate(renderers):
             images = [self._renders[combo[0]].get_renders(page), self._renders[combo[1]].get_renders(page), self._sims[combo][page].diff]
-            labels = ['', '', self._sims[combo][page].sim]
             titles = [combo[0], combo[1], 'diff']
-            if nrows > 1:
-                for col in range(3):
-                    image = np.asarray(images[col])
-                    axes[row, col].set_title(titles[col])
-                    axes[row, col].set_xticklabels([])
-                    axes[row, col].set_yticklabels([])
-                    axes[row, col].set_xticks([])
-                    axes[row, col].set_yticks([])
-                    axes[row, col].imshow(image)
-                    axes[row, col].set_xlabel(labels[col])
-            else:
-                for col in range(3):
-                    image: PngImageFile = images[col]
-                    axes[col].set_title(titles[col])
-                    axes[col].set_xticklabels([])
-                    axes[col].set_yticklabels([])
-                    axes[col].set_xticks([])
-                    axes[col].set_yticks([])
-                    axes[col].imshow(image)
-                    axes[col].set_xlabel(labels[col])
+            similarity = self._sims[combo][page].sim
+            for col, image in enumerate(images):
+                axis = axes[row, col]
+                title = titles[col]
+                if col == 2:
+                    title = f'{title}\nSimilarity: {similarity:.4f}'
+                axis.set_title(title)
+                axis.imshow(np.asarray(image))
+                axis.set_axis_off()
 
         if save_path is not None:
-            fig.savefig(os.path.join(save_path, '%s_%s_prc.png' % (self._doc, page)))
+            fig.savefig(os.path.join(save_path, '%s_%s_prc.png' % (self._doc, page)), bbox_inches='tight')
             plt.close(fig)
         else:
             plt.close(fig)

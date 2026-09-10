@@ -4,7 +4,7 @@ import mmh3
 
 from sparclur._metaclass import Meta
 from sparclur._parser import Parser, META
-from typing import Dict, Any
+from typing import Any
 
 from sparclur.utils import stringify_dict
 
@@ -32,7 +32,7 @@ class MetadataExtractor(Parser, metaclass=Meta):
                          'metadata_result':
                              '(Property) Returns a message relating to the success or failure of metadata extraction'}
         self._api.update(metadata_apis)
-        self._metadata: Dict[str, Any] = None
+        self._metadata: dict[str, Any] = None
         self._metadata_result: str = None
         self._can_meta_extract: bool = None
 
@@ -60,7 +60,7 @@ class MetadataExtractor(Parser, metaclass=Meta):
 
     @property
     @abc.abstractmethod
-    def validate_metadata(self) -> Dict[str, Any]:
+    def validate_metadata(self) -> dict[str, Any]:
         """
         Performs a validity check for this metadata extractor.
 
@@ -71,7 +71,7 @@ class MetadataExtractor(Parser, metaclass=Meta):
         pass
 
     @property
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """
         Return the dictionary of metadata.
 
@@ -117,7 +117,7 @@ class MetadataExtractor(Parser, metaclass=Meta):
                 hashes = dict()
                 for obj in meta.keys():
                     hashes[obj] = mmh3.hash128(stringify_dict(meta[obj]))
-            except:
+            except Exception:
                 hashes = dict()
             self._sparclur_hash._add_hash(META, hashes)
         return super().sparclur_hash

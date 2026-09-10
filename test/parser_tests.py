@@ -1,20 +1,20 @@
-from PIL.Image import Image
-from sparclur._hybrid import Hybrid
-from sparclur._parser import Parser
-from sparclur._parser import RENDER, TRACER, TEXT, FONT, IMAGE, META
-import os, sys, site
+import site
+import sys
+from pathlib import Path
 
-# TEST_PDF = '../../../resources/hello_world_hand_edit.pdf'
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
-_cloned_path = os.path.realpath('../resources/hello_world_hand_edit.pdf')
-_user_path = os.path.join(site.USER_BASE, 'etc', 'sparclur', 'resources', 'hello_world_hand_edit.pdf')
-_env_path = os.path.join(sys.prefix, 'etc', 'sparclur', 'resources', 'hello_world_hand_edit.pdf')
-if os.path.isfile(_cloned_path):
-    TEST_PDF = _cloned_path
-elif os.path.isfile(_user_path):
-    TEST_PDF = _user_path
-elif os.path.isfile(_env_path):
-    TEST_PDF = _env_path
+from PIL.Image import Image
+
+from sparclur._hybrid import Hybrid
+from sparclur._parser import FONT, IMAGE, META, RENDER, TEXT, TRACER, Parser
+
+
+_SOURCE_ROOT = Path(__file__).resolve().parents[1]
+_RESOURCE_PATHS = (
+    _SOURCE_ROOT / 'resources' / 'hello_world_hand_edit.pdf',
+    Path(site.USER_BASE) / 'etc' / 'sparclur' / 'resources' / 'hello_world_hand_edit.pdf',
+    Path(sys.prefix) / 'etc' / 'sparclur' / 'resources' / 'hello_world_hand_edit.pdf',
+)
+TEST_PDF = next((str(path) for path in _RESOURCE_PATHS if path.is_file()), None)
 
 class ParserTestMixin:
 
@@ -101,10 +101,8 @@ class ReforgerTestMixin:
     def test_reforge(self):
         try:
             _ = self.parser_instance.reforge
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class FontExtractorTestMixin:
@@ -118,10 +116,8 @@ class FontExtractorTestMixin:
     def test_fonts(self):
         try:
             _ = self.parser_instance.fonts
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class ImageDataExtractorTestMixin:
@@ -135,10 +131,8 @@ class ImageDataExtractorTestMixin:
     def test_image_data(self):
         try:
             _ = self.parser_instance.images
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class MetadataExtractorTestMixin:
@@ -152,10 +146,8 @@ class MetadataExtractorTestMixin:
     def test_metadata_extraction(self):
         try:
             _ = self.parser_instance.metadata
-            result = True
-        except Exception as e:
-            result = False
-        assert result, str(e)
+        except Exception as error:
+            raise AssertionError(str(error)) from error
 
 
 class TextExtractorTestMixin:

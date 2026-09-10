@@ -3,10 +3,9 @@ import os
 import sys
 import tempfile
 
-from typing import Dict, Any, List
+from typing import Any
 import warnings
 
-import yaml
 from func_timeout import func_timeout, FunctionTimedOut
 from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
@@ -32,7 +31,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def __init__(self, doc: str or bytes,
                  temp_folders_dir: str = None,
                  skip_check: bool = None,
-                 hash_exclude: str or List[str] = None,
+                 hash_exclude: str or list[str] = None,
                  timeout: int = None,
                  page_delimiter: str = None,
                  detect_vertical: bool = None,
@@ -110,16 +109,16 @@ class PDFMiner(TextExtractor, MetadataExtractor):
                 parser = PDFParser(file)
                 document = PDFDocument(parser)
                 self._num_pages = int(resolve1(document.catalog['Pages'])['Count'])
-            except:
+            except Exception:
                 self._num_pages = 0
             finally:
                 try:
                     file.close()
-                except:
+                except Exception:
                     pass
 
     @property
-    def validate_text(self) -> Dict[str, Any]:
+    def validate_text(self) -> dict[str, Any]:
         if TEXT not in self._validity:
             validity_results = dict()
             if self._file_timed_out.get(TEXT, False):
@@ -154,7 +153,7 @@ class PDFMiner(TextExtractor, MetadataExtractor):
         return self._can_meta_extract
 
     @property
-    def validate_metadata(self) -> Dict[str, Any]:
+    def validate_metadata(self) -> dict[str, Any]:
         if META not in self._validity:
             validity_results = dict()
             if self._metadata is None:
@@ -216,8 +215,8 @@ class PDFMiner(TextExtractor, MetadataExtractor):
     def _extract_doc(self):
         text = self._pdfminer_text()
         if len(text) != 0:
-            for (page, text) in enumerate(text.split(self._page_delimiter)[0:-1]):
-                self._text[page] = text
+            for page, page_text in enumerate(text.split(self._page_delimiter)[0:-1]):
+                self._text[page] = page_text
         self._full_text_extracted = True
 
     def _extract_page(self, page: int):
