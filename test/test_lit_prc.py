@@ -1,5 +1,7 @@
 """Tests for the Streamlit PDF Render Comparator page."""
 
+from contextlib import nullcontext
+
 from sparclur.lit_sparclur import _lit_prc
 
 
@@ -27,6 +29,8 @@ def test_prc_page_passes_uploaded_filename_to_current_viz_api(monkeypatch):
     monkeypatch.setattr(_lit_prc, "PRCViz", ProbeViz)
     monkeypatch.setattr(_lit_prc.st, "subheader", lambda value: None)
     monkeypatch.setattr(_lit_prc.st, "pyplot", lambda figure: None)
+    monkeypatch.setattr(_lit_prc.st, "form", lambda key: nullcontext())
+    monkeypatch.setattr(_lit_prc.st, "form_submit_button", lambda label: True)
     monkeypatch.setattr(_lit_prc.st, "selectbox", lambda label, options: 0)
     monkeypatch.setattr(_lit_prc.st, "multiselect", lambda label, options, default, help: default)
 
