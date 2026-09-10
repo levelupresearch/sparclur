@@ -40,6 +40,21 @@ def _write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, default=str, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _write_pdf_from_html(index_path: Path, destination: Path) -> Path:
+    """Render a local report HTML file to PDF through the optional backend."""
+    try:
+        from weasyprint import HTML
+    except ImportError as error:
+        raise ImportError(
+            "PDF export requires WeasyPrint. Install it with: pip install 'sparclur[reports]'"
+        ) from error
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    HTML(filename=str(index_path), base_url=str(index_path.parent)).write_pdf(str(destination))
+    if not destination.is_file() or destination.stat().st_size == 0:
+        raise RuntimeError(f"PDF export did not create {destination}")
+    return destination
+
+
 def _document_input(doc: str | Path | tuple[str | Path, str | None]) -> tuple[str, str | None]:
     if isinstance(doc, tuple):
         if len(doc) != 2:
@@ -135,8 +150,8 @@ class DocumentReport:
                 validity = parser.validity.get("overall", {}).get("status", "Unknown")
                 parser_rows.append({"parser": name, "status": "Analyzed", "validity": validity, "error": ""})
                 if isinstance(parser, Tracer) and parser.can_trace:
-                    for line, message in parser.cleaned.items():
-                        trace_rows.append({"parser": name, "location": str(line), "message": str(message)})
+                    for message, count in parser.cleaned.items():
+                        trace_rows.append({"parser": name, "message": str(message), "count": count})
                 if isinstance(parser, TextCompare) and parser.can_extract_text:
                     texters[name] = parser
                     text_by_parser[name] = {str(page): str(text) for page, text in parser.get_text().items()}
@@ -197,7 +212,7 @@ class DocumentReport:
             path.mkdir(parents=True, exist_ok=True)
 
         parser_frame = pd.DataFrame(result["parser_rows"], columns=["parser", "status", "validity", "error"])
-        trace_frame = pd.DataFrame(result["trace_rows"], columns=["parser", "location", "message"])
+        trace_frame = pd.DataFrame(result["trace_rows"], columns=["parser", "message", "count"])
         pxc_frame = pd.DataFrame(result["pxc"])
         parser_frame.to_csv(data_dir / "parsers.csv", index=False)
         trace_frame.to_csv(data_dir / "traces.csv", index=False)
@@ -287,6 +302,7 @@ class DocumentReport:
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SPARCLUR report — {html.escape(document["name"])}</title>
 <style>
+@page {{ size: Letter; margin: .55in; @bottom-right {{ color: #64748b; content: "Page " counter(page) " of " counter(pages); font-size: 9pt; }} }}
 body {{ background: #eef2f7; color: #1e293b; font-family: system-ui, sans-serif; line-height: 1.45; margin: 0; }}
 main {{ background: white; box-shadow: 0 8px 28px #cbd5e180; margin: 28px auto; max-width: 1040px; padding: 40px; }}
 h1 {{ margin: 4px 0; }} h2 {{ border-bottom: 1px solid #dbe4ee; margin-top: 34px; padding-bottom: 6px; }}
@@ -298,6 +314,7 @@ h1 {{ margin: 4px 0; }} h2 {{ border-bottom: 1px solid #dbe4ee; margin-top: 34px
 .figures {{ display: grid; gap: 18px; grid-template-columns: 1fr 1fr; }} figure {{ margin: 0; }} img {{ border: 1px solid #dbe4ee; max-width: 100%; }} figcaption {{ color: #64748b; font-size: .85rem; }}
 footer {{ border-top: 1px solid #dbe4ee; color: #64748b; font-size: .85rem; margin-top: 36px; padding-top: 14px; }}
 @media (max-width: 680px) {{ main {{ margin: 0; padding: 20px; }} .summary, .figures {{ grid-template-columns: 1fr; }} }}
+@media print {{ body {{ background: white; }} main {{ box-shadow: none; margin: 0; max-width: none; padding: 0; }} h2 {{ break-after: avoid; }} figure {{ break-inside: avoid; }} .figures {{ grid-template-columns: 1fr; }} footer {{ display: none; }} }}
 </style></head><body><main>
 <div class="eyebrow">SPARCLUR evidence dossier</div><h1>{html.escape(document["name"])}</h1>
 <p class="muted">SHA-256: {html.escape(document["sha256"])} · {document["size_bytes"]:,} bytes</p>{note}
@@ -320,6 +337,14 @@ footer {{ border-top: 1px solid #dbe4ee; color: #64748b; font-size: .85rem; marg
         if target.suffix.lower() != ".html":
             target = target / "index.html"
         return self._write_bundle(target.parent, target.name)
+
+    def write_pdf(self, path: str | Path) -> Path:
+        """Write a PDF rendition and preserve its HTML evidence bundle beside it."""
+        destination = Path(path)
+        if destination.suffix.lower() != ".pdf":
+            destination = destination.with_suffix(".pdf")
+        index_path = self.write_bundle(destination.parent / destination.stem)
+        return _write_pdf_from_html(index_path, destination)
 
 
 class BatchReport:
@@ -379,13 +404,21 @@ class BatchReport:
         target = Path(path)
         return self.write_bundle(target.parent if target.suffix else target)
 
+    def write_pdf(self, path: str | Path) -> Path:
+        """Write a PDF batch-triage index and retain the linked HTML dossiers."""
+        destination = Path(path)
+        if destination.suffix.lower() != ".pdf":
+            destination = destination.with_suffix(".pdf")
+        index_path = self.write_bundle(destination.parent / destination.stem)
+        return _write_pdf_from_html(index_path, destination)
+
 
 class SparclurReport:
     """Compatibility facade for the former Pweave ``SparclurReport`` API.
 
-    ``generate_report`` now creates a native HTML evidence bundle and returns
-    its index path. ``kernel`` and ``sparclur_path`` are accepted for source
-    compatibility but are not used.
+    ``generate_report`` now creates a native HTML evidence bundle by default,
+    or a PDF rendition when requested. ``kernel`` and ``sparclur_path`` are
+    accepted for source compatibility but are not used.
     """
 
     def __init__(self,
@@ -402,9 +435,18 @@ class SparclurReport:
         self._sparclur_path = sparclur_path
         self._document_options = document_options
 
-    def generate_report(self) -> Path:
-        target = self._save_path.with_suffix(".html") if self._save_path.suffix else self._save_path
+    def generate_report(self, output_format: str | None = None) -> Path:
+        """Generate HTML by default, or PDF when requested or given a PDF path."""
+        inferred_format = "pdf" if self._save_path.suffix.lower() == ".pdf" else "html"
+        selected_format = inferred_format if output_format is None else output_format.lower()
+        if selected_format not in {"html", "pdf"}:
+            raise ValueError("output_format must be 'html' or 'pdf'")
+        target = self._save_path.with_suffix(f".{selected_format}") if self._save_path.suffix else self._save_path
         if len(self._docs) == 1:
             path, note = _document_input(self._docs[0])
-            return DocumentReport(path, note=note, **self._document_options).write_html(target)
-        return BatchReport(self._docs, **self._document_options).write_html(target)
+            report = DocumentReport(path, note=note, **self._document_options)
+        else:
+            report = BatchReport(self._docs, **self._document_options)
+        if selected_format == "pdf":
+            return report.write_pdf(target)
+        return report.write_html(target)

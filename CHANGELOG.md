@@ -12,6 +12,7 @@
 - Optional extras for PyMuPDF, PDFium, PDFMiner, and the Streamlit interface.
 - Native HTML report generation with evidence bundles, batch triage, and a
   Pweave-compatible `SparclurReport` facade.
+- Optional PDF renditions of report dossiers and batch-triage indexes.
 
 ### Changed
 

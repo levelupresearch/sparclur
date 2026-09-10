@@ -220,6 +220,7 @@ report = DocumentReport(
     parsers=["Ghostscript", "MuPDF", "Poppler", "PDFium"],
 )
 report.write_bundle("out/sample-report")
+report.write_pdf("out/sample-report.pdf")  # requires sparclur[reports]
 ```
 
 The dossier includes parser validity, normalized traces (PTC), text-comparison
@@ -227,7 +228,9 @@ data (PXC), renderer-comparison data and figures (PRC), and an extracted
 predecessor when incremental updates are present. Use `BatchReport` to produce
 a triage index with one evidence dossier per PDF. `SparclurReport` remains as a
 compatibility facade; its `generate_report()` method now creates the native
-HTML bundle.
+HTML bundle. Install `pip install "sparclur[reports]"` for PDF renditions;
+this uses WeasyPrint and may require its platform libraries (Pango) as
+documented by the [WeasyPrint installation guide](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html).
 
 ## Streamlit Interface
 

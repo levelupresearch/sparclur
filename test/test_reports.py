@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from sparclur import BatchReport, DocumentReport, SparclurReport
 
@@ -44,3 +45,21 @@ def test_legacy_report_facade_writes_native_html(tmp_path):
 
     assert index == tmp_path / "legacy.html"
     assert index.is_file()
+
+
+def test_document_report_writes_pdf_rendition(tmp_path):
+    pytest.importorskip("weasyprint")
+
+    pdf = DocumentReport(str(SAMPLE), parsers=["PDFium"], dpi=72).write_pdf(tmp_path / "dossier.pdf")
+
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert (tmp_path / "dossier" / "index.html").is_file()
+
+
+def test_legacy_report_facade_infers_pdf_output(tmp_path):
+    pytest.importorskip("weasyprint")
+
+    pdf = SparclurReport(str(SAMPLE), tmp_path / "legacy.pdf", parsers=["PDFium"], dpi=72).generate_report()
+
+    assert pdf == tmp_path / "legacy.pdf"
+    assert pdf.read_bytes().startswith(b"%PDF")
