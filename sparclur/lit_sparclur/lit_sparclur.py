@@ -17,6 +17,7 @@ MUPDF_NAME = "MuPDF"
 PDFMINER_NAME = "PDFMiner"
 
 PARSERS = {parser.get_name(): parser for parser in get_sparclur_parsers()}
+DEFAULT_PARSERS = [parser.get_name() for parser in get_sparclur_parsers(check_parsers=True)]
 
 TEXTERS = [texter.get_name() for texter in get_sparclur_texters()]
 
@@ -86,8 +87,8 @@ st.sidebar.markdown('___')
 selected_parsers = st.sidebar.multiselect(
     'Enabled parsers',
     options=list(PARSERS),
-    default=list(PARSERS),
-    help='Choose the parser adapters to run for this document.',
+    default=DEFAULT_PARSERS,
+    help='Available adapters are selected by default. Choose additional configured adapters as needed.',
 )
 
 for p_name in selected_parsers:
