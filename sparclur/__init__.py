@@ -5,7 +5,7 @@ from ._roll_back import RollBack
 from ._floodlight import FloodLight
 from ._reports import BatchReport, DocumentReport, SparclurReport
 
-__version__ = '2026.9.9'
+__version__ = '2026.9.10'
 
 __all__ = [
     "Astrotruther",

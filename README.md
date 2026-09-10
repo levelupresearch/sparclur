@@ -23,6 +23,7 @@ The Python-backed parser adapters and Streamlit interface are intentionally
 optional. Install only what you plan to use:
 
 ```bash
+pip install --upgrade "sparclur[all]"     # Every supported optional feature
 pip install "sparclur[mupdf]"             # PyMuPDF adapter
 pip install "sparclur[pdfium]"            # PDFium adapter
 pip install "sparclur[pdfminer]"          # PDFMiner adapter
@@ -236,14 +237,15 @@ documented by the [WeasyPrint installation guide](https://doc.courtbouillon.org/
 
 ### PyPI installation
 
-Install the optional UI dependencies and run the packaged command:
+Install every supported optional feature, including the UI, and run the packaged command:
 
 ```bash
-pip install "sparclur[ui]"
+pip install --upgrade "sparclur[all]"
 sparclur-ui
 ```
 
-Add a parser adapter as needed, for example `pip install "sparclur[ui,mupdf,pdfium]"`.
+For a smaller install, use the UI extra alone or combine it with specific parser
+extras, for example `pip install "sparclur[ui,mupdf,pdfium]"`.
 
 The command launches a Streamlit web app for exploring uploaded PDFs with the
 PTC, PRC, PXC, Metadata, and Raw views. It accepts standard Streamlit options,
