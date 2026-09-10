@@ -143,4 +143,4 @@ if not is_pdf(document):
     st.error("The selected file is not a readable PDF.")
 else:
     parsers = parse_document(parser_kwargs)
-    page.app(parsers, ocr = False)
+    page.app(parsers, ocr=False, document_name=uploaded_file.name)
