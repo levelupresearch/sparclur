@@ -18,8 +18,8 @@ def app(parsers, **kwargs):
     if len(renderers) < 2:
         st.write("Please select at least 2 of [%s]" % ', '.join(RENDERERS))
     else:
-        filename = [renderer for renderer in renderers.values()][0].doc
-        viz = PRCViz(doc=filename, renderers=[renderer for renderer in renderers.values()])
+        document_name = kwargs.get('document_name', 'uploaded.pdf')
+        viz = PRCViz(doc_path=document_name, renderers=list(renderers.values()))
         # viz = get_viz(renderers)
 
         fig = viz.plot_sims()
