@@ -19,7 +19,9 @@ def app(parsers, **kwargs):
         if p_name in TEXTERS:
             texters[p_name] = parser
 
-    if len(texters) == 1:
+    if not texters:
+        st.info("Enable at least one text-extraction parser to use PXC.")
+    elif len(texters) == 1:
         texter = [txtr for txtr in texters.values()][0]
         st.write(texter.get_name())
         text = texter.get_text()
