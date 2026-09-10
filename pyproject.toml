@@ -63,6 +63,9 @@ docs = [
     "sphinx-rtd-theme>=3.0",
 ]
 
+[project.scripts]
+sparclur-ui = "sparclur.lit_sparclur._cli:main"
+
 [project.urls]
 Documentation = "https://sparclur.readthedocs.io/"
 Repository = "https://github.com/levelupresearch/sparclur"

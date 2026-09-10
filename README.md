@@ -181,8 +181,17 @@ trace messages from the parsers. This requires a labeled training set.
 
 ## Streamlit Interface
 
-Running light_the_sparclur.sh will launch a Streamlit web app that will provide an interface for 
-exploring PDF's using the PTC and PRC.
+Install the optional UI dependencies and run the packaged command:
+
+```bash
+pip install "sparclur[ui]"
+sparclur-ui
+```
+
+The command launches a Streamlit web app for exploring PDFs with the PTC, PRC, PXC, Metadata, and Raw views.
+It also accepts standard Streamlit options, such as `sparclur-ui --server.port 8501`.
+
+When working from a source checkout, `./light_the_sparclur.sh` provides the equivalent launcher.
 ![](./images/lit_sparclur_ptc_no_warnings.png)
 ![](./images/lit_sparclur_prc_2.png)
 ![](./images/lit_sparclur_ptc_warnings.png)
