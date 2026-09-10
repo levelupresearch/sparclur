@@ -402,7 +402,7 @@ class SpotlightResult:
 
         df = pd.DataFrame(d, columns=columns, index=['%s/%s' % (v1, v2) for v1, v2 in comparisons])
 
-        fig, ax = plt.subplots(figsize=(width, height))
+        fig, ax = plt.subplots(figsize=(width, height), layout='constrained')
         if not annotated:
             sns.heatmap(df, vmin=.6, vmax=1, cmap='RdBu')
         else:
