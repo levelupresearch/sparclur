@@ -26,17 +26,19 @@ def app(parsers, **kwargs):
 
         fig = viz.plot_sims()
         st.pyplot(fig)
-        select_page = st.selectbox('Page', options=list(range(viz.get_observed_pages())))
         pair_labels = {
             f'{left} ↔ {right}': (left, right)
             for left, right in itertools.combinations(renderers, 2)
         }
-        selected_labels = st.multiselect(
-            'Renderer pairs',
-            options=list(pair_labels),
-            default=list(pair_labels)[:1],
-            help='Select one pair for a focused comparison, or add pairs to stack them vertically.',
-        )
+        with st.form('prc-comparison-controls'):
+            select_page = st.selectbox('Page', options=list(range(viz.get_observed_pages())))
+            selected_labels = st.multiselect(
+                'Renderer pairs',
+                options=list(pair_labels),
+                default=list(pair_labels)[:1],
+                help='Select one pair for a focused comparison, or add pairs to stack them vertically.',
+            )
+            st.form_submit_button('Refresh comparison')
         if selected_labels:
             display_fig = viz.display(
                 page=select_page,
