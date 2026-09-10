@@ -35,8 +35,6 @@ dependencies = [
     "Pebble>=5.1",
     "Pillow>=10.4",
     "plotly>=5.24",
-    "pypdfium2>=5.0",
-    "PyMuPDF>=1.24",
     "pytesseract>=0.3.13",
     "PyYAML>=6.0.2",
     "platformdirs>=4.3",
@@ -45,11 +43,13 @@ dependencies = [
     "seaborn>=0.13",
     "spacy>=3.8",
     "tqdm>=4.66.3",
-    "pdfminer.six>=20240706",
 ]
 
 [project.optional-dependencies]
 ui = ["streamlit>=1.40"]
+mupdf = ["PyMuPDF>=1.24"]
+pdfium = ["pypdfium2>=5.0"]
+pdfminer = ["pdfminer.six>=20240706"]
 dev = [
     "build>=1.2",
     "pytest>=8.3",
@@ -57,6 +57,10 @@ dev = [
     "pip-audit>=2.10",
     "ruff>=0.14",
     "twine>=6.0",
+    "streamlit>=1.40",
+    "PyMuPDF>=1.24",
+    "pypdfium2>=5.0",
+    "pdfminer.six>=20240706",
 ]
 docs = [
     "sphinx>=7.4",

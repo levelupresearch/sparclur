@@ -66,7 +66,8 @@ the binary can be built and referenced at run-time within SPARCLUR.
 https://www.ghostscript.com/
 
 ### MuPDF
-MuPDF requires the binary installed or built as well as the Python wrapper package PyMuPDF.
+Install the PyMuPDF-backed adapter with `pip install "sparclur[mupdf]"`. The `mutool` binary is additionally required
+for MuPDF trace collection and reforging.
 
 https://mupdf.com/
 
@@ -79,14 +80,14 @@ config, or entered at run-time.
 https://pdfcpu.io/
 
 ### PDFium
-Google's PDF rendering software. This is accessed using the pypdfium2 package.
+Google's PDF rendering software. Install its adapter with `pip install "sparclur[pdfium]"`.
 
 https://pdfium.googlesource.com/pdfium/
 
 https://github.com/pypdfium2-team/pypdfium2
 
 ### PDFMiner
-PDFMiner is a Python based parser. The package needs to be installed into the working environment.
+PDFMiner is a Python-based parser. Install its adapter with `pip install "sparclur[pdfminer]"`.
 
 https://pdfminersix.readthedocs.io/en/latest/
 
@@ -183,6 +184,8 @@ Install the optional UI dependencies and run the packaged command:
 pip install "sparclur[ui]"
 sparclur-ui
 ```
+
+Add a parser adapter as needed, for example `pip install "sparclur[ui,mupdf,pdfium]"`.
 
 The command launches a Streamlit web app for exploring PDFs with the PTC, PRC, PXC, Metadata, and Raw views.
 It also accepts standard Streamlit options, such as `sparclur-ui --server.port 8501`.

@@ -1,4 +1,3 @@
-from sparclur.parsers import MuPDF, PDFMiner
 from sparclur.lit_sparclur import _lit_prc, _lit_pxc
 from sparclur.lit_sparclur import _lit_meta
 from sparclur.lit_sparclur import _lit_ptc, _lit_raw
@@ -13,6 +12,9 @@ from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_metadata
 
 import streamlit as st
+
+MUPDF_NAME = "MuPDF"
+PDFMINER_NAME = "PDFMiner"
 
 PARSERS = {parser.get_name(): parser for parser in get_sparclur_parsers()}
 
@@ -54,11 +56,11 @@ def parse_document(selected_parser_kwargs):
     for name, kwa in selected_parser_kwargs.items():
         if name == NonParser.get_name():
             p[name] = NonParser(**kwa)
-        elif name == MuPDF.get_name() + '-s':
-            p[name] = MuPDF(**kwa)
+        elif name == MUPDF_NAME + '-s':
+            p[name] = PARSERS[MUPDF_NAME](**kwa)
             _ = p[name].cleaned
-        elif name == PDFMiner.get_name() + '-text':
-            p[name] = PDFMiner(**kwa)
+        elif name == PDFMINER_NAME + '-text':
+            p[name] = PARSERS[PDFMINER_NAME](**kwa)
             _ = p[name].metadata
         else:
             p[name] = PARSERS[name](**kwa)
@@ -123,13 +125,13 @@ for p_name, parser in PARSERS.items():
                     val = "\x0c"
             kwargs[key] = val
             kwargs['doc'] = document
-        if p_name == MuPDF.get_name():
+        if p_name == MUPDF_NAME:
             ps_kwargs = {key: value for (key, value) in kwargs.items()}
             ps_kwargs['parse_streams'] = True
             kwargs['parse_streams'] = False
             parser_kwargs[p_name + '-s'] = ps_kwargs
             parser_kwargs[p_name] = kwargs
-        elif p_name == PDFMiner.get_name():
+        elif p_name == PDFMINER_NAME:
             so_kwargs = {key: value for (key, value) in kwargs.items()}
             so_kwargs['stream_output'] = 'text'
             kwargs['stream_output'] = None
