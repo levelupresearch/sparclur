@@ -79,15 +79,20 @@ def parse_document(selected_parser_kwargs):
 parser_kwargs = dict()
 parser_kwargs[NonParser.get_name()] = {'doc': document}
 st.sidebar.markdown('___')
-ocr = st.sidebar.checkbox('OCR', value=False, key='ocr')
-#render_cache = st.sidebar.checkbox('Cache Renders', value=False, key='render_cache')
 dpi = st.sidebar.number_input('DPI', min_value=72, max_value=400, value=72,
                               key='dpi')
 st.sidebar.markdown('___')
-for p_name, parser in PARSERS.items():
-    use_parser = st.sidebar.checkbox(p_name, value=True, key='%s_cb' % p_name)
 
-    if use_parser:
+selected_parsers = st.sidebar.multiselect(
+    'Enabled parsers',
+    options=list(PARSERS),
+    default=list(PARSERS),
+    help='Choose the parser adapters to run for this document.',
+)
+
+for p_name in selected_parsers:
+    parser = PARSERS[p_name]
+    with st.sidebar.expander(f'{p_name} settings', expanded=False):
         params = parse_init(parser)
         kwargs = dict()
         for key, values in params.items():
@@ -102,10 +107,10 @@ for p_name, parser in PARSERS.items():
             elif key == 'dpi':
                 val = dpi
             elif param_type == 'bool':
-                val = st.sidebar.checkbox(key, value=True if default == 'True' else False, key='%s_%s' % (p_name, key))
+                val = st.checkbox(key, value=bool(default), key='%s_%s' % (p_name, key))
             elif param_type == 'Tuple[int]':
-                width = st.sidebar.number_input("Width", min_value=0, value=0, key='%s_%s_width' % (p_name, key))
-                height = st.sidebar.number_input("Height", min_value=0, value=0, key='%s_%s_height' % (p_name, key))
+                width = st.number_input("Width", min_value=0, value=0, key='%s_%s_width' % (p_name, key))
+                height = st.number_input("Height", min_value=0, value=0, key='%s_%s_height' % (p_name, key))
                 if width == 0 and height != 0:
                     val = height
                 elif height == 0 and width != 0:
@@ -115,10 +120,10 @@ for p_name, parser in PARSERS.items():
                 else:
                     val = None
             elif param_type == 'int':
-                val = st.sidebar.number_input(key, min_value=72, max_value=400, value=int(default),
-                                              key='%s_%s' % (p_name, key))
+                val = st.number_input(key, min_value=0, value=0 if default is None else int(default),
+                                      key='%s_%s' % (p_name, key))
             else:
-                val = st.sidebar.text_input(key, value=default, key='%s_%s' % (p_name, key))
+                val = st.text_input(key, value='' if default is None else str(default), key='%s_%s' % (p_name, key))
                 if not val or val == 'None':
                     val = None
                 if val == "\\x0c":
@@ -139,10 +144,9 @@ for p_name, parser in PARSERS.items():
             parser_kwargs[p_name] = kwargs
         else:
             parser_kwargs[p_name] = kwargs
-    st.sidebar.markdown('___')
 
 if not is_pdf(document):
     st.error("The selected file is not a readable PDF.")
 else:
     parsers = parse_document(parser_kwargs)
-    page.app(parsers, ocr=False, document_name=uploaded_file.name)
+    page.app(parsers, document_name=uploaded_file.name)
