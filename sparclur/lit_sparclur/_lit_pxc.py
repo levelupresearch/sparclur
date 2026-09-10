@@ -2,10 +2,7 @@ import streamlit as st
 import itertools
 import pandas as pd
 
-from sparclur.parsers.present_parsers import get_sparclur_texters, get_sparclur_renderers
-
-TEXTERS = [texter.get_name() for texter in get_sparclur_texters(no_ocr=True)]
-RENDERERS = [renderer.get_name() for renderer in get_sparclur_renderers()]
+from sparclur._text_compare import TextCompare
 
 
 def app(parsers, **kwargs):
@@ -15,12 +12,12 @@ def app(parsers, **kwargs):
 
     texters = dict()
 
-    for p_name, parser in parsers.items():
-        if p_name in TEXTERS:
-            texters[p_name] = parser
+    for name, parser in parsers.items():
+        if isinstance(parser, TextCompare) and parser.can_extract_text:
+            texters[name] = parser
 
     if not texters:
-        st.info("Enable at least one text-extraction parser to use PXC.")
+        st.info("Enable a text extractor or OCR-capable renderer to use PXC.")
     elif len(texters) == 1:
         texter = [txtr for txtr in texters.values()][0]
         st.write(texter.get_name())
