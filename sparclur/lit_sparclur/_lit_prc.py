@@ -1,4 +1,6 @@
 # Streamlit for PRC Viz
+import itertools
+
 import streamlit as st
 
 from sparclur.prc._viz import PRCViz
@@ -25,5 +27,23 @@ def app(parsers, **kwargs):
         fig = viz.plot_sims()
         st.pyplot(fig)
         select_page = st.selectbox('Page', options=list(range(viz.get_observed_pages())))
-        display_fig = viz.display(page=select_page)
-        st.pyplot(display_fig)
+        pair_labels = {
+            f'{left} ↔ {right}': (left, right)
+            for left, right in itertools.combinations(renderers, 2)
+        }
+        selected_labels = st.multiselect(
+            'Renderer pairs',
+            options=list(pair_labels),
+            default=list(pair_labels)[:1],
+            help='Select one pair for a focused comparison, or add pairs to stack them vertically.',
+        )
+        if selected_labels:
+            display_fig = viz.display(
+                page=select_page,
+                renderers=[pair_labels[label] for label in selected_labels],
+                width=12,
+                height=5,
+            )
+            st.pyplot(display_fig)
+        else:
+            st.info('Select at least one renderer pair to display a visual comparison.')
