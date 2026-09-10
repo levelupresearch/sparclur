@@ -57,9 +57,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      # MuPDF's parser adapter uses the mutool command for tracing.  The
-      # report integration test intentionally exercises it alongside PDFium.
-      - run: sudo apt-get update && sudo apt-get install --yes mupdf-tools
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q
