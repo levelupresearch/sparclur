@@ -462,7 +462,10 @@ def fix_splits(message):
 
 def is_pdf(file):
     try:
-        pdf = fitz.open(file)
+        if isinstance(file, (bytes, bytearray, memoryview)):
+            pdf = fitz.open(stream=file, filetype="pdf")
+        else:
+            pdf = fitz.open(file)
         pdf.close()
         _is_pdf = True
     except Exception:
