@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from sparclur.utils import is_pdf
+from sparclur.lit_sparclur._non_parser import NonParser
 
 
 def test_imports_do_not_change_the_working_directory(tmp_path):
@@ -29,3 +30,12 @@ def test_is_pdf_accepts_uploaded_pdf_bytes():
 
     assert is_pdf(example_pdf.read_bytes())
     assert not is_pdf(b"not a PDF")
+
+
+def test_non_parser_can_wrap_uploaded_pdf_bytes():
+    example_pdf = Path(__file__).resolve().parents[1] / "resources" / "hello_world_hand_edit.pdf"
+
+    parser = NonParser(doc=example_pdf.read_bytes())
+
+    assert parser.get_raw().startswith(b"%PDF")
+    assert parser.num_pages == -1
