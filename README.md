@@ -24,12 +24,6 @@ python -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-The Streamlit interface is optional:
-
-```bash
-.venv/bin/python -m pip install -e ".[ui]"
-```
-
 ## Contents
 - [Parsers](#parsers)
   - [Arlington DOM Checker](#arlington-dom-checker)
@@ -181,6 +175,8 @@ trace messages from the parsers. This requires a labeled training set.
 
 ## Streamlit Interface
 
+### PyPI installation
+
 Install the optional UI dependencies and run the packaged command:
 
 ```bash
@@ -191,7 +187,20 @@ sparclur-ui
 The command launches a Streamlit web app for exploring PDFs with the PTC, PRC, PXC, Metadata, and Raw views.
 It also accepts standard Streamlit options, such as `sparclur-ui --server.port 8501`.
 
-When working from a source checkout, `./light_the_sparclur.sh` provides the equivalent launcher.
+### Source checkout
+
+Clone the repository, create and activate a virtual environment, then install the UI extra:
+
+```bash
+git clone https://github.com/levelupresearch/sparclur.git
+cd sparclur
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[ui]"
+./light_the_sparclur.sh
+```
+
+The checkout launcher starts the same Streamlit interface using the activated environment.
 ![](./images/lit_sparclur_ptc_no_warnings.png)
 ![](./images/lit_sparclur_prc_2.png)
 ![](./images/lit_sparclur_ptc_warnings.png)
