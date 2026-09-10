@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sparclur"
-version = "2026.9.9"
+version = "2026.9.10"
 description = "Tools for analyzing PDF files and comparing PDF parsers"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -51,6 +51,13 @@ ui = ["streamlit>=1.40"]
 mupdf = ["PyMuPDF>=1.24"]
 pdfium = ["pypdfium2>=5.0"]
 pdfminer = ["pdfminer.six>=20240706"]
+all = [
+    "weasyprint>=70",
+    "streamlit>=1.40",
+    "PyMuPDF>=1.24",
+    "pypdfium2>=5.0",
+    "pdfminer.six>=20240706",
+]
 dev = [
     "build>=1.2",
     "pytest>=8.3",

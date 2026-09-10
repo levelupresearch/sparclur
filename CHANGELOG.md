@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.9.10
+
+### Added
+
+- A `sparclur[all]` extra that installs the UI, native report PDF support, and
+  every supported Python-backed parser adapter.
+
 ## 2026.9.9
 
 ### Added
