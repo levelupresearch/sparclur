@@ -46,6 +46,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+reports = ["weasyprint>=70"]
 ui = ["streamlit>=1.40"]
 mupdf = ["PyMuPDF>=1.24"]
 pdfium = ["pypdfium2>=5.0"]
@@ -57,6 +58,7 @@ dev = [
     "pip-audit>=2.10",
     "ruff>=0.14",
     "twine>=6.0",
+    "weasyprint>=70",
     "streamlit>=1.40",
     "PyMuPDF>=1.24",
     "pypdfium2>=5.0",
