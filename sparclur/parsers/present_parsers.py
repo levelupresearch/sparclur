@@ -4,7 +4,8 @@ from pathlib import Path
 from inspect import isclass
 
 from sparclur._reforge import Reforger
-from sparclur.parsers import PDFMiner, Ghostscript, MuPDF, Poppler, XPDF, QPDF, Arlington, PDFCPU, PDFium
+from sparclur.parsers import Ghostscript, Poppler, XPDF, QPDF, Arlington, PDFCPU
+from sparclur import parsers as parser_module
 from sparclur._parser import Parser
 from sparclur._tracer import Tracer
 from sparclur._renderer import Renderer
@@ -18,17 +19,18 @@ from sparclur._image_data_extractor import ImageDataExtractor
 from typing import Any
 
 _sparclur_parsers: dict[str, Parser] = {
-        PDFMiner.get_name(): PDFMiner,
-        Ghostscript.get_name(): Ghostscript,
-        MuPDF.get_name(): MuPDF,
-        Poppler.get_name(): Poppler,
-        XPDF.get_name(): XPDF,
-        QPDF.get_name(): QPDF,
-        Arlington.get_name(): Arlington,
-        PDFCPU.get_name(): PDFCPU,
-        PDFium.get_name(): PDFium
-        #PDFBox.get_name(): PDFBox
-    }
+    Ghostscript.get_name(): Ghostscript,
+    Poppler.get_name(): Poppler,
+    XPDF.get_name(): XPDF,
+    QPDF.get_name(): QPDF,
+    Arlington.get_name(): Arlington,
+    PDFCPU.get_name(): PDFCPU,
+}
+
+for parser_name in ("PDFMiner", "MuPDF", "PDFium"):
+    parser = getattr(parser_module, parser_name, None)
+    if parser is not None:
+        _sparclur_parsers[parser.get_name()] = parser
 
 _SOURCE_ROOT = Path(__file__).resolve().parents[2]
 _RESOURCE_PATHS = (

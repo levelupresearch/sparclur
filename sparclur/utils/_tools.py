@@ -1,7 +1,6 @@
 import hashlib
 import os
 
-import pymupdf as fitz
 import re
 import numpy as np
 from skimage.metrics import structural_similarity
@@ -16,6 +15,11 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from sparclur._prc_sim import PRCSim
+
+try:
+    import pymupdf as fitz
+except ModuleNotFoundError:
+    fitz = None
 
 
 
@@ -322,7 +326,8 @@ def pil_to_hex_array(pil):
 
 
 def create_file_list(files, recurse=False, base_path=None, extension=None):
-    fitz.TOOLS.mupdf_display_errors(False)
+    if fitz is not None:
+        fitz.TOOLS.mupdf_display_errors(False)
     try:
         if os.path.isfile(files):
             with open(files) as fp:
@@ -431,9 +436,8 @@ def scrape_pdfs(base_dir, extension=None):
                     pdfs.append(sub_path)
             else:
                 try:
-                    pdf = fitz.open(sub_path)
-                    pdf.close()
-                    pdfs.append(sub_path)
+                    if is_pdf(sub_path):
+                        pdfs.append(sub_path)
                 except Exception:
                     pass
         elif os.path.isdir(sub_path):
@@ -443,6 +447,8 @@ def scrape_pdfs(base_dir, extension=None):
 
 
 def get_num_pages(doc_path, verbose=False):
+    if fitz is None:
+        return 0
     try:
         pdf = fitz.open(doc_path)
         num_pages: int = len(pdf)
@@ -461,6 +467,14 @@ def fix_splits(message):
 
 
 def is_pdf(file):
+    if fitz is None:
+        try:
+            if isinstance(file, (bytes, bytearray, memoryview)):
+                return bytes(file).startswith(b"%PDF-")
+            with open(file, "rb") as pdf:
+                return pdf.read(5) == b"%PDF-"
+        except (OSError, TypeError):
+            return False
     try:
         if isinstance(file, (bytes, bytearray, memoryview)):
             pdf = fitz.open(stream=file, filetype="pdf")
