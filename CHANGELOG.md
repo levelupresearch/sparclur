@@ -10,6 +10,8 @@
   `sparclur-ui` console command.
 - A layered, user-editable YAML configuration API.
 - Optional extras for PyMuPDF, PDFium, PDFMiner, and the Streamlit interface.
+- Native HTML report generation with evidence bundles, batch triage, and a
+  Pweave-compatible `SparclurReport` facade.
 
 ### Changed
 
@@ -23,5 +25,5 @@
 
 - Repaired configuration, resource, uploaded-document, comparison-option, and
   parser-capability handling.
-- Removed the unsupported Pweave report-generation integration. Reintroducing
-  report generation with a maintained replacement remains a future task.
+- Replaced the unsupported Pweave/IPython report execution flow with a native,
+  structured report exporter.

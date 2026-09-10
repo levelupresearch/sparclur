@@ -59,6 +59,7 @@ python -m venv .venv
   - [Highlight](#highlight)
   - [Floodlight](#floodlight)
   - [Astrotruther](#astrotruther)
+- [Report generation](#report-generation)
 - [Streamlit Interface](#streamlit-interface)
 - [Acknowledgements](#acknowledgements)
 
@@ -203,6 +204,30 @@ record of their parser-level results.
 ### Astrotruther
 Trains models to classify PDF validity from normalized parser traces. It
 requires a labeled training set.
+
+## Report generation
+
+Native report generation creates a readable HTML dossier together with an
+evidence bundle containing CSV and JSON tables, image evidence, and a manifest
+of the source document and analysis options. It does not require Pweave or an
+IPython kernel.
+
+```python
+from sparclur import DocumentReport
+
+report = DocumentReport(
+    "sample.pdf",
+    parsers=["Ghostscript", "MuPDF", "Poppler", "PDFium"],
+)
+report.write_bundle("out/sample-report")
+```
+
+The dossier includes parser validity, normalized traces (PTC), text-comparison
+data (PXC), renderer-comparison data and figures (PRC), and an extracted
+predecessor when incremental updates are present. Use `BatchReport` to produce
+a triage index with one evidence dossier per PDF. `SparclurReport` remains as a
+compatibility facade; its `generate_report()` method now creates the native
+HTML bundle.
 
 ## Streamlit Interface
 
