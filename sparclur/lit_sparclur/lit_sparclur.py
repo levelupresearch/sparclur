@@ -16,7 +16,7 @@ import streamlit as st
 
 PARSERS = {parser.get_name(): parser for parser in get_sparclur_parsers()}
 
-TEXTERS = [texter.get_name() for texter in get_sparclur_texters(no_ocr=True)]
+TEXTERS = [texter.get_name() for texter in get_sparclur_texters()]
 
 RENDERERS = [r.get_name() for r in get_sparclur_renderers()]
 
