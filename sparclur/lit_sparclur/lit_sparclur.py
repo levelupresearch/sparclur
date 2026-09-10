@@ -1,12 +1,10 @@
-import os
-
 from sparclur.parsers import MuPDF, PDFMiner
 from sparclur.lit_sparclur import _lit_prc, _lit_pxc
 from sparclur.lit_sparclur import _lit_meta
 from sparclur.lit_sparclur import _lit_ptc, _lit_raw
 from sparclur.lit_sparclur._non_parser import NonParser
 from sparclur.lit_sparclur._lit_helper import parse_init
-from sparclur.utils._tools import create_file_list, is_pdf
+from sparclur.utils._tools import is_pdf
 
 from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_renderers, \
@@ -15,7 +13,6 @@ from sparclur.parsers.present_parsers import get_sparclur_texters, \
     get_sparclur_metadata
 
 import streamlit as st
-from func_timeout import func_timeout
 
 PARSERS = {parser.get_name(): parser for parser in get_sparclur_parsers()}
 
@@ -27,12 +24,9 @@ TRACERS = [tracer.get_name() for tracer in get_sparclur_tracers()]
 
 METAS = [metas.get_name() for metas in get_sparclur_metadata()]
 
-st.set_option('deprecation.showPyplotGlobalUse', False)
-
 st.title('Lit Sparclur')
 
 PAGES = {
-    # "Select Parsers": "select",
     "PTC": _lit_ptc,
     "PRC": _lit_prc,
     "PXC": _lit_pxc,
@@ -40,17 +34,17 @@ PAGES = {
     "Raw": _lit_raw
 }
 
-# def get_file_list(dir, recurse, base):
-#     return create_file_list(files=dir, recurse=recurse, base_path=base)
-
-
 st.sidebar.title("Navigation")
 selection = st.sidebar.radio("Go to", list(PAGES.keys()), key='c')
 page = PAGES[selection]
 
-st.sidebar.write("File Selection")
-base_dir_input = st.sidebar.text_input('path', '.', key='d')
-recurse = st.sidebar.checkbox('Recurse into base directory', key='f')
+uploaded_file = st.sidebar.file_uploader("Choose a PDF", type=["pdf"])
+if uploaded_file is None:
+    st.info("Choose a PDF from the sidebar to begin.")
+    st.stop()
+
+document = uploaded_file.getvalue()
+st.sidebar.caption(f"{uploaded_file.name} · {len(document):,} bytes")
 
 
 @st.cache_resource
@@ -80,33 +74,8 @@ def parse_document(selected_parser_kwargs):
     return p
 
 
-if os.path.isfile(base_dir_input):
-    filepath = base_dir_input
-else:
-    try:
-        file_list = func_timeout(
-            45,
-            create_file_list,
-            kwargs={
-                'files': base_dir_input,
-                'recurse': recurse
-            })
-
-        num_files = len(file_list)
-
-    except Exception:
-        file_list = []
-        num_files = 0
-    if len(file_list) > 50 or len(file_list) == 0:
-        filename = st.sidebar.text_input('File', '', key='a')
-        filepath = os.path.join(base_dir_input, filename)
-    else:
-        file_dict = {file.split('/')[-1]: file for file in file_list}
-        filepath = st.sidebar.selectbox('Select a file', list(file_dict.keys()), key='b')
-        filepath = file_dict[filepath]
-
 parser_kwargs = dict()
-parser_kwargs[NonParser.get_name()] = {'doc': filepath}
+parser_kwargs[NonParser.get_name()] = {'doc': document}
 st.sidebar.markdown('___')
 ocr = st.sidebar.checkbox('OCR', value=False, key='ocr')
 #render_cache = st.sidebar.checkbox('Cache Renders', value=False, key='render_cache')
@@ -122,7 +91,6 @@ for p_name, parser in PARSERS.items():
         for key, values in params.items():
             default = values['default']
             param_type = values['param_type']
-            print(key, default, param_type)
             if key == 'cache_renders':
                 val = True
             elif key == 'temp_folders_dir':
@@ -154,8 +122,7 @@ for p_name, parser in PARSERS.items():
                 if val == "\\x0c":
                     val = "\x0c"
             kwargs[key] = val
-            kwargs['doc'] = filepath
-        print(p_name, kwargs)
+            kwargs['doc'] = document
         if p_name == MuPDF.get_name():
             ps_kwargs = {key: value for (key, value) in kwargs.items()}
             ps_kwargs['parse_streams'] = True
@@ -172,16 +139,8 @@ for p_name, parser in PARSERS.items():
             parser_kwargs[p_name] = kwargs
     st.sidebar.markdown('___')
 
-if not is_pdf(filepath):
-    st.write("Please select a PDF")
+if not is_pdf(document):
+    st.error("The selected file is not a readable PDF.")
 else:
     parsers = parse_document(parser_kwargs)
     page.app(parsers, ocr = False)
-    # if isinstance(page, str):
-    #     st.subheader("Select Parsers")
-    #     parsers = parser_select(filepath)
-    # else:
-    #     if parsers is None:
-    #         st.write("Please select parsers")
-    #     else:
-    #         page.app(parsers)
