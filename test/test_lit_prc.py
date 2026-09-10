@@ -17,8 +17,10 @@ def test_prc_page_passes_uploaded_filename_to_current_viz_api(monkeypatch):
         def get_observed_pages(self):
             return 1
 
-        def display(self, page):
+        def display(self, page, renderers, width, height):
             captured["page"] = page
+            captured["selected_renderers"] = renderers
+            captured["figure_size"] = (width, height)
             return "comparison figure"
 
     monkeypatch.setattr(_lit_prc, "RENDERERS", ["First", "Second"])
@@ -26,6 +28,7 @@ def test_prc_page_passes_uploaded_filename_to_current_viz_api(monkeypatch):
     monkeypatch.setattr(_lit_prc.st, "subheader", lambda value: None)
     monkeypatch.setattr(_lit_prc.st, "pyplot", lambda figure: None)
     monkeypatch.setattr(_lit_prc.st, "selectbox", lambda label, options: 0)
+    monkeypatch.setattr(_lit_prc.st, "multiselect", lambda label, options, default, help: default)
 
     first = object()
     second = object()
@@ -38,4 +41,6 @@ def test_prc_page_passes_uploaded_filename_to_current_viz_api(monkeypatch):
         "doc_path": "uploaded-example.pdf",
         "renderers": [first, second],
         "page": 0,
+        "selected_renderers": [("First", "Second")],
+        "figure_size": (12, 5),
     }
