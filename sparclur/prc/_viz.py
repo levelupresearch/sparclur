@@ -4,7 +4,6 @@ import itertools
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import to_rgb
-import warnings
 import numpy as np
 import os
 from sparclur.prc._prc import _parse_viz_renderers
@@ -99,9 +98,6 @@ class PRCViz:
             if isinstance(cmap, list) and len(cmap) >= len(self._sim_keys):
                 colors = [to_rgb(color) for color in cmap]
             else:
-                if len(cmap) < len(self._sim_keys):
-                    warnings.warn("Not enough colors specified. Defaulting to tab10 cmap", stacklevel=2)
-                    cmap = 'tab10'
                 scalar_mappable = ScalarMappable(cmap=cmap)
                 colors = scalar_mappable.to_rgba(range(len(self._sim_keys)), alpha=1.0).tolist()
 
