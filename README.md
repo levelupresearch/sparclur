@@ -267,9 +267,10 @@ python -m pip install -e ".[ui]"
 ```
 
 The checkout launcher starts the same Streamlit interface using the activated environment.
-![](./images/lit_sparclur_ptc_no_warnings.png)
-![](./images/lit_sparclur_prc_2.png)
-![](./images/lit_sparclur_ptc_warnings.png)
+The app opens with a standard PDF upload control; after selecting a document, use
+the sidebar to choose PTC, PRC, PXC, Metadata, or Raw output.
+
+![Lit Sparclur upload screen](./images/lit_sparclur_upload.png)
 
 # Acknowledgements
 
