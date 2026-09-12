@@ -1,5 +1,8 @@
 import hashlib
 import os
+import site
+import sys
+from pathlib import Path
 
 import re
 import numpy as np
@@ -35,6 +38,29 @@ class InputError(Exception):
 
 
 _COMPARISON_SUCCESSFUL_MESSAGE = 'Successfully Compared'
+
+
+def get_resource_path(name: str) -> str:
+    """Return the path to a bundled SPARCLUR resource.
+
+    This works from a source checkout, a virtual-environment installation, and
+    a user-site installation, which makes it suitable for tutorials and
+    notebooks as well as library callers.
+    """
+    resource_name = Path(name)
+    if resource_name.name != name:
+        raise ValueError("Resource names must not include a directory path")
+
+    source_root = Path(__file__).resolve().parents[2]
+    candidates = (
+        source_root / "resources" / resource_name,
+        Path(sys.prefix) / "etc" / "sparclur" / "resources" / resource_name,
+        Path(site.USER_BASE) / "etc" / "sparclur" / "resources" / resource_name,
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    raise FileNotFoundError(f"Bundled SPARCLUR resource not found: {name}")
 
 
 def display_raw(file):

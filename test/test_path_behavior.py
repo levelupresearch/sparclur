@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from sparclur.utils import is_pdf
+from sparclur.utils import get_resource_path, is_pdf
 from sparclur.utils import _tools
 from sparclur.lit_sparclur._non_parser import NonParser
 
@@ -31,6 +31,13 @@ def test_is_pdf_accepts_uploaded_pdf_bytes():
 
     assert is_pdf(example_pdf.read_bytes())
     assert not is_pdf(b"not a PDF")
+
+
+def test_get_resource_path_finds_bundled_fixture():
+    resource = Path(get_resource_path("hello_world_hand_edit.pdf"))
+
+    assert resource.is_file()
+    assert resource.name == "hello_world_hand_edit.pdf"
 
 
 def test_is_pdf_has_a_header_check_without_pymupdf(monkeypatch):
