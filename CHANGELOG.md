@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.9.11
+
+### Changed
+
+- Refreshed the README Streamlit screenshot for the upload-first interface.
+- Updated every example notebook to locate bundled PDF fixtures from both a
+  source checkout and an installed package.
+
+### Added
+
+- A public `get_resource_path()` helper for resolving bundled SPARCLUR
+  resources.
+
 ## 2026.9.10
 
 ### Added
