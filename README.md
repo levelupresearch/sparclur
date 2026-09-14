@@ -54,6 +54,7 @@ python -m venv .venv
   - [Parser Trace Comparator](#parser-trace-comparator-ptc)
   - [PDF Renderer Comparator](#pdf-renderer-comparator-prc)
   - [PDF Text Comparator](#pdf-text-comparator-pxc)
+  - [Parser-output hashes](#parser-output-hashes)
   - [Spotlight](#spotlight)
   - [Roll Back](#roll-back)
   - [Detect Chaos](#detect-chaos)
@@ -226,11 +227,27 @@ algorithms or a changed instance of the same parser adapter. Different parser
 adapters remain comparable, since cross-parser analysis is a core SPARCLUR use
 case.
 
+The same workflow is available from the command line:
+
+```bash
+sparclur-hash create approved.pdf --parser MuPDF --output baseline.json
+sparclur-hash compare candidate.pdf baseline.json --parser MuPDF \
+  --minimum-similarity 0.98 --component-minimum Renderer=0.99 \
+  --compatibility strict
+sparclur-hash inspect baseline.json
+```
+
+`compare` prints a concise evidence summary and exits with status 1 when a
+threshold or strict compatibility check fails. Add `--output comparison.json`
+to save the complete machine-readable comparison result.
+
 ### Spotlight
 Runs selected available capabilities for each parser and creates document
 reforges. It records validity classifications and similarities across the
 original and reforged versions, with tabular, heatmap, and interactive sunburst
-reports.
+reports. Set `hash_compatibility` when constructing `Spotlight` to control
+provenance handling, then call `result.hash_comparison_report()` for a table of
+similarity, component status, and provenance warnings.
 
 ### Roll Back
 Detects incremental updates and exposes or saves any specific version. It also
@@ -297,7 +314,7 @@ For a smaller install, use the UI extra alone or combine it with specific parser
 extras, for example `pip install "sparclur[ui,mupdf,pdfium]"`.
 
 The command launches a Streamlit web app for exploring uploaded PDFs with the
-PTC, PRC, PXC, Metadata, and Raw views. It accepts standard Streamlit options,
+PTC, PRC, PXC, Hash Baseline, Metadata, and Raw views. It accepts standard Streamlit options,
 such as `sparclur-ui --server.port 8501`. In PRC, choose renderer pairs and
 press **Refresh comparison** when ready; pair-selection changes do not rerun
 the comparison immediately.
@@ -317,7 +334,7 @@ python -m pip install -e ".[ui]"
 
 The checkout launcher starts the same Streamlit interface using the activated environment.
 The app opens with a standard PDF upload control; after selecting a document, use
-the sidebar to choose PTC, PRC, PXC, Metadata, or Raw output.
+the sidebar to choose PTC, PRC, PXC, Hash Baseline, Metadata, or Raw output.
 
 ![Lit Sparclur upload screen](./images/lit_sparclur_upload.png)
 

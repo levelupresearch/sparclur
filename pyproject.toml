@@ -77,6 +77,7 @@ docs = [
 ]
 
 [project.scripts]
+sparclur-hash = "sparclur._hash_cli:main"
 sparclur-ui = "sparclur.lit_sparclur._cli:main"
 
 [project.urls]
