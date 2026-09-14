@@ -122,3 +122,35 @@ def test_comparison_result_reports_threshold_failures():
     assert comparison.passes(minimum_similarity=0.5)
     assert not comparison.passes(component_minimums={FONT: 1.0})
     assert FONT in comparison.failures(component_minimums={FONT: 1.0})
+
+
+def test_provenance_mismatch_warns_or_strictly_blocks_baseline_comparison():
+    left = SparclurHash(b"left")
+    right = SparclurHash(b"right")
+    left._set_provenance(hash_algorithm={"version": 1})
+    right._set_provenance(hash_algorithm={"version": 2})
+    left._add_hash(META, {"object": 1})
+    right._add_hash(META, {"object": 1})
+
+    warning = left.compare(right)
+    strict = left.compare(right, compatibility="strict")
+
+    assert warning["comparable"]
+    assert not warning["provenance_match"]
+    assert warning["warnings"] == ["Hash algorithm provenance differs."]
+    assert not strict["comparable"]
+
+
+def test_different_parser_adapters_are_context_but_not_strictly_incompatible():
+    left = SparclurHash(b"left")
+    right = SparclurHash(b"right")
+    left._set_provenance(parser={"name": "MuPDF", "class": "parser.MuPDF"})
+    right._set_provenance(parser={"name": "Poppler", "class": "parser.Poppler"})
+    left._add_hash(META, {"object": 1})
+    right._add_hash(META, {"object": 1})
+
+    comparison = left.compare(right, compatibility="strict")
+
+    assert comparison["comparable"]
+    assert not comparison["provenance_match"]
+    assert comparison["warnings"] == []

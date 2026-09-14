@@ -219,6 +219,13 @@ comparison = parser.sparclur_hash.compare(baseline)
 print(comparison.failures(minimum_similarity=0.98))
 ```
 
+Evidence records the parser adapter and the versioned hash algorithms. By
+default, a provenance mismatch remains comparable but appears in
+`comparison["warnings"]`. Use `compatibility="strict"` to reject changed hash
+algorithms or a changed instance of the same parser adapter. Different parser
+adapters remain comparable, since cross-parser analysis is a core SPARCLUR use
+case.
+
 ### Spotlight
 Runs selected available capabilities for each parser and creates document
 reforges. It records validity classifications and similarities across the

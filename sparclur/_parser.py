@@ -30,6 +30,19 @@ HASH_FAILED = 'failed'
 HASH_EXCLUDED = 'excluded'
 HASH_NOT_COLLECTED = 'not collected'
 HASH_SCHEMA_VERSION = 1
+HASH_ALGORITHM_VERSION = 1
+HASH_PROVENANCE = {
+    'algorithm_version': HASH_ALGORITHM_VERSION,
+    'renderer': {'algorithm': 'dhash', 'hash_size': 128},
+    'text': {
+        'algorithm': 'murmurhash128 bottom-k shingles',
+        'shingle_size': 4,
+        'sketch_size': 200,
+    },
+    'tracer': {'algorithm': 'murmurhash128 normalized-message set'},
+    'metadata': {'algorithm': 'murmurhash128 canonicalized objects'},
+    'font': {'algorithm': 'murmurhash128 canonicalized fonts'},
+}
 
 
 @dataclass(frozen=True)
@@ -191,6 +204,7 @@ class SparclurHash:
             for component in self._exclude
         }
         self._component_settings = dict()
+        self._provenance = {'hash_algorithm': HASH_PROVENANCE}
 
     def __len__(self):
         return len(self._hash)
@@ -229,6 +243,7 @@ class SparclurHash:
                 component: dict(settings)
                 for component, settings in self._component_settings.items()
             },
+            'provenance': self._serialize_setting(self._provenance),
         }
 
     @property
@@ -244,6 +259,9 @@ class SparclurHash:
 
     def _set_component_settings(self, component: str, **settings) -> None:
         self._component_settings[component] = settings
+
+    def _set_provenance(self, **provenance) -> None:
+        self._provenance.update(provenance)
 
     def _add_hash(self, key, value, status: str = HASH_OK, detail: str | None = None):
         if status not in {HASH_OK, HASH_UNAVAILABLE, HASH_FAILED, HASH_EXCLUDED}:
@@ -364,7 +382,39 @@ class SparclurHash:
         instance._component_settings = cls._deserialize_setting(
             metadata.get('component_settings', {})
         )
+        instance._provenance = cls._deserialize_setting(
+            metadata.get('provenance', {'hash_algorithm': HASH_PROVENANCE})
+        )
         return instance
+
+    def _provenance_issues(self, that: SparclurHash) -> list[str]:
+        """Return provenance differences that can affect baseline meaning."""
+        issues = list()
+        if self._provenance.get('hash_algorithm') != that._provenance.get('hash_algorithm'):
+            issues.append('Hash algorithm provenance differs.')
+
+        left_parser = self._provenance.get('parser')
+        right_parser = that._provenance.get('parser')
+        if left_parser and right_parser:
+            if left_parser.get('name') != right_parser.get('name'):
+                issues.append(
+                    f"Different parser adapters: {left_parser['name']} and {right_parser['name']}."
+                )
+            elif left_parser != right_parser:
+                issues.append('Parser adapter provenance differs.')
+        return issues
+
+    def _has_strict_provenance_mismatch(self, that: SparclurHash) -> bool:
+        """Return whether algorithm or same-adapter provenance changed."""
+        if self._provenance.get('hash_algorithm') != that._provenance.get('hash_algorithm'):
+            return True
+        left_parser = self._provenance.get('parser')
+        right_parser = that._provenance.get('parser')
+        return bool(
+            left_parser and right_parser
+            and left_parser.get('name') == right_parser.get('name')
+            and left_parser != right_parser
+        )
 
     def is_comparable_with(self, that: SparclurHash | Parser) -> bool:
         """Return whether both hashes share at least one compatible component."""
@@ -391,7 +441,8 @@ class SparclurHash:
         return comparison['comparable'] and comparison['sim'] == 1.0
 
     def compare(this, that: SparclurHash | Parser,
-                policy: HashComparisonPolicy | None = None):
+                policy: HashComparisonPolicy | None = None,
+                compatibility: str = 'warn'):
         """
         Compares all of the present information hashes and collects all of the results.
 
@@ -409,6 +460,12 @@ class SparclurHash:
             policy = HashComparisonPolicy()
         if not isinstance(policy, HashComparisonPolicy):
             raise TypeError('policy must be a HashComparisonPolicy instance')
+        if compatibility not in {'warn', 'strict', 'ignore'}:
+            raise ValueError("compatibility must be 'warn', 'strict', or 'ignore'")
+        provenance_issues = this._provenance_issues(that)
+        strict_provenance_failure = (
+            compatibility == 'strict' and this._has_strict_provenance_mismatch(that)
+        )
         results = HashComparisonResult()
         component_results = dict()
         weighted_sim = 0.0
@@ -422,7 +479,8 @@ class SparclurHash:
                 'right': right_outcome,
                 'settings_match': settings_match,
             }
-            if left_outcome['status'] != HASH_OK or right_outcome['status'] != HASH_OK or not settings_match:
+            if (strict_provenance_failure or left_outcome['status'] != HASH_OK
+                    or right_outcome['status'] != HASH_OK or not settings_match):
                 continue
             component_sim = None
             if key == RENDER:
@@ -463,6 +521,9 @@ class SparclurHash:
         dist = 1 - overall_sim if overall_sim is not None else None
         results['components'] = component_results
         results['policy'] = policy.as_dict()
+        results['compatibility'] = compatibility
+        results['provenance_match'] = not provenance_issues
+        results['warnings'] = provenance_issues if compatibility == 'warn' else []
         results['comparable'] = total_weight > 0
         results['sim'] = overall_sim
         results['dist'] = dist
@@ -507,8 +568,19 @@ class Parser(metaclass=Meta):
         self._validity: dict[str, dict[str, Any]] = dict()
         self._api: dict[str, str] = {'num_pages': '(Property) Returns number of pages in the document'}
         self._num_pages = None
-        self._sparclur_hash = SparclurHash(doc, hash_exclude)
+        self._sparclur_hash = self._new_sparclur_hash()
         self._file_timed_out = dict()
+
+    def _new_sparclur_hash(self) -> SparclurHash:
+        """Create a hash with the parser identity needed for baseline review."""
+        sparclur_hash = SparclurHash(self._doc, self._hash_exclude)
+        sparclur_hash._set_provenance(
+            parser={
+                'name': self.get_name(),
+                'class': f'{type(self).__module__}.{type(self).__qualname__}',
+            },
+        )
+        return sparclur_hash
 
     def __repr__(self):
         return '\n'.join('%s:\t%s' % (method, desc) for (method, desc) in self._api.items())
@@ -607,13 +679,13 @@ class Parser(metaclass=Meta):
 
     @timeout.setter
     def timeout(self, to: int):
-        self._sparclur_hash = SparclurHash(self._doc, self._hash_exclude)
+        self._sparclur_hash = self._new_sparclur_hash()
         self._timeout = to
         self._file_timed_out = dict()
 
     @timeout.deleter
     def timeout(self):
-        self._sparclur_hash = SparclurHash(self._doc, self._hash_exclude)
+        self._sparclur_hash = self._new_sparclur_hash()
         self._timeout = None
         self._file_timed_out = dict()
 
