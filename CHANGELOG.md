@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.9.14
+
+### Added
+
+- Versioned, serializable `SparclurHash` evidence bundles with explicit
+  comparison policy and provenance compatibility controls.
+- `sparclur-hash` commands for creating, inspecting, and comparing baseline
+  evidence files.
+- A Hash Baseline page in the Streamlit UI and tabular hash comparisons in
+  Spotlight.
+
+### Changed
+
+- Updated the packaged Streamlit launcher for current Streamlit command-line
+  behavior.
+
 ## 2026.9.11
 
 ### Changed
