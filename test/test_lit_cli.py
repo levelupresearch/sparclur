@@ -8,11 +8,12 @@ from sparclur.lit_sparclur import _cli
 def test_ui_command_runs_packaged_app_and_forwards_arguments(monkeypatch):
     received = []
 
-    def fake_streamlit_main():
-        received.extend(sys.argv)
-        return 0
+    class FakeStreamlitMain:
+        def main(self, *, args, prog_name):
+            received.extend([prog_name, *args])
+            return 0
 
-    monkeypatch.setattr(_cli, "_streamlit_main", lambda: fake_streamlit_main)
+    monkeypatch.setattr(_cli, "_streamlit_main", FakeStreamlitMain)
     monkeypatch.setattr(sys, "argv", ["sparclur-ui", "--server.port", "8501"])
 
     assert _cli.main() == 0
