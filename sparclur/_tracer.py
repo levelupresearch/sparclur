@@ -3,7 +3,7 @@ import abc
 import mmh3
 
 from sparclur._metaclass import Meta
-from sparclur._parser import Parser, TRACER
+from sparclur._parser import HASH_FAILED, HASH_UNAVAILABLE, Parser, TRACER
 from typing import Any
 
 
@@ -53,9 +53,22 @@ class Tracer(Parser, metaclass=Meta):
     @property
     def sparclur_hash(self):
         if TRACER not in self._sparclur_hash and TRACER not in self._sparclur_hash.excluded:
-            cleaned_messages = self.cleaned
-            hashes = set(mmh3.hash128(message) for message in cleaned_messages.keys())
-            self._sparclur_hash._add_hash(TRACER, hashes)
+            if not self._skip_check and not self.can_trace:
+                self._sparclur_hash._add_hash(
+                    TRACER, set(), status=HASH_UNAVAILABLE,
+                    detail='Trace collection is not available for this parser.',
+                )
+                return super().sparclur_hash
+            try:
+                cleaned_messages = self.cleaned
+                hashes = set(mmh3.hash128(message) for message in cleaned_messages.keys())
+            except Exception as error:
+                self._sparclur_hash._add_hash(
+                    TRACER, set(), status=HASH_FAILED,
+                    detail=f'{type(error).__name__}: {error}',
+                )
+            else:
+                self._sparclur_hash._add_hash(TRACER, hashes)
         return super().sparclur_hash
 
     @property

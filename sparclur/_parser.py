@@ -1,5 +1,6 @@
 from __future__ import annotations
 import abc
+from dataclasses import dataclass, field
 from typing import Any
 
 from imagehash import ImageHash
@@ -21,6 +22,48 @@ FONT = 'Font Extractor'
 IMAGE = 'Image Data'
 
 SPARCLUR_TYPES = [RENDER, TRACER, TEXT, META, FONT, IMAGE]
+
+HASH_OK = 'ok'
+HASH_UNAVAILABLE = 'unavailable'
+HASH_FAILED = 'failed'
+HASH_EXCLUDED = 'excluded'
+HASH_NOT_COLLECTED = 'not collected'
+HASH_SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class HashComparisonPolicy:
+    """Controls how compatible SPARCLUR hash components are aggregated.
+
+    By default every successful component receives equal weight and page-level
+    renderer/text scores use their worst page.  This preserves the historic
+    SPARCLUR comparison behavior for successfully collected components.
+    """
+
+    weights: dict[str, float] = field(default_factory=dict)
+    page_aggregation: str = 'min'
+
+    def __post_init__(self):
+        if self.page_aggregation not in {'min', 'mean'}:
+            raise ValueError("page_aggregation must be 'min' or 'mean'")
+        if any(weight < 0 for weight in self.weights.values()):
+            raise ValueError('Hash comparison weights must be non-negative')
+
+    def weight_for(self, component: str) -> float:
+        return self.weights.get(component, 1.0)
+
+    def aggregate_pages(self, scores: dict[int, float]) -> float:
+        if not scores:
+            return 1.0
+        if self.page_aggregation == 'mean':
+            return sum(scores.values()) / len(scores)
+        return min(scores.values())
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            'weights': dict(self.weights),
+            'page_aggregation': self.page_aggregation,
+        }
 
 RENDER_HASH_SIZE = 128
 
@@ -74,10 +117,10 @@ class SparclurHash:
     """
     The SPARCLUR hash attempts to distill the information from the different parser tools: image hashes for the
     renders and sets of shingled murmur hashes for the text extraction, metadata, trace messages, and fonts. These
-    are collected and then can be used to compare two documents and a distance measure is calculated. This is most
-    relevant in 2 specific cases: the first is trying to find evidence of non-determinism in a parser and the
-    second is to quickly compare differences between parser translations of a document (See the Reforge class of
-    tools).
+    are collected and then can be used to compare two documents. Components that cannot be collected are reported
+    explicitly and do not contribute to similarity. This is most relevant in 2 specific cases: the first is trying
+    to find evidence of non-determinism in a parser and the second is to quickly compare differences between parser
+    translations of a document (See the Reforge class of tools).
     """
     def __init__(self, doc: str,
                  exclude: str or list[str] = None):
@@ -100,6 +143,11 @@ class SparclurHash:
 
         self._doc_hash = hash_file(doc)
         self._hash = dict()
+        self._component_outcomes = {
+            component: {'status': HASH_EXCLUDED}
+            for component in self._exclude
+        }
+        self._component_settings = dict()
 
     def __len__(self):
         return len(self._hash)
@@ -127,10 +175,56 @@ class SparclurHash:
     def file_hash(self):
         return self._doc_hash
 
-    def _add_hash(self, key, value):
-        self._hash[key] = value
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return provenance needed to interpret this parser-output hash."""
+        return {
+            'schema_version': HASH_SCHEMA_VERSION,
+            'source_sha256': self.file_hash,
+            'excluded_components': list(self.excluded),
+            'component_settings': {
+                component: dict(settings)
+                for component, settings in self._component_settings.items()
+            },
+        }
 
-    def equals(this, that: SparclurHash or Parser):
+    @property
+    def component_outcomes(self) -> dict[str, dict[str, str]]:
+        """Return each collected component's outcome without exposing internals."""
+        return {
+            component: dict(outcome)
+            for component, outcome in self._component_outcomes.items()
+        }
+
+    def _component_outcome(self, component: str) -> dict[str, str]:
+        return self._component_outcomes.get(component, {'status': HASH_NOT_COLLECTED})
+
+    def _set_component_settings(self, component: str, **settings) -> None:
+        self._component_settings[component] = settings
+
+    def _add_hash(self, key, value, status: str = HASH_OK, detail: str | None = None):
+        if status not in {HASH_OK, HASH_UNAVAILABLE, HASH_FAILED, HASH_EXCLUDED}:
+            raise ValueError(f'Unknown SPARCLUR hash component status: {status}')
+        self._hash[key] = value
+        outcome = {'status': status}
+        if detail is not None:
+            outcome['detail'] = detail
+        self._component_outcomes[key] = outcome
+
+    def is_comparable_with(self, that: SparclurHash | Parser) -> bool:
+        """Return whether both hashes share at least one compatible component."""
+        if isinstance(that, Parser):
+            that = that.sparclur_hash
+        for component in set().union(self.keyset(), that.keyset()):
+            left = self._component_outcome(component)
+            right = that._component_outcome(component)
+            settings_match = self._component_settings.get(component) == that._component_settings.get(component)
+            if left['status'] == HASH_OK and right['status'] == HASH_OK and settings_match:
+                return True
+        return False
+
+    def equals(this, that: SparclurHash | Parser,
+               policy: HashComparisonPolicy | None = None):
         """
         Checks for parsed document information equality.
 
@@ -138,58 +232,83 @@ class SparclurHash:
         -------
         bool
         """
-        comparison = this.compare(that)
-        return comparison['sim'] == 1.0
+        comparison = this.compare(that, policy=policy)
+        return comparison['comparable'] and comparison['sim'] == 1.0
 
-    def compare(this, that: SparclurHash or Parser):
+    def compare(this, that: SparclurHash | Parser,
+                policy: HashComparisonPolicy | None = None):
         """
         Compares all of the present information hashes and collects all of the results.
 
         Returns
         -------
         Dict[str, Any]
+            Per-component scores and outcomes, the policy used, whether any
+            compatible component was compared, and the resulting similarity
+            and distance. Similarity and distance are ``None`` when no
+            successful compatible components are available.
         """
         if isinstance(that, Parser):
             that = that.sparclur_hash
+        if policy is None:
+            policy = HashComparisonPolicy()
+        if not isinstance(policy, HashComparisonPolicy):
+            raise TypeError('policy must be a HashComparisonPolicy instance')
         results = dict()
-        sim = 0.0
-        num_compares = 0
+        component_results = dict()
+        weighted_sim = 0.0
+        total_weight = 0.0
         for key in set().union(this.keyset()).union(that.keyset()):
+            left_outcome = this._component_outcome(key)
+            right_outcome = that._component_outcome(key)
+            settings_match = this._component_settings.get(key) == that._component_settings.get(key)
+            component_results[key] = {
+                'left': left_outcome,
+                'right': right_outcome,
+                'settings_match': settings_match,
+            }
+            if left_outcome['status'] != HASH_OK or right_outcome['status'] != HASH_OK or not settings_match:
+                continue
+            component_sim = None
             if key == RENDER:
                 render_compare = _compare_render_hash(this.get(RENDER, dict()), that.get(RENDER, dict()))
-                render_sim = min(render_compare.values()) if render_compare else 1.0
-                sim = sim + render_sim
-                num_compares = num_compares + 1
+                render_sim = policy.aggregate_pages(render_compare)
+                component_sim = render_sim
                 results[RENDER] = render_compare
                 results[RENDER+' sim'] = render_sim
-            if key == TRACER:
+            elif key == TRACER:
                 trace_compare = _compare_tracer_hash(this.get(TRACER, set()), that.get(TRACER, set()))
-                sim = sim + trace_compare
-                num_compares = num_compares + 1
+                component_sim = trace_compare
                 results[TRACER+' sim'] = trace_compare
-            if key == TEXT:
+            elif key == TEXT:
                 text_compare = _compare_text_hash(this.get(TEXT, dict()), that.get(TEXT, dict()))
-                text_sim = min(text_compare.values()) if text_compare else 1.0
-                sim = sim + text_sim
-                num_compares = num_compares + 1
+                text_sim = policy.aggregate_pages(text_compare)
+                component_sim = text_sim
                 results[TEXT] = text_compare
                 results[TEXT+' sim'] = text_sim
-            if key == META:
+            elif key == META:
                 meta_compare = _compare_metadata_hash(this.get(META, dict()), that.get(META, dict()))
                 meta_sim = sum(meta_compare.values()) / len(meta_compare) if meta_compare else 1.0
-                sim = sim + meta_sim
-                num_compares = num_compares + 1
+                component_sim = meta_sim
                 results[META] = meta_compare
                 results[META+' sim'] = meta_sim
-            if key == FONT:
+            elif key == FONT:
                 font_compare = _compare_font_hash(this.get(FONT, dict()), that.get(FONT, dict()))
                 font_sim = sum(font_compare.values()) / len(font_compare) if font_compare else 1.0
-                sim = sim + font_sim
-                num_compares = num_compares + 1
+                component_sim = font_sim
                 results[FONT] = font_compare
                 results[FONT+' sim'] = font_sim
-        overall_sim = sim / num_compares if num_compares else 1.0
-        dist = 1 - overall_sim
+            if component_sim is not None:
+                weight = policy.weight_for(key)
+                weighted_sim += component_sim * weight
+                total_weight += weight
+                component_results[key]['weight'] = weight
+                component_results[key]['sim'] = component_sim
+        overall_sim = weighted_sim / total_weight if total_weight else None
+        dist = 1 - overall_sim if overall_sim is not None else None
+        results['components'] = component_results
+        results['policy'] = policy.as_dict()
+        results['comparable'] = total_weight > 0
         results['sim'] = overall_sim
         results['dist'] = dist
         return results
