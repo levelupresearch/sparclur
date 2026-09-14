@@ -4,7 +4,7 @@ import copy
 import mmh3
 
 from sparclur._metaclass import Meta
-from sparclur._parser import Parser, FONT
+from sparclur._parser import FONT, HASH_FAILED, HASH_UNAVAILABLE, Parser
 from typing import Any
 
 from sparclur.utils import stringify_dict
@@ -142,13 +142,23 @@ class FontExtractor(Parser, metaclass=Meta):
     @property
     def sparclur_hash(self):
         if FONT not in self._sparclur_hash and FONT not in self._sparclur_hash.excluded:
+            if not self._skip_check and not self.can_extract_font:
+                self._sparclur_hash._add_hash(
+                    FONT, {}, status=HASH_UNAVAILABLE,
+                    detail='Font extraction is not available for this parser.',
+                )
+                return super().sparclur_hash
             try:
                 fonts = copy.deepcopy(self.fonts)
                 hashes = dict()
                 for font in fonts:
                     _ = font.pop('object ID', None)
                     hashes[font['name']] = mmh3.hash128(stringify_dict(font))
-            except Exception:
-                hashes = dict()
-            self._sparclur_hash._add_hash(FONT, hashes)
+            except Exception as error:
+                self._sparclur_hash._add_hash(
+                    FONT, {}, status=HASH_FAILED,
+                    detail=f'{type(error).__name__}: {error}',
+                )
+            else:
+                self._sparclur_hash._add_hash(FONT, hashes)
         return super().sparclur_hash

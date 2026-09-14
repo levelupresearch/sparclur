@@ -3,7 +3,7 @@ import abc
 import mmh3
 
 from sparclur._metaclass import Meta
-from sparclur._parser import Parser, META
+from sparclur._parser import HASH_FAILED, HASH_UNAVAILABLE, META, Parser
 from typing import Any
 
 from sparclur.utils import stringify_dict
@@ -112,12 +112,22 @@ class MetadataExtractor(Parser, metaclass=Meta):
     @property
     def sparclur_hash(self):
         if META not in self._sparclur_hash and META not in self._sparclur_hash.excluded:
+            if not self._skip_check and not self.can_extract_metadata:
+                self._sparclur_hash._add_hash(
+                    META, {}, status=HASH_UNAVAILABLE,
+                    detail='Metadata extraction is not available for this parser.',
+                )
+                return super().sparclur_hash
             try:
                 meta = self.metadata
                 hashes = dict()
                 for obj in meta.keys():
                     hashes[obj] = mmh3.hash128(stringify_dict(meta[obj]))
-            except Exception:
-                hashes = dict()
-            self._sparclur_hash._add_hash(META, hashes)
+            except Exception as error:
+                self._sparclur_hash._add_hash(
+                    META, {}, status=HASH_FAILED,
+                    detail=f'{type(error).__name__}: {error}',
+                )
+            else:
+                self._sparclur_hash._add_hash(META, hashes)
         return super().sparclur_hash

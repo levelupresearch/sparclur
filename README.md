@@ -177,6 +177,27 @@ to visualize the differences and produce a similarity metric.
 ### PDF Text Comparator (PXC)
 APIs for extracting and comparing text between parsers.
 
+### Parser-output hashes
+`parser.sparclur_hash` captures the parser's rendered pages, extracted text,
+metadata, fonts, and normalized trace messages as available. Use
+`compare()` to inspect the per-component evidence and overall similarity:
+
+```python
+from sparclur._parser import HashComparisonPolicy
+
+comparison = left_parser.sparclur_hash.compare(
+    right_parser,
+    policy=HashComparisonPolicy(weights={"Renderer": 2.0}),
+)
+```
+
+Components now report whether they were collected, unavailable, failed, or
+excluded. Only compatible, successfully collected components contribute to the
+overall score; `comparison["comparable"]` is `False` when none can be
+compared. The associated `metadata` records the source SHA-256, schema version,
+excluded components, and renderer settings. `file_hash` remains available when
+you need byte-for-byte source identity.
+
 ### Spotlight
 Runs selected available capabilities for each parser and creates document
 reforges. It records validity classifications and similarities across the
