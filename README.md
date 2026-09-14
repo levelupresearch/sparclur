@@ -183,11 +183,16 @@ metadata, fonts, and normalized trace messages as available. Use
 `compare()` to inspect the per-component evidence and overall similarity:
 
 ```python
-from sparclur._parser import HashComparisonPolicy
+from sparclur._parser import HashComparisonPolicy, SparclurHash
 
 comparison = left_parser.sparclur_hash.compare(
     right_parser,
     policy=HashComparisonPolicy(weights={"Renderer": 2.0}),
+)
+
+assert comparison.passes(
+    minimum_similarity=0.98,
+    component_minimums={"Renderer": 0.99},
 )
 ```
 
@@ -197,6 +202,22 @@ overall score; `comparison["comparable"]` is `False` when none can be
 compared. The associated `metadata` records the source SHA-256, schema version,
 excluded components, and renderer settings. `file_hash` remains available when
 you need byte-for-byte source identity.
+
+Save a baseline with the versioned, JSON-safe evidence bundle, then restore it
+in a later run without re-parsing the original document:
+
+```python
+import json
+
+with open("baseline.json", "w") as output:
+    json.dump(parser.sparclur_hash.to_dict(), output, indent=2)
+
+with open("baseline.json") as input:
+    baseline = SparclurHash.from_dict(json.load(input))
+
+comparison = parser.sparclur_hash.compare(baseline)
+print(comparison.failures(minimum_similarity=0.98))
+```
 
 ### Spotlight
 Runs selected available capabilities for each parser and creates document

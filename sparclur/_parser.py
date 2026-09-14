@@ -3,6 +3,7 @@ import abc
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
 from imagehash import ImageHash
 
 from sparclur._metaclass import Meta
@@ -64,6 +65,48 @@ class HashComparisonPolicy:
             'weights': dict(self.weights),
             'page_aggregation': self.page_aggregation,
         }
+
+
+class HashComparisonResult(dict):
+    """A comparison result that can enforce regression thresholds."""
+
+    def failures(self, minimum_similarity: float = 1.0,
+                 component_minimums: dict[str, float] | None = None,
+                 require_comparable: bool = True) -> dict[str, str]:
+        """Return human-readable reasons this result misses a threshold."""
+        failures = dict()
+        if require_comparable and not self['comparable']:
+            failures['comparison'] = 'No successful compatible components were compared.'
+            return failures
+        if self['sim'] is None:
+            failures['similarity'] = 'Overall similarity is unavailable.'
+        elif self['sim'] < minimum_similarity:
+            failures['similarity'] = (
+                f"{self['sim']:.6f} is below the required {minimum_similarity:.6f}."
+            )
+        for component, minimum in (component_minimums or {}).items():
+            result = self['components'].get(component)
+            if result is None or 'sim' not in result:
+                failures[component] = 'Component was not successfully compared.'
+            elif result['sim'] < minimum:
+                failures[component] = (
+                    f"{result['sim']:.6f} is below the required {minimum:.6f}."
+                )
+        return failures
+
+    def passes(self, minimum_similarity: float = 1.0,
+               component_minimums: dict[str, float] | None = None,
+               require_comparable: bool = True) -> bool:
+        """Return whether this result satisfies the requested thresholds."""
+        return not self.failures(
+            minimum_similarity=minimum_similarity,
+            component_minimums=component_minimums,
+            require_comparable=require_comparable,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable copy of this comparison evidence."""
+        return dict(self)
 
 RENDER_HASH_SIZE = 128
 
@@ -211,6 +254,118 @@ class SparclurHash:
             outcome['detail'] = detail
         self._component_outcomes[key] = outcome
 
+    @staticmethod
+    def _serialize_setting(value: Any) -> Any:
+        if isinstance(value, tuple):
+            return {
+                '__sparclur_type__': 'tuple',
+                'items': [SparclurHash._serialize_setting(item) for item in value],
+            }
+        if isinstance(value, list):
+            return [SparclurHash._serialize_setting(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                str(key): SparclurHash._serialize_setting(item)
+                for key, item in value.items()
+            }
+        return value
+
+    @staticmethod
+    def _deserialize_setting(value: Any) -> Any:
+        if isinstance(value, list):
+            return [SparclurHash._deserialize_setting(item) for item in value]
+        if isinstance(value, dict):
+            if value.get('__sparclur_type__') == 'tuple':
+                return tuple(SparclurHash._deserialize_setting(item) for item in value['items'])
+            return {
+                key: SparclurHash._deserialize_setting(item)
+                for key, item in value.items()
+            }
+        return value
+
+    @staticmethod
+    def _serialize_component(component: str, value: Any) -> Any:
+        if component == RENDER:
+            return [
+                {
+                    'page': page,
+                    'hash': str(image_hash),
+                    'shape': list(image_hash.hash.shape),
+                }
+                for page, image_hash in sorted(value.items())
+            ]
+        if component in {TEXT, TRACER}:
+            if component == TEXT:
+                return [
+                    {'page': page, 'hashes': sorted(hashes)}
+                    for page, hashes in sorted(value.items())
+                ]
+            return sorted(value)
+        if component in {META, FONT}:
+            return [
+                {'key': key, 'hash': item}
+                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            ]
+        return SparclurHash._serialize_setting(value)
+
+    @staticmethod
+    def _deserialize_component(component: str, value: Any) -> Any:
+        if component == RENDER:
+            hashes = dict()
+            for item in value:
+                shape = tuple(item['shape'])
+                size = int(np.prod(shape))
+                bits = bin(int(item['hash'], 16))[2:].zfill(size)
+                array = np.array([bit == '1' for bit in bits], dtype=bool).reshape(shape)
+                hashes[item['page']] = ImageHash(array)
+            return hashes
+        if component == TEXT:
+            return {item['page']: set(item['hashes']) for item in value}
+        if component == TRACER:
+            return set(value)
+        if component in {META, FONT}:
+            return {item['key']: item['hash'] for item in value}
+        return SparclurHash._deserialize_setting(value)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Export a versioned, JSON-serializable parser-output evidence bundle."""
+        metadata = self.metadata
+        metadata['component_settings'] = self._serialize_setting(metadata['component_settings'])
+        return {
+            'schema_version': HASH_SCHEMA_VERSION,
+            'metadata': metadata,
+            'component_outcomes': self.component_outcomes,
+            'hashes': {
+                component: self._serialize_component(component, value)
+                for component, value in self._hash.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, evidence: dict[str, Any]) -> SparclurHash:
+        """Restore a SPARCLUR hash evidence bundle produced by :meth:`to_dict`."""
+        if evidence.get('schema_version') != HASH_SCHEMA_VERSION:
+            raise ValueError('Unsupported SPARCLUR hash evidence schema version')
+        metadata = evidence.get('metadata')
+        if not isinstance(metadata, dict) or 'source_sha256' not in metadata:
+            raise ValueError('SPARCLUR hash evidence is missing source metadata')
+
+        instance = cls.__new__(cls)
+        instance._doc_hash = metadata['source_sha256']
+        instance._exclude = list(metadata.get('excluded_components', []))
+        instance._hash = {
+            component: cls._deserialize_component(component, value)
+            for component, value in evidence.get('hashes', {}).items()
+        }
+        instance._component_outcomes = {
+            component: dict(outcome)
+            for component, outcome in evidence.get('component_outcomes', {}).items()
+        }
+        instance._component_settings = cls._deserialize_setting(
+            metadata.get('component_settings', {})
+        )
+        return instance
+
     def is_comparable_with(self, that: SparclurHash | Parser) -> bool:
         """Return whether both hashes share at least one compatible component."""
         if isinstance(that, Parser):
@@ -254,7 +409,7 @@ class SparclurHash:
             policy = HashComparisonPolicy()
         if not isinstance(policy, HashComparisonPolicy):
             raise TypeError('policy must be a HashComparisonPolicy instance')
-        results = dict()
+        results = HashComparisonResult()
         component_results = dict()
         weighted_sim = 0.0
         total_weight = 0.0

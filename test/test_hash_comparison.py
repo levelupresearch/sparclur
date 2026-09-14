@@ -1,5 +1,10 @@
 """Tests for SPARCLUR hash comparison behavior and edge cases."""
 
+import json
+
+import numpy as np
+from imagehash import ImageHash
+
 from sparclur._parser import (
     FONT,
     HASH_FAILED,
@@ -7,6 +12,8 @@ from sparclur._parser import (
     META,
     RENDER,
     TEXT,
+    TRACER,
+    HashComparisonResult,
     HashComparisonPolicy,
     SparclurHash,
 )
@@ -82,3 +89,36 @@ def test_mismatched_component_settings_are_not_comparable():
 
     assert not comparison["comparable"]
     assert not comparison["components"][RENDER]["settings_match"]
+
+
+def test_evidence_bundle_round_trips_all_current_component_shapes():
+    source = SparclurHash(b"source")
+    source._set_component_settings(RENDER, dpi=72, page_hashes=("first", 1))
+    source._add_hash(RENDER, {0: ImageHash(np.zeros((2, 2), dtype=bool))})
+    source._add_hash(TEXT, {0: {1, 2, 3}})
+    source._add_hash(TRACER, {4, 5})
+    source._add_hash(META, {"object": 6})
+    source._add_hash(FONT, {"font": 7})
+
+    evidence = source.to_dict()
+    restored = SparclurHash.from_dict(json.loads(json.dumps(evidence)))
+
+    assert restored.to_dict() == evidence
+    assert restored.file_hash == source.file_hash
+    assert source.compare(restored).passes()
+
+
+def test_comparison_result_reports_threshold_failures():
+    left = SparclurHash(b"left")
+    right = SparclurHash(b"right")
+    left._add_hash(META, {"object": 1})
+    right._add_hash(META, {"object": 1})
+    left._add_hash(FONT, {"font": 1})
+    right._add_hash(FONT, {"font": 2})
+
+    comparison = left.compare(right)
+
+    assert isinstance(comparison, HashComparisonResult)
+    assert comparison.passes(minimum_similarity=0.5)
+    assert not comparison.passes(component_minimums={FONT: 1.0})
+    assert FONT in comparison.failures(component_minimums={FONT: 1.0})
