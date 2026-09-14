@@ -78,7 +78,12 @@ def _combiner_mapper(entry):
     right_version = entry['right']
 
     spotlight: SpotlightResult = entry['spotlight']
-    spotlight._compare_hashes(parser, left_version, right_version)
+    spotlight._compare_hashes(
+        parser,
+        left_version,
+        right_version,
+        compatibility=entry.get('hash_compatibility', 'warn'),
+    )
 
     return parser, spotlight
 
@@ -137,7 +142,7 @@ class SpotlightResult:
             v.update(results.keys())
         return list(v)
 
-    def _compare_hashes(self, parser, left, right):
+    def _compare_hashes(self, parser, left, right, compatibility='warn'):
         if 'comparisons' in self._spotlight_result[parser][left]:
             right_in_left = right in self._spotlight_result[parser][left]['comparisons']
         else:
@@ -157,9 +162,41 @@ class SpotlightResult:
         if not left_in_right and not right_in_left:
             left_hash: SparclurHash = self._spotlight_result[parser][left]['hash']
             right_hash: SparclurHash = self._spotlight_result[parser][right]['hash']
-            comparison = left_hash.compare(right_hash)
+            comparison = left_hash.compare(right_hash, compatibility=compatibility)
             self._spotlight_result[parser][left]['comparisons'][right] = comparison
             self._spotlight_result[parser][right]['comparisons'][left] = comparison
+
+    def hash_comparison_report(self):
+        """Return comparison scores, component availability, and provenance warnings.
+
+        Each pair is listed once per parser, making this a compact companion to
+        :meth:`sim_heatmap` when reviewing a Spotlight run.
+        """
+        rows = []
+        seen = set()
+        for parser, versions in self._spotlight_result.items():
+            for left, result in versions.items():
+                for right, comparison in result.get('comparisons', {}).items():
+                    pair = (parser, *sorted((left, right)))
+                    if pair in seen:
+                        continue
+                    seen.add(pair)
+                    statuses = ', '.join(
+                        f"{component}: {details['left']['status']}/{details['right']['status']}"
+                        for component, details in sorted(comparison['components'].items())
+                    )
+                    rows.append({
+                        'Parser': parser,
+                        'Left': left,
+                        'Right': right,
+                        'Comparable': comparison['comparable'],
+                        'Similarity': comparison['sim'],
+                        'Distance': comparison['dist'],
+                        'Provenance match': comparison['provenance_match'],
+                        'Warnings': '; '.join(comparison['warnings']),
+                        'Components': statuses,
+                    })
+        return pd.DataFrame(rows)
 
     def validity_report(self, report='overall', excluded_parsers=None):
         """
@@ -485,6 +522,7 @@ class Spotlight:
                  parsers: list[str] | None = None,
                  parser_args: dict[str, dict[str, Any]] | None = None,
                  timeout: int = None,
+                 hash_compatibility: str = 'warn',
                  progress_bar: bool = True):
         """
         Parameters
@@ -506,6 +544,8 @@ class Spotlight:
             Arguments to pass to the parser. Use the Parser name as the initial key for the dictionary args
         timeout: int
             Timeout for each parser run.
+        hash_compatibility: {'warn', 'strict', 'ignore'}, default='warn'
+            How comparisons should handle hash-provenance differences.
         progress_bar: bool, default=True
             Flag for displaying a progress bar
         """
@@ -525,6 +565,9 @@ class Spotlight:
                                                                                 parser_args=parser_args)]
         self._parser_args = parser_args
         self._timeout = timeout
+        if hash_compatibility not in {'warn', 'strict', 'ignore'}:
+            raise ValueError("hash_compatibility must be 'warn', 'strict', or 'ignore'")
+        self._hash_compatibility = hash_compatibility
         self._results = None
         self._progress_bar = progress_bar
 
@@ -593,6 +636,7 @@ class Spotlight:
             compare_data = [{'parser': entry['parser'],
                              'left': entry['left'],
                              'right': entry['right'],
+                             'hash_compatibility': self._hash_compatibility,
                              'spotlight': copy.deepcopy(spotlight)}
                             for entry in parser_compares]
 

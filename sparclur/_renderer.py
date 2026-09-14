@@ -12,7 +12,7 @@ import numpy as np
 from sparclur._metaclass import Meta
 from sparclur._prc_sim import PRCSim
 from sparclur._text_compare import TextCompare
-from sparclur._parser import RENDER, RENDER_HASH_SIZE
+from sparclur._parser import HASH_FAILED, HASH_UNAVAILABLE, RENDER, RENDER_HASH_SIZE
 import re
 from pytesseract import image_to_string
 from sparclur.utils import image_compare
@@ -258,6 +258,11 @@ class Renderer(TextCompare, metaclass=Meta):
         self._can_render: bool = None
         self._page_hashes = page_hashes
         self._validate_hash = validate_hash
+        self._sparclur_hash._set_component_settings(
+            RENDER,
+            dpi=self._dpi,
+            page_hashes=self._page_hashes,
+        )
 
     @property
     @abc.abstractmethod
@@ -310,15 +315,25 @@ class Renderer(TextCompare, metaclass=Meta):
     @property
     def sparclur_hash(self):
         if RENDER not in self._sparclur_hash and RENDER not in self._sparclur_hash.excluded:
+            if not self._skip_check and not self.can_render:
+                self._sparclur_hash._add_hash(
+                    RENDER, {}, status=HASH_UNAVAILABLE,
+                    detail='Rendering is not available for this parser.',
+                )
+                return super().sparclur_hash
             pages = self._parse_page_hashes
             try:
                 renders = self.get_renders(pages)
                 hashes = dict()
                 for page, pil in renders.items():
                     hashes[page] = dhash(pil, hash_size=RENDER_HASH_SIZE)
-            except Exception:
-                hashes = dict()
-            self._sparclur_hash._add_hash(RENDER, hashes)
+            except Exception as error:
+                self._sparclur_hash._add_hash(
+                    RENDER, {}, status=HASH_FAILED,
+                    detail=f'{type(error).__name__}: {error}',
+                )
+            else:
+                self._sparclur_hash._add_hash(RENDER, hashes)
         return super().sparclur_hash
 
     @property

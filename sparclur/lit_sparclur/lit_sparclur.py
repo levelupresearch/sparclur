@@ -1,4 +1,4 @@
-from sparclur.lit_sparclur import _lit_prc, _lit_pxc
+from sparclur.lit_sparclur import _lit_hash, _lit_prc, _lit_pxc
 from sparclur.lit_sparclur import _lit_meta
 from sparclur.lit_sparclur import _lit_ptc, _lit_raw
 from sparclur.lit_sparclur._non_parser import NonParser
@@ -33,6 +33,7 @@ PAGES = {
     "PTC": _lit_ptc,
     "PRC": _lit_prc,
     "PXC": _lit_pxc,
+    "Hash Baseline": _lit_hash,
     "Metadata": _lit_meta,
     "Raw": _lit_raw
 }

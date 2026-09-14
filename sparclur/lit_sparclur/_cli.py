@@ -8,7 +8,7 @@ def _streamlit_main():
     """Import Streamlit only when the optional UI command is invoked."""
     from streamlit.web.cli import main
 
-    return main()
+    return main
 
 
 def main():
@@ -23,9 +23,5 @@ def main():
         return 1
 
     app_path = Path(__file__).with_name("lit_sparclur.py")
-    original_argv = sys.argv
-    try:
-        sys.argv = [sys.argv[0], "run", str(app_path), *original_argv[1:]]
-        return streamlit_main()
-    finally:
-        sys.argv = original_argv
+    args = ["run", str(app_path), *sys.argv[1:]]
+    return streamlit_main.main(args=args, prog_name=sys.argv[0])
